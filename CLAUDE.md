@@ -182,19 +182,19 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 
 ## Sound (`SND`, `audioInit`, `updateAudio`)
 
-- Relaxing game: everything soft and synthesised with Web Audio, no files. One looped brown-noise buffer feeds a sea bed
-  (low-pass, slow swell, louder the more water is within ~45/110 m), a faint breeze (band-pass) and tyre hiss (sum over
-  moving vehicles). Traffic is electric: the 3 most audible moving vehicles get a sine+triangle motor whine (pitch by
-  type and speed, distance-attenuated, panned by the camera's right vector); your own vehicle hums with speed. Birds
-  (short chirp trills) by day 05:30–18:30, crickets (4.6 kHz trilled at 32 Hz, gated chirps) at night. Soft two-tone
-  horns (yours, H / 喇叭, and traffic honking at you), a door chime when the intro bus stops.
-- Traffic was raised after the user found it too quiet (voice cap 0.075, falloff 1/(1+(d/15)²) out to 100 m, tyre hiss
-  up to 0.22). Crashes (`impactSound(kind,speed,x,z)`, debounced per kind, loudness by impact speed and distance) have
-  a sound per thing hit: wall/concrete thud (+crunch when fast), tree knock + leaf shiver, pole metal clang, hedge
-  rustle, bus-shelter glass tinkle, kerb/bank bump, car crunch, bus/truck boom, scooter plastic clatter + scrape, a soft
-  muffled thump for people. Solids carry `mat` where they're created (palms/trees 'tree', hedges 'bush', scooter rows
-  'scooter', shelters 'glass'); `solidMat` falls back to 'pole' (thin, tall) or 'wall'. `hitsSolid` records LASTSOLID.
-  Driving uses it for walls/trees/poles and crash() for vehicles/people; the bicycle's bounce uses it too (softer).
+- Relaxing game: everything synthesised with Web Audio, no files. Output: master → DynamicsCompressor (−20 dB, 4:1) →
+  ×2.8 make-up gain (`SND.out`), so it is clearly audible at low system volume without clipping (user: 25 % volume was
+  too quiet). Measured RMS: quiet campus ≈ −27 dB, coast ≈ −22 dB, beside 北寧路 ≈ −24 dB with passes to −17 dB.
+- Ambience: one looped brown-noise buffer feeds a sea bed (low-pass, slow swell, more water within ~45/110 m = louder)
+  and a faint breeze. Birds (chirp trills) 05:30–18:30, crickets (4.6 kHz trilled at 32 Hz, gated chirps) at night.
+- Traffic (user: cars and buses are petrol; traffic noise is mostly tyres): the base is a tyre-roll bed (white noise,
+  band-pass ~850 Hz) summed from every moving vehicle within 300 m, plus a low rumble under it. The 4 loudest nearby
+  vehicles (idling ones within 30 m too) get a panned voice (`driveVoice`), kept on the same vehicle while audible:
+  petrol engine = two detuned sawtooths + sub at the firing frequency through a low-pass that opens with revs. Revs
+  climb through gears with speed and jump with acceleration: cars/taxis 4-cyl (rpm/30, idle 800), buses/trucks deeper
+  (rpm/20, idle 650), petrol scooters a buzzy CVT single (rpm/120). ~35 % of scooters are electric (`v.ev`: rising
+  whine). Each voice also has its own tyre noise. Your vehicle uses the same model, revving with your throttle.
+- Horns are soft two-tone beeps (yours, H / 喇叭, and traffic honking at you); a door chime when the intro bus stops.
 - `SET.sound` on/off: 聲音 toggle top-right of the title screen and a row in Settings. Audio starts on the first tap/key
   (browser rule), master fades to 0 in the pause menu, after Quit and when the tab is hidden. The clock option was removed
   (user request); the game clock is always real Taiwan time plus the offset.
