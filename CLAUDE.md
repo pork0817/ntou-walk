@@ -90,6 +90,8 @@ Needs Python 3 with numpy, scipy, matplotlib (godmap.py uses the Noto Sans CJK f
 
 All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.js` is a readable copy of it):
 - Clock: Taiwan time (UTC+8) by default; −1h / +1h / ×60 / 現在 buttons, keys `[` `]` `\`. Sky colour, sun and lamps follow the hour.
+  A new game always starts at 09:00 (`startNewDay` sets the offset; the clock then runs on), so the intro is in daylight;
+  Continue drops any saved offset and runs on real Taiwan time (user decision). The save still records the offset, unused.
 - Traffic signals: real cycles. Peak (07–09, 16–19): 62 s main green; off-peak 42 s; yellow 3 s, all-red 2 s, walk 18–20 s
   with flashing green and countdown. 23:00–06:00: flashing yellow (閃光號誌), pedestrians cross when no car is near.
 - Traffic: road chains merged from OSM ways by name (北寧路 ≈ 2 km, 4 lanes, 7 crossings, 6 bus stops; 中正路; 祥豐街).
@@ -166,7 +168,7 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   age and progress), 新遊戲 New Game (confirms before clearing a save, then character choice) and 設定 Settings. Esc or the
   選單 Menu button pauses the world and opens Resume / Settings / Back to title (save + reload) / Quit (save, try window.close,
   else a goodbye screen). Settings live in localStorage `ntou-walk-settings` (`SET`): graphics quality (pixel ratio, shadows),
-  traffic and crowd multipliers (`VEH.base`, `STU.base`), clock (Taiwan real time or a fixed 10:00 start), control hints,
+  traffic and crowd multipliers (`VEH.base`, `STU.base`), clock (Taiwan real time or a fixed 10:00 start),
   camera sensitivity.
 - Emotes: 1 揮手, 2 歡呼, 3 鞠躬, 4 跳舞, 5 坐下 (mobile: 表情 button).
 

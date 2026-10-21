@@ -2274,7 +2274,7 @@ function restoreGame(d){
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
   if(d.riding&&BIKES[d.bike]){const b=BIKES[d.bike];placeBike(b,P.x,P.z,+d.heading||0);mount();BK.heading=+d.heading||0;P.rot=BK.heading;}
   if(Number.isFinite(d.yaw))yaw=d.yaw;if(Number.isFinite(d.pitch))pitch=d.pitch;if(Number.isFinite(d.dist))dist=d.dist;
-  if(Number.isFinite(d.clock))CLOCK.offset=d.clock;
+  resetClock();                                 // a resumed game runs on real (Taiwan) time
   if(Array.isArray(d.cars)){let drv=null;
     d.cars.forEach((c,i)=>{if(!Array.isArray(c)||!VSPEC[c[1]]||![c[2],c[3],c[4]].every(Number.isFinite))return;
       let v=c[0]>=0?PARKED.find(q=>q.id===c[0]):null;
@@ -2424,7 +2424,9 @@ $('#cfYes').addEventListener('click',()=>{show('#confirm',false);toPick();});
 $('#pickBack').addEventListener('click',toTitle);
 $('#go').addEventListener('click',()=>{phoneFullscreen();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
-  found.clear();show('#pick',false);startPlay();startIntro();});
+  found.clear();show('#pick',false);startNewDay();startPlay();startIntro();});
+// a new game always begins at 09:00, then the clock runs on from there
+function startNewDay(){resetClock();const base=SET.clock==='day'?10:realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
 // settings
 function applySettings(first){
   const pr={low:1,mid:Math.min(devicePixelRatio||1,1.25),high:Math.min(devicePixelRatio||1,isTouch?1.5:2)}[SET.quality]||1;
