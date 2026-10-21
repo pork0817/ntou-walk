@@ -108,6 +108,12 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   (make chance falls with distance), bounces with gravity, and the nearest player chases rebounds. Busier in the evening.
   They are students with `state:'sport'` (skipped by `updateStudents`, not counted in the walking crowd); a knocked-down
   one recovers as an ordinary walker and the venue spawns a replacement.
+- Bike parking (`BIKE_PARKS`, `findBikePark`, `addBikePark`, `updateBikes`; user request): bikes exist only in parking
+  areas. For each `BIKE_SPOTS` building that has room, a paved bay beside the nearest footpath/service road (flat, clear,
+  off driving roads, ≥18 m from other bays): rack rail parallel to the path, 5 hoops, 3–4 bikes nose-in, blue
+  自行車停放區 sign (currently 圖書館, 體育館, 生命科學院館, 學生活動中心, 第四宿舍). The 海大(濱海校門) bus stop has a
+  2-hoop rack + sign holding your starting bike. Every bike has `home` {x,z,rot,label}; one left away from it for 60 s
+  (and not within 3 m of you) goes back to its slot.
 - Bikes: S brakes, then rolls backwards (A/D steer like a car in reverse). Hitting something bounces the bike off it
   (velocity reflected about the surface normal from 16 probes; glancing hits slide and turn along the wall); `unstick()` frees
   the player if anything overlaps. Vehicles collide as slim boxes with real roof heights (cars: low hood/boot, taller cabin),

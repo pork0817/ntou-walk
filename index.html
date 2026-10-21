@@ -3548,40 +3548,85 @@ const BIKES=[];
 const BIKE_SPOTS=[{no:3,zh:'圖書館'},{no:30,zh:'第一餐廳'},{no:23,zh:'體育館'},{no:61,zh:'工學院'},{no:28,zh:'第二宿舍'},{no:36,zh:'第一宿舍'},{no:50,zh:'生命科學院館'},{no:22,zh:'學生活動中心'},{no:19,zh:'第四宿舍'}];
 const BIKE_COLORS=[0x1f8f96,0xff8a3d,0x2f6fb8,0xd8463c,0xf2c230,0x4f9a72,0x9a6fb8];
 function onDriveRoad(x,z){for(const r of ROADS3)if((RANK[r.k]??0)>=1)for(let i=0;i<r.p.length-1;i++)if(segDist(x,z,...r.p[i],...r.p[i+1])<r.w/2+(RANK[r.k]>=3?3.2:0.8))return true;return false;}
-function findRackSpot(x0,z0){
-  for(let r=4;r<45;r+=1.5)for(let a=0;a<TAU;a+=0.35){const x=x0+Math.cos(a)*r,z=z0+Math.sin(a)*r;
-    if(ground(x,z)<0.8||!free(x,z,1.6)||onDriveRoad(x,z))continue;
-    // the rack line (bikes 1 m apart) must also be clear
-    if(!free(x+1.2,z,1.2)||!free(x-1.2,z,1.2))continue;
-    return [x,z];}
-  return null;
-}
-function addRack(x,z,n,label){
-  const y=ground(x,z);
-  const bar=new THREE.Mesh(new THREE.BoxGeometry(n*1.0+0.6,0.06,0.06),toon(0x8f979c));bar.position.set(x,y+0.55,z+0.7);scene.add(bar);
-  for(let i=0;i<n;i++){
-    const hoop=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.03,6,16,Math.PI),toon(0x8f979c));hoop.position.set(x+(i-(n-1)/2)*1.0,y,z+0.7);scene.add(hoop);
-    const b=Object.assign(makeBike(BIKE_COLORS[(BIKES.length*3+i)%BIKE_COLORS.length]),{px:0,pz:0,prot:0,home:label});
-    scene.add(b.g);BIKES.push(b);placeBike(b,x+(i-(n-1)/2)*1.0,z,0);
-  }
-}
 function placeBike(b,x,z,rot){b.px=x;b.pz=z;b.prot=rot;b.g.position.set(x,ground(x,z),z);b.g.rotation.set(0,rot,0.1);b.stand.visible=true;b.fork.rotation.y=0.35;}
+// bicycle parking: bikes live only in parking areas. Each building spot gets a paved bay beside the nearest footpath:
+// a rack rail parallel to the path, a hoop per slot, bikes nose-in, and a blue 自行車停放區 sign. One small rack at the
+// 海大(濱海校門) bus stop holds the bike you start with. Every bike remembers its slot (`home`); one left anywhere else
+// for 60 s (and not right next to you) goes back to it.
+const BIKE_PARKS=[];
+function bikeParkSign(x,z,rot){
+  const y=ground(x,z);
+  const tex=canvasTex(128,160,c=>{c.fillStyle='#1f6fa8';c.fillRect(0,0,128,160);c.fillStyle='#fff';c.fillRect(6,6,116,148);c.fillStyle='#1f6fa8';c.fillRect(12,12,104,92);
+    c.strokeStyle='#fff';c.lineWidth=6;c.beginPath();c.arc(38,72,17,0,TAU);c.arc(90,72,17,0,TAU);c.stroke();          // a little bicycle
+    c.beginPath();c.moveTo(38,72);c.lineTo(58,46);c.lineTo(80,46);c.lineTo(90,72);c.moveTo(58,46);c.lineTo(66,72);c.lineTo(38,72);c.moveTo(52,40);c.lineTo(64,40);c.stroke();
+    c.fillStyle='#1f6fa8';c.font='900 22px "Noto Sans TC",sans-serif';c.textAlign='center';c.fillText('自行車停放區',64,134);});
+  const post=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,2.1,8),toon(0x8a8f96)));post.position.set(x,y+1.05,z);scene.add(post);
+  const board=signBoard(0.55,0.7,tex,tex);board.position.set(x,y+1.85,z);board.rotation.y=rot;scene.add(board);
+  const o={kind:'circle',x,z,r:0.12,top:99};gridAdd(o,x-1,z-1,x+1,z+1);
+}
+// a parking bay: centre (x,z), rail direction (tx,tz) along the path, bikes point along (nx,nz) away from the path
+function addBikePark(x,z,tx,tz,nx,nz,slots,bikes,label){
+  const y=Math.max(...[-1,1].flatMap(a=>[-1,1].map(b=>ground(x+tx*a*slots*0.45+nx*b,z+tz*a*slots*0.45+nz*b))));
+  const len=slots*0.9+0.8,rot=Math.atan2(tx,tz),brot=Math.atan2(nx,nz);
+  const pad=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.06,len),toon(0xc9c5bc));pad.position.set(x,y+0.03,z);pad.rotation.y=rot;pad.receiveShadow=true;scene.add(pad);
+  // the rail sits at the far end of the bay, bikes' front wheels go into the hoops
+  const rx=x+nx*0.75,rz=z+nz*0.75,metal=toon(0x8f979c);
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,len-0.3),metal);rail.position.set(rx,y+0.3,rz);rail.rotation.y=rot;scene.add(rail);
+  const solidRail=lmSolid(rx,rz,0.2,len-0.3,rot,y+0.6);solidRail.mat='pole';
+  const out=[];
+  for(let i=0;i<slots;i++){const u=(i-(slots-1)/2)*0.9,hx=rx+tx*u,hz=rz+tz*u;
+    const hoop=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.025,6,14,Math.PI),metal);hoop.position.set(hx,y+0.06,hz);hoop.rotation.y=brot+Math.PI/2;scene.add(hoop);
+    const bx=x+tx*u-nx*0.15,bz=z+tz*u-nz*0.15;out.push([bx,bz]);
+    if(i<bikes){const b=Object.assign(makeBike(BIKE_COLORS[(BIKES.length*3+i)%BIKE_COLORS.length]),{px:0,pz:0,prot:0,home:{x:bx,z:bz,rot:brot,label}});
+      scene.add(b.g);BIKES.push(b);placeBike(b,bx,bz,brot);}}
+  bikeParkSign(x-tx*(len/2+0.4)-nx*0.6,z-tz*(len/2+0.4)-nz*0.6,brot+Math.PI);
+  BIKE_PARKS.push({x,z,label,slots:out});
+}
+// find a bay beside a footpath (or campus service road) near a building: flat, clear, off the driving roads
+function findBikePark(bld,slots){
+  const paths=ROADS3.filter(r=>['footway','path','pedestrian','service','living_street'].includes(r.k));
+  const len=slots*0.9+0.8;let best=null,bs=1e9;
+  for(const r of paths)for(let i=0;i<r.p.length-1;i++){const [ax,az]=r.p[i],[bx,bz]=r.p[i+1],L=Math.hypot(bx-ax,bz-az);if(L<len+1)continue;
+    const tx=(bx-ax)/L,tz=(bz-az)/L;
+    for(let t=len/2+0.5;t<L-len/2-0.5;t+=2){const px=ax+tx*t,pz=az+tz*t;const db=polyEdgeDist(bld.p,px,pz);if(db>30||pip(bld.p,px,pz))continue;
+      for(const sd of [1,-1]){const nx=-tz*sd,nz=tx*sd,off=r.w/2+0.4+1.3,cx=px+nx*off,cz=pz+nz*off;
+        if(BIKE_PARKS.some(q=>Math.hypot(q.x-cx,q.z-cz)<18))continue;
+        let ok=true;const g0=ground(cx,cz);
+        for(const a of [-0.5,-0.25,0,0.25,0.5])for(const b of [-1.2,0,1.2]){const sx=cx+tx*a*len+nx*b,sz=cz+tz*a*len+nz*b;
+          if(ground(sx,sz)<0.8||Math.abs(ground(sx,sz)-g0)>0.35||!free(sx,sz,0.3)||onDriveRoad(sx,sz)||pip(bld.p,sx,sz)){ok=false;break;}}
+        if(!ok)continue;
+        const sc=polyEdgeDist(bld.p,cx,cz)+(r.k==='service'?6:0);if(sc<bs){bs=sc;best={cx,cz,tx,tz,nx,nz};}}}}
+  return best;
+}
 function placeBikeStations(){
-  // the bike you start with, by 濱海校門
-  const b0=Object.assign(makeBike(0x1f8f96),{px:0,pz:0,prot:0});scene.add(b0.g);BIKES.push(b0);if(ARR.bike)placeBike(b0,...ARR.bike);else placeBike(b0,START.x-3.4,START.z,-Math.PI/2);
+  // the bus-stop rack: two hoops along the back of the sidewalk, your bike in the first
+  if(ARR.ok&&ARR.bike){const [x,z,h]=ARR.bike,tx=Math.sin(h),tz=Math.cos(h),metal=toon(0x8f979c),y=ground(x,z);
+    const b0=Object.assign(makeBike(0x1f8f96),{px:0,pz:0,prot:0,home:{x,z,rot:h,label:'海大(濱海校門)'}});scene.add(b0.g);BIKES.push(b0);placeBike(b0,x,z,h);
+    for(const k of [0,-2.1]){const hx=x+tx*(k+0.75),hz=z+tz*(k+0.75);
+      if(k&&!free(x+tx*k,z+tz*k,0.5))continue;
+      const hoop=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.025,6,14,Math.PI),metal);hoop.position.set(hx,y+0.06,hz);hoop.rotation.y=h+Math.PI/2;scene.add(hoop);}
+    for(const k of [-3.4,1.9,-4.4]){const sx=x+tx*k,sz=z+tz*k;if(free(sx,sz,0.4)){bikeParkSign(sx,sz,h+Math.PI/2);break;}}
+    BIKE_PARKS.push({x,z,label:'海大(濱海校門)',slots:[[x,z]]});}
+  else{const b0=Object.assign(makeBike(0x1f8f96),{px:0,pz:0,prot:0});scene.add(b0.g);BIKES.push(b0);placeBike(b0,START.x-3.4,START.z,-Math.PI/2);b0.home={x:b0.px,z:b0.pz,rot:b0.prot,label:'start'};}
   for(const sp of BIKE_SPOTS){
     const b=D.b.find(q=>q.no===sp.no&&q.n);if(!b)continue;
-    const [cx,cz]=centroid(b.p);
-    // start the search from the building edge nearest the walking network
-    let best=null,bd=1e9;for(const q of b.p){const d=Math.hypot(q[0]-cx,q[1]-cz);if(d<bd){bd=d;best=q;}}
-    const s=findRackSpot(best?best[0]:cx,best?best[1]:cz);
-    if(s)addRack(s[0],s[1],2+((sp.no%2)),sp.zh);
+    const slots=5,f=findBikePark(b,slots);if(!f)continue;
+    addBikePark(f.cx,f.cz,f.tx,f.tz,f.nx,f.nz,slots,3+(sp.no%2),sp.zh);
   }
+}
+// abandoned bikes go home after a minute
+function updateBikes(dt){
+  for(const b of BIKES){if(!b.home)continue;
+    if(P.riding&&b===bike){b.awayT=0;continue;}
+    let dr=b.prot-b.home.rot;dr=Math.atan2(Math.sin(dr),Math.cos(dr));
+    if(Math.hypot(b.px-b.home.x,b.pz-b.home.z)<0.5&&Math.abs(dr)<0.3){b.awayT=0;continue;}
+    b.awayT=(b.awayT||0)+dt;
+    if(b.awayT>60&&Math.hypot(P.x-b.px,P.z-b.pz)>3){placeBike(b,b.home.x,b.home.z,b.home.rot);b.awayT=0;}}
 }
 
 /* ---------- sound: everything is synthesised (Web Audio), kept soft — it's a relaxing walk.
    A sea + breeze bed (louder near the coast), birds by day, and traffic: tyres rolling plus soft, low engine hums
-   whine and tyre hiss from the nearest few vehicles, panned to where they are. Starts on the first tap/key (browsers
+   from the nearest few vehicles, panned to where they are. Starts on the first tap/key (browsers
    require a gesture); fades out in the pause menu and when the tab is hidden. ---------- */
 const SND={ctx:null,master:null,acc:0,birdT:2,crT:0,voices:[],own:null};
 function soundOn(){return SET.sound!=='off';}
@@ -3766,7 +3811,7 @@ function frame(now){
   tickBubble(playerTalk,dt,P.x,P.y+2.75,P.z);
   hudT-=dt;if(hudT<=0){hudT=0.5;const h=gameHour();$('#clockT').textContent=fmtClock();$('#clockP').textContent=periodLabel(h)+(CLOCK.offset||CLOCK.fast?'':' · 現在');}
   sun.position.set(P.x+sunDir.x,P.y+sunDir.y,P.z+sunDir.z);sun.target.position.set(P.x,P.y,P.z);
-  if(mode==='play'&&(saveT+=dt)>5){saveT=0;saveGame();}
+  if(mode==='play'){updateBikes(dt);if((saveT+=dt)>5){saveT=0;saveGame();}}
   fadeLabels();updateAudio(dt);
   renderer.render(scene,camera);
   requestAnimationFrame(frame);
