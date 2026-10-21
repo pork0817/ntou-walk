@@ -51,6 +51,18 @@ Needs Python 3 with numpy, scipy, matplotlib (godmap.py uses the Noto Sans CJK f
   and edge line, sidewalk corners are rounded (radius `JR`, brick on 北寧路) with a kerb face, the side road's markings start
   after the sidewalk with a stop line, and smaller roads stop under the bigger one. Crossings and signal poles slide along the
   road out of junction mouths.
+- Junction boxes (`findJunctionBoxes` / `drawJunctionBoxes` / `inJBox`): where 3+ arms meet at a shared OSM vertex (one a
+  main road), the junction is built like a real one (user request: "not two straight roads slapped on top of each other").
+  Arms are sorted by angle; between neighbours the kerbs get a fillet (radius 3–6 m, a tight nose for narrow forks) or stay
+  straight for a through side (≥166°). One plain asphalt polygon (draped on the terrain, polygonOffset above every road
+  strip) covers the box so no lane markings run through it; corner paving and curved kerbs join the sidewalks; each arm gets a
+  stop line on its incoming half unless its own crosswalk has one. Sidewalk strips, side-road mouths and crosswalks keep out
+  of boxes. A 2-arm node (one road carrying on under a new name) gets no box, so its markings continue.
+- Crosswalk stop lines cover only the lanes approaching the crossing (one full-width line on one-way roads).
+- Ground texture: resolution follows the quality setting (2048/4096/6144 px wide), zone tint and the sea edge are drawn from
+  small canvases scaled up smoothly (no 4 m squares), anisotropic filtering, and a tiling detail texture blended in the
+  terrain shader (`onBeforeCompile`). The shader scales the colour by 0.8 because the sun + sky add up to ~1.5×, which used
+  to clip pale paving to flat white. Asphalt wear patches are radial gradients drawn wrapped, so tiles never show a cut.
 - Courts/track/pool use their own high-resolution canvas textures fitted to each OSM polygon.
 - Building footprints that reach over a main road or its sidewalk are pulled back behind the kerb-side wall at load
   (`setBackFootprints`: half road width + 2.6 m sidewalk + 1 m, 0.6 m on tertiary roads); only the overhanging part moves.
