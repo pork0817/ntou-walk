@@ -257,7 +257,7 @@ body.touch #toast b{font-size:1rem}
 <!-- character choice for a new game -->
 <div id="pick" hidden>
   <h2>選擇角色 <span>Choose your character</span></h2>
-  <p>牽著腳踏車，從濱海校門出發</p>
+  <p>搭公車到海大，從濱海校門站出發</p>
   <div class="choices">
     <button class="btn choice" id="pickM" type="button" aria-pressed="true">男生<span>Male</span></button>
     <button class="btn choice" id="pickF" type="button" aria-pressed="false">女生<span>Female</span></button>
@@ -1576,7 +1576,7 @@ function refreshDriveUI(force){
   btn.hidden=!state||!isTouch||state==='bus';btn.textContent=DRIVE.v?'下車':'開車';
   rb.hidden=!isTouch||!(P.onBus||bus);rb.textContent=P.onBus?'下車':'搭車';
 }
-// parked vehicles: the G5 lot and the far-east lot, a row on 154巷, and one scooter by the start point
+// parked vehicles: the G5 lot and the far-east lot, and a row on 154巷 (nothing by the start: just your bike)
 function placeParkedVehicles(){
   let id=0;const put=(type,x,z,h)=>{if(free(x,z,1.2)&&ground(x,z)>0.8&&PARKED.every(o=>boxDist(o,x,z)>1.6))parkVehicle(type,x,z,h,id++);};
   for(const a of D.a){if(a.k!=='amenity=parking')continue;const [cx,cz]=centroid(a.p);if(cx<G.x0+20||cx>G.x0+GW-20||cz<G.z0+20||cz>G.z0+GH-20)continue;
@@ -1587,7 +1587,6 @@ function placeParkedVehicles(){
   const lane=D.r.find(r=>r.nm==='北寧路154巷'&&r.k==='residential');
   if(lane)for(let i=0;i<lane.p.length-1;i++){const [ax,az]=lane.p[i],[bx,bz]=lane.p[i+1];if(ax<300||ax>345)continue;const L=Math.hypot(bx-ax,bz-az);const tx=(bx-ax)/L,tz=(bz-az)/L;
     for(let t=3;t<L-3;t+=6.5){const x=ax+tx*t+tz*(lane.w/2+1.2),z=az+tz*t-tx*(lane.w/2+1.2);put('car',x,z,Math.atan2(tx,tz));}}
-  for(let k=0;k<16;k++){const a=k/16*TAU,x=START.x+Math.cos(a)*5,z=START.z+Math.sin(a)*5;if(free(x,z,1.3)&&ground(x,z)>0.8&&!ROADS3.some(r=>(RANK[r.k]??0)>=1&&r.p.some((q,i)=>i<r.p.length-1&&segDist(x,z,...q,...r.p[i+1])<r.w/2+1))){put('scooter',x,z,-Math.PI/2);break;}}
 }
 
 /* ---------- crashes: momentum is shared along the line of impact; whatever is lighter gets shoved and slides to a stop.
@@ -2153,7 +2152,7 @@ function buildWorld(){
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();
-  buildPedGraph();buildChains();seedTraffic();placeBikeStations();placeParkedVehicles();
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();
 }
 
 /* ---------- characters ---------- */
@@ -2291,49 +2290,126 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)saveGame();
 /* ---------- title screen, character choice, settings, in-game menu ---------- */
 const show=(id,on)=>{$(id).hidden=!on;};
 let modalBack=null;                                     // where Done / Cancel return focus to
-// intro: each shot moves the camera from→to while looking from lookA→lookB; captions explain the game
+// intro after a new game: an aerial welcome, then the bus pulls in at 海大(濱海校門), you step off onto the sidewalk and the
+// camera settles behind you; play starts right there, with your bicycle parked beside the stop. A narrator speaks the
+// captions (browser speech, zh-TW) and they show as subtitles.
 const INTRO=[
-  {from:[60,70,-330],to:[-30,48,-262],lookA:[-60,6,-120],lookB:[-90,6,-100],dur:6,
-   t:'歡迎來到海大',b:'國立臺灣海洋大學 校本部，在基隆北寧路上，依山面海。整個校園照實際比例做成，可以自由探索。',k:[]},
-  {from:[-52,2.8,-160],to:[-38,2.5,-162],lookA:[-45,1.9,-181],lookB:[-43,1.9,-181],dur:5.5,
-   t:'走遍校園',b:'校園裡有 {N} 個地點等你發現。走近建築物、校門或公車站就會解鎖，左上角會記錄你的進度。',k:[]},
-  {from:[-106,1.8,-96],to:[-84,1.9,-108],lookA:[-50,3,-132],lookB:[-40,3,-136],dur:5.5,
-   t:'怎麼移動都可以',b:'走路、騎腳踏車、開車，或在公車站搭公車。路上的車和機車都可以開。',k:[['E','腳踏車'],['F','開車'],['R','搭公車'],['G','雙黃燈']],tk:'用畫面右下角的「騎車」「開車」「搭車」按鈕'},
-  {from:[-106,3.4,-99],to:[-114,3,-97],lookA:[-131,2.4,-80],lookB:[-132,2.4,-79],dur:5.5,
-   t:'校園生活',b:'同學們在校園裡走路、聊天、等紅綠燈。跟他們打個招呼吧！',k:[['1–5','表情'],['空白','跳']],tk:'用「表情」按鈕打招呼'},
-  {from:[150,55,-170],to:[215,42,-150],lookA:[236,8,-30],lookB:[250,6,-20],dur:5.5,
-   t:'地圖與時間',b:'時間跟著台灣即時時間，白天晚上、上下班尖峰都不一樣。遊戲會自動存檔。',k:[['M','地圖'],['[ ]','調時間'],['Esc','選單']],tk:'右上角有地圖、時間和選單'},
-  {from:null,to:null,dur:4.5,
-   t:'準備好了嗎？出發！',b:'牽著腳踏車，從濱海校門開始你的海大漫遊。',k:[['WASD','移動'],['Shift','跑'],['滑鼠拖曳','轉視角']],tk:'左下搖桿移動，拖曳畫面轉視角'}];
-const IN={t:0,i:-1,total:0,end:null};
+  {id:'air',dur:7,t:'國立臺灣海洋大學',b:'依山面海的海大校本部，就在基隆北寧路上。',say:'歡迎來到國立臺灣海洋大學。'},
+  {id:'bus',dur:7.5,t:'公車進站',b:'下一站，海大，濱海校門。',say:'下一站，海大，濱海校門。'},
+  {id:'off',dur:6.5,t:'歡迎來到海大！',b:'你的腳踏車就停在站牌旁邊。騎上它，開始探索整個校園吧。',say:'歡迎來到海大！你的腳踏車就停在旁邊，開始你的海大漫遊吧。'},
+  {id:'go',dur:3.5,t:'',b:'',say:''}];
+const IN={t:0,i:-1,total:0,bus:null};
+// the arrival: the 海大(濱海校門) stop on the gate side of 北寧路. Everything is laid out in road terms: along (m on the bus
+// chain) and lateral (m from the centre line towards the kerb the bus stops at). Sets START (where you stand, facing the gate).
+const ARR={ok:false};
+function setupArrival(){
+  let c=null,bs=null;
+  for(const ch of VEH.chains)for(const b of ch.busStops)if(b.zh==='海大(濱海校門)'){
+    const sh=BUS_SHELTERS.find(q=>q.zh===b.zh&&projectOn(ch,q.x,q.z)?.side===b.side);if(sh&&sh.z>-97){c=ch;bs=b;}}   // the south (gate) side
+  if(!c)return;
+  const lane=c.lanes.find(l=>l.outer&&l.dir===bs.side);if(!lane)return;
+  const dir=lane.dir,sg=Math.sign(lane.off),W=c.w/2;
+  const AP=(al,lat)=>{const a=chainAt(c,al);return [a.x-a.tz*lat*sg,a.z+a.tx*lat*sg];};
+  const head=al=>{const a=chainAt(c,al);return Math.atan2(a.tx*dir,a.tz*dir);};
+  Object.assign(ARR,{ok:true,c,bs,lane,dir,sg,W,AP,head,stopS:bs.s-dir*3.5});
+  // you step out of the rear door onto the middle of the sidewalk: somewhere along the bus's side where the play camera
+  // behind you has a clear view (no palm trunk or pole in the way)
+  // (the camera may swing a little out over the road to see past the palm row on the kerb)
+  const cpd=Math.cos(0.38)*(isTouch?11:9);let al=null,first=null,yo=0;
+  for(const off of [0,0.3,-0.3,0.55,-0.55]){
+    for(const k of [4.5,3.5,5.5,2.5,6.5,1.5,7.5]){const a=bs.s-dir*k,[x,z]=AP(a,W+0.7);if(!free(x,z,0.5))continue;if(first===null)first=a;
+      const h=head(a)+off,cx=x-Math.sin(h)*cpd,cz=z-Math.cos(h)*cpd;if(clearView(cx,cz,x,z)){al=a;yo=off;break;}}
+    if(al!==null)break;}
+  if(al===null)al=first??bs.s-dir*4.5;
+  ARR.standS=al;const [sx,sz]=AP(al,W+0.7);START.x=sx;START.z=sz;START.rot=head(al);START.yaw=START.rot+yo+Math.PI;
+  ARR.door=AP(al,lane.off*sg+1.1);
+  // the bike: parked on the sidewalk, parallel to the kerb, a few metres behind you (so it's in view when play starts)
+  ARR.bike=null;
+  for(let k=2.5;k<12&&!ARR.bike;k+=0.5)for(const lat of [W+1.9,W+1.6,W+1.2]){const [x,z]=AP(al-dir*k,lat);
+    if(free(x,z,0.55)&&ground(x,z)>0.8&&Math.hypot(x-sx,z-sz)>2){ARR.bike=[x,z,head(al-dir*k)];break;}}
+  // the step-off shot: close behind you on the sidewalk, so nothing can get between; it sees the bus door and the bike
+  ARR.offCam=null;
+  for(const k of [5,4,6,7])for(const lat of [W+0.6,W+0.3,W+1.9]){const [x,z]=AP(al-dir*k,lat);
+    if(!ARR.offCam&&free(x,z,0.45)&&clearView(x,z,sx,sz,0.5)&&clearView(x,z,...ARR.door,0.5))ARR.offCam={k,lat};}
+  if(ARR.offCam===null)ARR.offCam={k:5,lat:W+0.6};
+}
+// no tree trunk or pole within m of the line (~1.3 m when canopies matter, 0.5 for a low camera) between two points (canopies hang wide)
+function clearView(x0,z0,x1,z1,m=1.3){const n=Math.ceil(Math.hypot(x1-x0,z1-z0)/0.7);
+  for(let i=1;i<n;i++){const x=x0+(x1-x0)*i/n,z=z0+(z1-z0)*i/n;   // solids live in 10 m cells: look in the neighbours too
+    for(const [ox,oz] of [[0,0],[1.6,1.6],[1.6,-1.6],[-1.6,1.6],[-1.6,-1.6]])for(const o of cell(x+ox,z+oz))if(o.kind==='circle'&&o.r<1.2&&o.top>ground(o.x,o.z)+2.5&&Math.hypot(o.x-x,o.z-z)<o.r+m)return false;}   // tall things only: fence posts don't block a view
+  return true;}
+function introBus(){
+  if(!ARR.ok)return null;
+  const m=makeVehicle('bus');
+  const v={...m,c:ARR.c,lane:ARR.lane,s:ARR.stopS-ARR.dir*60,v:0,vmax:10,served:new Set(),dwell:0,honk:0,lat:0,scripted:true};
+  // clear the lane the bus drives in so nothing is parked in the way of the shot
+  for(const o of ARR.lane.veh.slice()){const d=(o.s-ARR.stopS)*ARR.dir;if(d>-90&&d<40)removeVehicle(o);}
+  ARR.lane.veh.push(v);VEH.list.push(v);placeVehicle(v);return v;
+}
+function narrate(text){
+  try{if(!window.speechSynthesis||!text)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=0.95;
+    const vs=speechSynthesis.getVoices();u.voice=vs.find(v=>/zh[-_]TW/i.test(v.lang))||vs.find(v=>/^zh/i.test(v.lang))||null;speechSynthesis.speak(u);}catch(e){}
+}
 function startIntro(){
   mode='intro';IN.t=0;IN.i=-1;IN.total=INTRO.reduce((a,s)=>a+s.dur,0);
-  // the last shot swoops down to where the play camera will be
-  const gy=ground(START.x,START.z),ty=gy+1.6,cp=Math.cos(0.38);
-  IN.end={cam:[START.x+Math.sin(Math.PI)*cp*9,ty+Math.sin(0.38)*9,START.z+Math.cos(Math.PI)*cp*9],look:[START.x,ty,START.z]};
-  const last=INTRO[INTRO.length-1];last.from=[START.x+2,gy+42,START.z-12];last.to=IN.end.cam;last.lookA=[START.x,gy,START.z];last.lookB=IN.end.look;
-  $('#icDots').innerHTML=INTRO.map(()=>'<i></i>').join('');
+  IN.bus=introBus();player.root.visible=false;
+  $('#icDots').innerHTML=INTRO.map(()=>'<i></i>').join('');$('#icKeys').innerHTML='';
   show('#hud',false);show('#touch',false);show('#intro',true);$('#introFade').style.opacity=1;$('#introSkip').focus();
 }
+// where the play camera will be once you're standing at START facing the gate
+function playCam(){const gy=ground(START.x,START.z),ty=gy+1.6,cp=Math.cos(0.38),d=isTouch?11:9,yw=START.yaw??(START.rot||0)+Math.PI;
+  return {cam:[START.x+Math.sin(yw)*cp*d,ty+Math.sin(0.38)*d,START.z+Math.cos(yw)*cp*d],look:[START.x,ty,START.z]};}
 function updateIntro(dt){
   IN.t+=dt;if(IN.t>=IN.total){endIntro();return;}
   let t=IN.t,i=0;while(i<INTRO.length-1&&t>=INTRO[i].dur){t-=INTRO[i].dur;i++;}
-  const sh=INTRO[i];
+  const sh=INTRO[i],u=t/sh.dur,e=u*u*(3-2*u),L=(a,b,k=e)=>a.map((v,j)=>v+(b[j]-v)*k);
   if(i!==IN.i){IN.i=i;const cap=$('#introCap');cap.classList.remove('on');
-    $('#icStep').textContent=`${i+1} / ${INTRO.length}`;$('#icT').textContent=sh.t;$('#icB').textContent=sh.b.replace('{N}',spots.length);
-    $('#icKeys').innerHTML=isTouch?(sh.tk?`<span>${sh.tk}</span>`:''):sh.k.map(([k,l])=>`<span><kbd>${k}</kbd>${l}</span>`).join('');
+    $('#icStep').textContent=sh.t?'NTOU WALK':'';$('#icT').textContent=sh.t;$('#icB').textContent=sh.b;
     [...$('#icDots').children].forEach((d,j)=>d.classList.toggle('on',j===i));
-    setTimeout(()=>cap.classList.add('on'),250);}
-  // fade in at the start of each shot and out at its end (not into the last one's end: play begins there)
-  const fade=Math.max(t<0.45?1-t/0.45:0,i<INTRO.length-1&&t>sh.dur-0.45?(t-(sh.dur-0.45))/0.45:0);
+    if(sh.t)setTimeout(()=>cap.classList.add('on'),250);narrate(sh.say);}
+  // fades: in at the start of the film, a quick dip between the aerial and the street, none into play
+  const fade=i===0?Math.max(t<0.6?1-t/0.6:0,t>sh.dur-0.5?(t-(sh.dur-0.5))/0.5:0):i===1&&t<0.5?1-t/0.5:0;
   $('#introFade').style.transition='none';$('#introFade').style.opacity=fade;
-  const u=t/sh.dur,e=u*u*(3-2*u),L=(a,b)=>a.map((v,j)=>v+(b[j]-v)*e);
-  const c=L(sh.from,sh.to),l=L(sh.lookA,sh.lookB);c[1]=Math.max(c[1],ground(c[0],c[2])+1.2);
-  camera.position.set(...c);camera.lookAt(...l);
+  const B=IN.bus,A=ARR;
+  // the bus: rolls in and brakes evenly to the stop, waits, then pulls away
+  if(B){
+    if(sh.id==='air')B.s=A.stopS-A.dir*60;
+    else if(sh.id==='bus'){const k=Math.min(1,t/6.5);B.s=A.stopS-A.dir*60*(1-k)*(1-k);B.v=Math.max(0,120*(1-k)/6.5);}
+    else if(sh.id==='off'){B.s=A.stopS;B.v=0;}
+    else{B.v=Math.min(9,1.4*t);B.s=A.stopS+A.dir*0.7*t*t;}
+    placeVehicle(B);for(const w of B.wheels)w.rotation.x+=B.v*dt/0.45;}
+  // you: out of the rear door, two steps across to the middle of the sidewalk, then turn to face the gate
+  if(sh.id==='off'||sh.id==='go'){
+    const c=player,tt=sh.id==='go'?99:t;player.root.visible=tt>0.8;
+    const [dx,dz]=A.ok?A.door:[START.x,START.z],k=Math.max(0,Math.min(1,(tt-0.8)/2.2));
+    const x=dx+(START.x-dx)*k,z=dz+(START.z-dz)*k,step=k<0.2?Math.min(1,k/0.2):1;
+    const yb=A.ok?ground(dx,dz)+0.35*(1-step):0;P.x=x;P.z=z;P.y=Math.max(ground(x,z),A.ok?yb:0);
+    const walkRot=Math.atan2(START.x-dx,START.z-dz),turn=Math.max(0,Math.min(1,(tt-3)/0.8));
+    let dr=(START.rot||0)-walkRot;dr=Math.atan2(Math.sin(dr),Math.cos(dr));P.rot=walkRot+dr*turn;
+    player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
+    animateChar(c,dt,k>0&&k<1?1.3:0,false,false);}
+  // cameras
+  let cam,look;
+  if(sh.id==='air'){cam=L([60,70,-330],[-60,46,-250]);look=L([-60,6,-120],[-110,4,-96]);}
+  else if(!A.ok){const pc=playCam();cam=pc.cam;look=pc.look;}
+  else if(sh.id==='bus'){                               // on the sidewalk past the stop, watching the bus come in
+    const p=A.AP(A.bs.s+A.dir*(18-3*e),A.W-0.45),gy=ground(p[0],p[1]);cam=[p[0],gy+1.5,p[1]];   // in the gutter: no street trees in the way
+    look=[B.g.position.x,B.g.position.y+1.6,B.g.position.z];}
+  else if(sh.id==='off'){                               // behind you on the sidewalk, the bus on the left
+    const p=A.AP(A.standS-A.dir*(A.offCam.k+0.6-0.6*e),A.offCam.lat),gy=ground(p[0],p[1]);cam=[p[0],gy+1.75,p[1]];
+    const dl=A.AP(A.standS+A.dir*1.5,A.lane.off*A.sg+1.5);look=L([dl[0],gy+1.4,dl[1]],[P.x,P.y+1.1,P.z],Math.min(1,Math.max(0,(t-1)/2)));}
+  else{const p=A.AP(A.standS-A.dir*A.offCam.k,A.offCam.lat),gy=ground(p[0],p[1]),pc=playCam();cam=L([p[0],gy+1.75,p[1]],pc.cam);look=L([P.x,P.y+1.1,P.z],pc.look);}
+  cam[1]=Math.max(cam[1],ground(cam[0],cam[2])+1.2);
+  camera.position.set(...cam);camera.lookAt(...look);
 }
 function endIntro(){
-  if(mode!=='intro')return;show('#intro',false);$('#introCap').classList.remove('on');
-  mode='play';yaw=Math.PI;pitch=0.38;dist=isTouch?11:9;$('#hud').hidden=false;$('#touch').hidden=!isTouch;
+  if(mode!=='intro')return;const skipped=IN.t<IN.total-0.05;show('#intro',false);$('#introCap').classList.remove('on');
+  if(skipped)try{window.speechSynthesis&&speechSynthesis.cancel();}catch(e){}
+  // hand the bus to traffic: it has served this stop and drives on
+  const B=IN.bus;if(B){B.scripted=false;B.served.add(ARR.bs);B.atStop=null;if(skipped&&B.v<1){B.s=ARR.stopS;placeVehicle(B);}}IN.bus=null;
+  P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=START.rot||0;P.vy=0;player.root.visible=true;
+  player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
+  mode='play';yaw=START.yaw??(START.rot||0)+Math.PI;pitch=0.38;dist=isTouch?11:9;$('#hud').hidden=false;$('#touch').hidden=!isTouch;
   cv.focus();
 }
 $('#introSkip').addEventListener('click',endIntro);
@@ -2391,7 +2467,7 @@ addEventListener('keydown',e=>{
 });
 function startPlay(){
   mode='play';player=chars[gender];scene.remove(chars[gender==='m'?'f':'m'].root);
-  P.riding=false;P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=0;yaw=Math.PI;pitch=0.38;
+  P.riding=false;P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=START.rot||0;yaw=START.yaw??P.rot+Math.PI;pitch=0.38;
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
   show('#title',false);show('#pick',false);$('#hud').hidden=false;$('#touch').hidden=!isTouch;
   updateFound();cv.focus();
@@ -2992,6 +3068,7 @@ function updateVehicles(dt){
     l.veh.sort((a,b)=>prog(b)-prog(a));
     for(let i=0;i<l.veh.length;i++){
       const v=l.veh[i],p=prog(v);
+      if(v.scripted)continue;                       // the intro moves this one itself
       let gap=1e9,lv=v.vmax;
       if(i>0){const ld=l.veh[i-1];gap=prog(ld)-p-(ld.len+v.len)/2;lv=ld.v;}
       // signals and crossings ahead
@@ -3479,7 +3556,7 @@ function addRack(x,z,n,label){
 function placeBike(b,x,z,rot){b.px=x;b.pz=z;b.prot=rot;b.g.position.set(x,ground(x,z),z);b.g.rotation.set(0,rot,0.1);b.stand.visible=true;b.fork.rotation.y=0.35;}
 function placeBikeStations(){
   // the bike you start with, by 濱海校門
-  const b0=Object.assign(makeBike(0x1f8f96),{px:0,pz:0,prot:0});scene.add(b0.g);BIKES.push(b0);placeBike(b0,START.x-3.4,START.z,-Math.PI/2);
+  const b0=Object.assign(makeBike(0x1f8f96),{px:0,pz:0,prot:0});scene.add(b0.g);BIKES.push(b0);if(ARR.bike)placeBike(b0,...ARR.bike);else placeBike(b0,START.x-3.4,START.z,-Math.PI/2);
   for(const sp of BIKE_SPOTS){
     const b=D.b.find(q=>q.no===sp.no&&q.n);if(!b)continue;
     const [cx,cz]=centroid(b.p);

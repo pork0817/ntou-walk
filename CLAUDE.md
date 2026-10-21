@@ -151,9 +151,17 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   Vehicle lamps (`LAMP`, `setVehLights`, `updateVehLights`): headlights with a glow and a light pool on the road, and tail lights,
   come on through dusk (from `nightLevel`) for traffic, the player's vehicle and recovering vehicles; parked ones stay dark.
   Tail lights brighten as brake lights day or night (traffic slowing or stopped; the player braking or on the handbrake).
-- Intro (`INTRO`, `startIntro`, `updateIntro`, `endIntro`; mode 'intro'): after 開始探索 in a new game, ~32 s of letterboxed
-  camera shots with captions (welcome aerial, NTOU letters, 北寧路 traffic with E/F/R/G, campus life, map/clock/menu, then a
-  drop onto the player). Touch devices get touch hints. 略過 Skip, Esc, Space or Enter skips. Continue never plays it.
+- Intro (`INTRO`, `startIntro`, `updateIntro`, `endIntro`, `setupArrival`, `introBus`; mode 'intro'): after 開始探索 in a new
+  game, ~24 s letterboxed film, narrated (browser speechSynthesis, zh-TW voice if present) with subtitles: aerial welcome
+  (歡迎來到國立臺灣海洋大學) → a scripted bus brakes evenly into 海大(濱海校門) on the gate (south) side of 北寧路, watched from
+  the gutter (下一站，海大，濱海校門) → you step out of its rear door onto the kerb edge (歡迎來到海大！) in an over-the-shoulder
+  shot → the camera pulls back into the play camera and the bus pulls away. Play starts exactly there, facing the gate.
+  `setupArrival` (after `buildChains`) sets START (+ `rot`, `yaw`) in road terms (along the bus chain / lateral from the
+  centre line), picks a standing spot and camera angle with a clear view (`clearView`: no tall trunk/pole near the line;
+  the palm row runs down the middle of this sidewalk), and parks your bike on the sidewalk 2–3 m behind you, parallel to
+  the kerb. Nothing else is parked there. The intro bus sits in the lane with `scripted:true` (traffic queues behind it but
+  doesn't move it); at the end it is handed to traffic with the stop marked served. Skip (略過, Esc, Space, Enter) jumps to
+  the same end state and stops the narration. No control hints. Continue never plays it.
 - Screens (`mode`: title / pick / intro / play / pause / bye): the title screen (aerial fly-around) offers 繼續遊戲 Continue (with the save's
   age and progress), 新遊戲 New Game (confirms before clearing a save, then character choice) and 設定 Settings. Esc or the
   選單 Menu button pauses the world and opens Resume / Settings / Back to title (save + reload) / Quit (save, try window.close,
@@ -173,7 +181,7 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 ## Phones (body.touch)
 
 - No on-screen hints anywhere (user request): no key bar, no "press E/F" tips, no hints setting. The two warnings that
-  matter ("stop first", "wait for the bus to stop") are speech bubbles on the vehicle. The intro still teaches controls.
+  matter ("stop first", "wait for the bus to stop") are speech bubbles on the vehicle. The intro has no control hints either.
 - Compact HUD: location card without the English line, small stats; minimap 112×82 with 地圖 / 選單 only (time controls live
   in the pause menu for everyone). Driving shows a slim speed pill (no name line): under the HUD in portrait, top-centre
   between the cards in landscape. The new-place toast sits below the HUD.
