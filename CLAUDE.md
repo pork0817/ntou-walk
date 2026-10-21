@@ -57,7 +57,8 @@ Needs Python 3 with numpy, scipy, matplotlib (godmap.py uses the Noto Sans CJK f
   straight for a through side (≥166°). One plain asphalt polygon (draped on the terrain, polygonOffset above every road
   strip) covers the box so no lane markings run through it; corner paving and curved kerbs join the sidewalks; each arm gets a
   stop line on its incoming half unless its own crosswalk has one. Sidewalk strips, side-road mouths and crosswalks keep out
-  of boxes. A 2-arm node (one road carrying on under a new name) gets no box, so its markings continue.
+  of boxes; a crosswalk that cannot slide clear is placed on its road's nearest arm just outside the box (never dropped,
+  since traffic lights are built on crosswalks). A 2-arm node (one road carrying on under a new name) gets no box, so its markings continue.
 - Crosswalk stop lines cover only the lanes approaching the crossing (one full-width line on one-way roads).
 - Ground texture: resolution follows the quality setting (2048/4096/6144 px wide), zone tint and the sea edge are drawn from
   small canvases scaled up smoothly (no 4 m squares), anisotropic filtering, and a tiling detail texture blended in the

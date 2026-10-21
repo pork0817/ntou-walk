@@ -942,12 +942,22 @@ function buildStreets(){
   const sm=new THREE.MeshBasicMaterial({color:0xf4f4ee,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-10});
   for(const c of cands){
     const nr=nearestRoad(c[0],c[1],3);if(!nr||nr.d>nr.r.w/2+4)continue;
-    const [ax,az]=nr.r.p[nr.i],[bx,bz]=nr.r.p[nr.i+1];const L=Math.hypot(bx-ax,bz-az)||1;const tx=(bx-ax)/L,tz=(bz-az)/L;
+    const [ax,az]=nr.r.p[nr.i],[bx,bz]=nr.r.p[nr.i+1];const L=Math.hypot(bx-ax,bz-az)||1;let tx=(bx-ax)/L,tz=(bz-az)/L;
     const t=Math.max(0,Math.min(L,(c[0]-ax)*tx+(c[1]-az)*tz));let cx=ax+tx*t,cz=az+tz*t;
     {const nx=-tz,nz=tx,hw=nr.r.w/2+1.2;
       const mouth=(x,z)=>ROADS3.some(o=>o!==nr.r&&o.nm!==nr.r.nm&&(RANK[o.k]??0)>=1&&o.p.some((q,i)=>i<o.p.length-1&&segDist(x,z,...q,...o.p[i+1])<o.w/2+0.6));
       const clear=d=>[-2.6,0,2.6,4.6].every(a=>!mouth(cx+tx*(d+a)+nx*hw,cz+tz*(d+a)+nz*hw)&&!mouth(cx+tx*(d+a)-nx*hw,cz+tz*(d+a)-nz*hw))&&![-2.2,0,2.2,4.6].some(a=>inJBox(cx+tx*(d+a),cz+tz*(d+a),0.3));
       for(const d of [0,3,-3,6,-6,9,-9,12,-12,15,-15,18,-18])if(clear(d)){cx+=tx*d;cz+=tz*d;break;}}
+    // still in a junction box (e.g. a signal crossing right at the junction): put it on the nearest arm of its road, just outside
+    // the box, the way real junctions have their crosswalks
+    if(inJBox(cx,cz,1)||inJBox(cx+tx*4.4,cz+tz*4.4)||inJBox(cx-tx*4.4,cz-tz*4.4)){
+      let best=null,bd=1e9;
+      for(const J of JBOX)for(const a of J.arms){if(a.r!==nr.r&&!(a.r.nm&&a.r.nm===nr.r.nm))continue;
+        const px=J.x+a.ax*(a.c+4.9),pz=J.z+a.az*(a.c+4.9),d=Math.hypot(px-c[0],pz-c[1]);if(d<bd){bd=d;best={J,a,px,pz};}}
+      if(best&&bd<40){const q=nearestRoad(best.px,best.pz,3);
+        if(q&&(q.r===best.a.r||q.r.nm===best.a.r.nm)){const [qx,qz]=q.r.p[q.i],[rx,rz]=q.r.p[q.i+1],QL=Math.hypot(rx-qx,rz-qz)||1;
+          tx=(rx-qx)/QL;tz=(rz-qz)/QL;const tt=(best.px-qx)*tx+(best.pz-qz)*tz;cx=qx+tx*tt;cz=qz+tz*tt;}
+        else{cx=best.px;cz=best.pz;const sg=Math.sign(tx*best.a.ax+tz*best.a.az)||1;tx=best.a.ax*sg;tz=best.a.az*sg;}}}
     if(xingSpots.some(s=>Math.hypot(s.x-cx,s.z-cz)<14)||inJBox(cx,cz,1)||inJBox(cx+tx*4.4,cz+tz*4.4)||inJBox(cx-tx*4.4,cz-tz*4.4))continue;
     const sig=D.sig.some(s=>Math.hypot(s[0]-cx,s[1]-cz)<25);
     xingSpots.push({x:cx,z:cz,tx,tz,w:nr.r.w,sig,two:!nr.r.ow});
