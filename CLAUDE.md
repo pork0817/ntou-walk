@@ -194,6 +194,8 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   sub at the firing frequency through a low, gentle low-pass, narrow rev range, slow glides, well under the tyre noise.
   Cars/taxis rpm/30 (idle 800), buses/trucks rpm/20 (idle 650), petrol scooters rpm/120. ~35 % of scooters are
   electric (`v.ev`): a very quiet low sine hum (110 Hz + 9 Hz per m/s). Your vehicle uses the same model.
+  Except your own tyres: low-passed at ~260 Hz + 6 Hz per m/s and capped at 0.09 — a soft dark rumble. As a bright
+  band-pass hiss it sounded like loud wind in the trees at speed and drowned out the traffic.
 - Horns are soft two-tone beeps (yours, H / 喇叭, and traffic honking at you); a door chime when the intro bus stops.
 - Crash sounds (`impactSound(kind,speed,x,z)`, debounced per kind, loudness by impact speed and distance), one per thing
   hit: wall/concrete thud (+crunch when fast), tree knock + leaf shiver, pole metal clang, hedge rustle, bus-shelter glass

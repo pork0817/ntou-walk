@@ -3615,6 +3615,7 @@ function audioInit(){
     for(const o of [e1,e2,sub,el,el2])o.start();ns.start(0,Math.random()*2);
     return {p,e1,e2,sub,lp,eg,el,el2,lg,tg,nb,v:null};};
   SND.voices=[voice(),voice(),voice(),voice()];SND.own=voice();
+  SND.own.nb.type='lowpass';SND.own.nb.Q.value=0.3;   // your own tyres: a dark, soft rumble (a bright hiss at speed sounded like rushing wind)
 }
 const ramp=(p,v,tc=0.25)=>{if(p&&SND.ctx)p.setTargetAtTime(v,SND.ctx.currentTime,tc);};
 // short one-off sounds
@@ -3683,7 +3684,8 @@ function driveVoice(vo,type,sp,acc,v,k){
   ramp(vo.eg.gain,eng*k,0.25);
   ramp(vo.el.frequency,110+sp*9,0.3);ramp(vo.el2.frequency,(110+sp*9)*2,0.3);ramp(vo.lg.gain,elec*k,0.3);
   const tyre=Math.pow(Math.min(1.4,sp/14),1.5)*(type==='bus'||type==='truck'?0.32:type==='scooter'?0.14:0.24);
-  ramp(vo.nb.frequency,700+sp*25,0.2);ramp(vo.tg.gain,tyre*k,0.15);
+  if(vo===SND.own){ramp(vo.nb.frequency,260+sp*6,0.6);ramp(vo.tg.gain,Math.min(0.09,tyre*0.35),0.5);}   // under the traffic, not over it
+  else{ramp(vo.nb.frequency,700+sp*25,0.2);ramp(vo.tg.gain,tyre*k,0.15);}
 }
 // ---- impacts: what you hit decides the sound; how hard (m/s) decides how loud and how much crunch ----
 // solids carry a material (`mat`) where they're made; untagged thin tall posts are poles, everything else is wall/concrete
