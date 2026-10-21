@@ -186,14 +186,14 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   ×2.8 make-up gain (`SND.out`), so it is clearly audible at low system volume without clipping (user: 25 % volume was
   too quiet). Measured RMS: quiet campus ≈ −27 dB, coast ≈ −22 dB, beside 北寧路 ≈ −24 dB with passes to −17 dB.
 - Ambience: one looped brown-noise buffer feeds a sea bed (low-pass, slow swell, more water within ~45/110 m = louder)
-  and a faint breeze. Birds (chirp trills) 05:30–18:30, crickets (4.6 kHz trilled at 32 Hz, gated chirps) at night.
+  and a faint breeze. Birds (chirp trills) 05:30–18:30. No crickets: the user heard them as an unexplained night beep.
 - Traffic (user: cars and buses are petrol; traffic noise is mostly tyres): the base is a tyre-roll bed (white noise,
   band-pass ~850 Hz) summed from every moving vehicle within 300 m, plus a low rumble under it. The 4 loudest nearby
-  vehicles (idling ones within 30 m too) get a panned voice (`driveVoice`), kept on the same vehicle while audible:
-  petrol engine = two detuned sawtooths + sub at the firing frequency through a low-pass that opens with revs. Revs
-  climb through gears with speed and jump with acceleration: cars/taxis 4-cyl (rpm/30, idle 800), buses/trucks deeper
-  (rpm/20, idle 650), petrol scooters a buzzy CVT single (rpm/120). ~35 % of scooters are electric (`v.ev`: rising
-  whine). Each voice also has its own tyre noise. Your vehicle uses the same model, revving with your throttle.
+  vehicles (idling ones within 30 m too) get a panned voice (`driveVoice`), kept on the same vehicle while audible.
+  Engines are deliberately calm (user found sawtooth roar and the e-whine irritating): two detuned triangles + a sine
+  sub at the firing frequency through a low, gentle low-pass, narrow rev range, slow glides, well under the tyre noise.
+  Cars/taxis rpm/30 (idle 800), buses/trucks rpm/20 (idle 650), petrol scooters rpm/120. ~35 % of scooters are
+  electric (`v.ev`): a very quiet low sine hum (110 Hz + 9 Hz per m/s). Your vehicle uses the same model.
 - Horns are soft two-tone beeps (yours, H / 喇叭, and traffic honking at you); a door chime when the intro bus stops.
 - Crash sounds (`impactSound(kind,speed,x,z)`, debounced per kind, loudness by impact speed and distance), one per thing
   hit: wall/concrete thud (+crunch when fast), tree knock + leaf shiver, pole metal clang, hedge rustle, bus-shelter glass

@@ -3580,7 +3580,7 @@ function placeBikeStations(){
 }
 
 /* ---------- sound: everything is synthesised (Web Audio), kept soft — it's a relaxing walk.
-   A sea + breeze bed (louder near the coast), birds by day and crickets at night, and electric traffic: a quiet motor
+   A sea + breeze bed (louder near the coast), birds by day, and traffic: tyres rolling plus soft, low engine hums
    whine and tyre hiss from the nearest few vehicles, panned to where they are. Starts on the first tap/key (browsers
    require a gesture); fades out in the pause menu and when the tab is hidden. ---------- */
 const SND={ctx:null,master:null,acc:0,birdT:2,crT:0,voices:[],own:null};
@@ -3605,19 +3605,16 @@ function audioInit(){
   // a vehicle voice: a petrol engine (two slightly detuned sawtooths at the firing frequency + a sub, through a low-pass
   // that opens with revs), an electric whine (for e-scooters), and its own tyre noise — all panned to where it is
   const voice=()=>{const p=ctx.createStereoPanner?ctx.createStereoPanner():ctx.createGain();p.connect(M);
-    const e1=ctx.createOscillator(),e2=ctx.createOscillator(),sub=ctx.createOscillator();e1.type=e2.type='sawtooth';sub.type='sine';e2.detune.value=9;
-    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=300;lp.Q.value=1.2;const sg=ctx.createGain();sg.gain.value=0.7;
+    const e1=ctx.createOscillator(),e2=ctx.createOscillator(),sub=ctx.createOscillator();e1.type=e2.type='triangle';sub.type='sine';e2.detune.value=6;
+    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=200;lp.Q.value=0.5;const sg=ctx.createGain();sg.gain.value=0.9;
     const eg=ctx.createGain();eg.gain.value=0;e1.connect(lp);e2.connect(lp);sub.connect(sg);sg.connect(lp);lp.connect(eg);eg.connect(p);
-    const el=ctx.createOscillator(),el2=ctx.createOscillator();el.type='sine';el2.type='triangle';const lg=ctx.createGain(),l2=ctx.createGain();l2.gain.value=0.3;lg.gain.value=0;
+    const el=ctx.createOscillator(),el2=ctx.createOscillator();el.type='sine';el2.type='sine';const lg=ctx.createGain(),l2=ctx.createGain();l2.gain.value=0.15;lg.gain.value=0;
     el.connect(lg);el2.connect(l2);l2.connect(lg);lg.connect(p);
     const ns=ctx.createBufferSource();ns.buffer=SND.white;ns.loop=true;const nb=ctx.createBiquadFilter();nb.type='bandpass';nb.frequency.value=900;nb.Q.value=0.5;
     const tg=ctx.createGain();tg.gain.value=0;ns.connect(nb);nb.connect(tg);tg.connect(p);
     for(const o of [e1,e2,sub,el,el2])o.start();ns.start(0,Math.random()*2);
     return {p,e1,e2,sub,lp,eg,el,el2,lg,tg,nb,v:null};};
   SND.voices=[voice(),voice(),voice(),voice()];SND.own=voice();
-  // crickets: a 4.6 kHz tone trilled at ~32 Hz, gated into short chirps by updateAudio
-  const co=ctx.createOscillator(),cg=ctx.createGain(),lfo=ctx.createOscillator(),lg=ctx.createGain(),cr=ctx.createGain();
-  co.frequency.value=4600;lfo.frequency.value=32;lg.gain.value=0.5;cg.gain.value=0.5;lfo.connect(lg);lg.connect(cg.gain);co.connect(cg);cg.connect(cr);cr.gain.value=0;cr.connect(M);co.start();lfo.start();SND.cricket=cr;
 }
 const ramp=(p,v,tc=0.25)=>{if(p&&SND.ctx)p.setTargetAtTime(v,SND.ctx.currentTime,tc);};
 // short one-off sounds
@@ -3646,9 +3643,8 @@ function updateAudio(dt){
   const sea=Math.min(1,wet/9),t=c.currentTime;
   ramp(SND.sea.gain,(0.045+0.12*sea)*(0.75+0.25*Math.sin(t*0.7)),0.8);   // slow swell, like waves arriving
   ramp(SND.wind.gain,0.018+0.01*Math.sin(t*0.23+1),1.2);
-  // birds by day, crickets at night (only away from the busiest road noise isn't modelled: keep both faint)
+  // birds by day; nights are just the sea and the breeze (crickets read as electronic beeps: removed)
   SND.birdT-=0.1;if(day&&SND.birdT<=0){birdCall(Math.random()*1.6-0.8);SND.birdT=2.5+Math.random()*6;}
-  if(!day){SND.crT-=0.1;if(SND.crT<=0){const g=SND.cricket.gain;g.cancelScheduledValues(t);g.setValueAtTime(0,t);g.linearRampToValueAtTime(0.025,t+0.03);g.linearRampToValueAtTime(0,t+0.22+Math.random()*0.15);SND.crT=0.35+Math.random()*0.5;}}
   // traffic. Tyres rolling are the base: every moving vehicle within 300 m adds to one broadband roar. The 4 loudest
   // nearby vehicles (idling ones too, when close) also get their own panned engine + tyre voice.
   let roll=0;const near=[];
@@ -3675,17 +3671,17 @@ function updateAudio(dt){
 // (firing = rpm/30), buses and trucks a deeper rougher 6-cylinder diesel-ish note, petrol scooters a buzzy single cylinder
 // on a CVT. About a third of scooters are electric (a rising whine instead). k is the distance gain.
 function driveVoice(vo,type,sp,acc,v,k){
+  // kept calm on purpose (user: the roar and the whine were irritating): soft tones, a narrow rev range, a low filter that
+  // barely opens, and engines well under the tyre noise
   if(v.ev===undefined)v.ev=type==='scooter'&&Math.random()<0.35;
-  const load=Math.max(0,Math.min(1,acc/2.5));let f,cut,eng,elec=0;
-  if(v.ev){elec=0.05+Math.min(0.09,sp*0.007);f=0;}
-  if(type==='bus'||type==='truck'){const gears=[0,3,6,9,13,99],g=gears.findIndex((t,i)=>sp<gears[i+1]),lo=gears[g],hi=Math.min(gears[g+1],18);
-    const rpm=sp<0.3?650:900+1300*Math.min(1,(sp-lo)/(hi-lo||1))+load*250;f=rpm/20;cut=180+rpm*0.12+load*220;eng=0.11+load*0.08+Math.min(0.05,sp*0.004);}
-  else if(type==='scooter'){const rpm=sp<0.3?1600:3800+sp*170+load*900;f=rpm/120;cut=500+rpm*0.11+load*300;eng=v.ev?0:0.06+load*0.05+Math.min(0.04,sp*0.004);}
-  else{const gears=[0,4,8.5,13.5,19,99],g=gears.findIndex((t,i)=>sp<gears[i+1]),lo=gears[g],hi=Math.min(gears[g+1],26);
-    const rpm=sp<0.3?800:1100+2300*Math.min(1,(sp-lo)/(hi-lo||1))+load*500;f=rpm/30;cut=220+rpm*0.16+load*350;eng=0.075+load*0.06+Math.min(0.03,sp*0.002);}
-  if(f){ramp(vo.e1.frequency,f,0.08);ramp(vo.e2.frequency,f,0.08);ramp(vo.sub.frequency,f/2,0.08);ramp(vo.lp.frequency,cut,0.1);}
-  ramp(vo.eg.gain,(v.ev?0:eng)*k,0.12);
-  ramp(vo.el.frequency,180+sp*28,0.1);ramp(vo.el2.frequency,(180+sp*28)*2.02,0.1);ramp(vo.lg.gain,elec*k,0.12);
+  const load=Math.max(0,Math.min(1,acc/3));let f=0,cut=180,eng=0,elec=0;
+  if(v.ev)elec=0.012+Math.min(0.012,sp*0.001);
+  if(type==='bus'||type==='truck'){const rpm=sp<0.3?650:800+Math.min(1,sp/16)*700+load*120;f=rpm/20;cut=140+rpm*0.05;eng=0.05+load*0.015;}
+  else if(type==='scooter'){if(!v.ev){const rpm=sp<0.3?1500:2600+Math.min(1,sp/14)*1600+load*300;f=rpm/120;cut=220+rpm*0.03;eng=0.022+load*0.008;}}
+  else{const rpm=sp<0.3?800:1000+Math.min(1,sp/22)*1500+load*200;f=rpm/30;cut=150+rpm*0.05;eng=0.032+load*0.01;}
+  if(f){ramp(vo.e1.frequency,f,0.25);ramp(vo.e2.frequency,f,0.25);ramp(vo.sub.frequency,f/2,0.25);ramp(vo.lp.frequency,cut,0.3);}
+  ramp(vo.eg.gain,eng*k,0.25);
+  ramp(vo.el.frequency,110+sp*9,0.3);ramp(vo.el2.frequency,(110+sp*9)*2,0.3);ramp(vo.lg.gain,elec*k,0.3);
   const tyre=Math.pow(Math.min(1.4,sp/14),1.5)*(type==='bus'||type==='truck'?0.32:type==='scooter'?0.14:0.24);
   ramp(vo.nb.frequency,700+sp*25,0.2);ramp(vo.tg.gain,tyre*k,0.15);
 }
