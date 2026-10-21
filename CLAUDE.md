@@ -195,6 +195,12 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   (rpm/20, idle 650), petrol scooters a buzzy CVT single (rpm/120). ~35 % of scooters are electric (`v.ev`: rising
   whine). Each voice also has its own tyre noise. Your vehicle uses the same model, revving with your throttle.
 - Horns are soft two-tone beeps (yours, H / 喇叭, and traffic honking at you); a door chime when the intro bus stops.
+- Crash sounds (`impactSound(kind,speed,x,z)`, debounced per kind, loudness by impact speed and distance), one per thing
+  hit: wall/concrete thud (+crunch when fast), tree knock + leaf shiver, pole metal clang, hedge rustle, bus-shelter glass
+  tinkle, kerb/bank bump, car crunch, bus/truck boom, scooter plastic clatter + scrape, a soft muffled thump for people.
+  Solids carry `mat` where they're created (palms/trees 'tree', hedges 'bush', scooter rows 'scooter', shelters
+  'glass'); `solidMat` falls back to 'pole' (thin, tall) or 'wall'. `hitsSolid` records LASTSOLID. Driving uses it for
+  walls/trees/poles and crash() for vehicles/people; the bicycle's bounce uses it too (softer).
 - `SET.sound` on/off: 聲音 toggle top-right of the title screen and a row in Settings. Audio starts on the first tap/key
   (browser rule), master fades to 0 in the pause menu, after Quit and when the tab is hidden. The clock option was removed
   (user request); the game clock is always real Taiwan time plus the offset.
