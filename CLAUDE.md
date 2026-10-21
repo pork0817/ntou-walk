@@ -135,6 +135,14 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   camera sensitivity.
 - Emotes: 1 揮手, 2 歡呼, 3 鞠躬, 4 跳舞, 5 坐下 (mobile: 表情 button).
 
+## Publishing
+
+- Repo: github.com/pork0817/ntou-walk (branch `main`). GitHub Pages serves `main` at https://pork0817.github.io/ntou-walk/.
+- The owner asked for auto-push: after each finished, tested change, rebuild `index.html`, make sure the test hook is gone
+  (`grep -c window.DBG index.html` is 0), commit with a short description and push `main`. Never push work in progress.
+- `.gitignore` keeps out `.claude/` (local preview config and test hook), `docs/school-map.jpg` (the school's artwork) and
+  any Street View screenshots (reference only, never published).
+
 ## Phones (body.touch)
 
 - Compact HUD: small minimap with 地圖 / 選單 only (time controls live in the pause menu for everyone), no hint bar.
