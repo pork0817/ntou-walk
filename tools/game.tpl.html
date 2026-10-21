@@ -1110,7 +1110,7 @@ function buildRoadside(){
   const scootAt=x=>SCOOT.some(([a,b])=>x>a&&x<b);
   const lotAt=(x,nz)=>x>392&&x<440&&nz>0;              // open scooter lot south of the kerb (Street View, 213° at x≈407)
   const M=new THREE.Matrix4(),Q=new THREE.Quaternion(),Yv=new THREE.Vector3(0,1,0),V=new THREE.Vector3(),Sv=new THREE.Vector3(),col=new THREE.Color();
-  const solid=(x,z,r,top)=>{const o={kind:'circle',x,z,r,top};gridAdd(o,x-r-1,z-r-1,x+r+1,z+r+1);};
+  const solid=(x,z,r,top,mat)=>{const o={kind:'circle',x,z,r,top,mat};gridAdd(o,x-r-1,z-r-1,x+r+1,z+r+1);};
 
   /* walls and hedges: 1 m pieces along the outer edge of the sidewalk */
   const ochre=[],brick=[],rail=[],hedge=[];
@@ -1126,7 +1126,7 @@ function buildRoadside(){
     else{brick.push([wx,wz,a,y]);rail.push([wx,wz,a,y]);solid(wx,wz,0.2,y+1.35);}
     if(k==='sea'&&cx>-25)return;                     // terraces start right behind the planter here
     const [hx,hz]=at(W+SW+0.15+back+0.9);
-    if(free(hx,hz,0.4)&&!joins(hx,hz,1)&&ground(hx,hz)>0.8){hedge.push([hx,hz,a,ground(hx,hz),k]);solid(hx,hz,0.45,ground(hx,hz)+1.5);}
+    if(free(hx,hz,0.4)&&!joins(hx,hz,1)&&ground(hx,hz)>0.8){hedge.push([hx,hz,a,ground(hx,hz),k]);solid(hx,hz,0.45,ground(hx,hz)+1.5,'bush');}
   });
   const inst=(geo,mat,list,place,cast=true)=>{if(!list.length)return null;const m=new THREE.InstancedMesh(geo,mat,list.length);
     list.forEach((it,i)=>{place(it,i);m.setMatrixAt(i,M);});m.castShadow=cast;m.receiveShadow=true;scene.add(m);return m;};
@@ -1154,7 +1154,7 @@ function buildRoadside(){
     if(cx<-440)return;const k=kindAt(cx,cz,nx,nz);if(k==='town')return;
     const j=(rnd()-0.5)*2.5;const [x0,z0]=at(W+0.75);const x=x0+tx*j,z=z0+tz*j;
     if(!inMap(x,z)||ground(x,z)<0.8||joins(x,z,1)||nearXing(x,z,5)||!free(x,z,0.9))return;
-    palms.push([x,z,ground(x,z)+0.15,0.85+rnd()*0.4,rnd()*TAU,(rnd()-0.5)*0.12,(rnd()-0.5)*0.12]);solid(x,z,0.25,99);
+    palms.push([x,z,ground(x,z)+0.15,0.85+rnd()*0.4,rnd()*TAU,(rnd()-0.5)*0.12,(rnd()-0.5)*0.12]);solid(x,z,0.25,99,'tree');
   });
   if(palms.length){
     const N=palms.length;
@@ -1188,7 +1188,7 @@ function buildRoadside(){
     if(!scootAt(cx)||kindAt(cx,cz,nx,nz)!=='campus')return;
     for(const off of lotAt(cx,nz)?[1.1,3.4,6.2,8.5]:[1.1]){const [x,z]=at(W+SW+off);
       if(!inMap(x,z)||ground(x,z)<0.8||joins(x,z,1)||nearXing(x,z,6)||!free(x,z,0.35)||rnd()<0.12)continue;
-      scoots.push([x,z,Math.atan2(nx,nz)*(1)+(off>3&&off<7?Math.PI:0)+(rnd()-0.5)*0.25,ground(x,z)]);solid(x,z,0.45,ground(x,z)+1.1);}
+      scoots.push([x,z,Math.atan2(nx,nz)*(1)+(off>3&&off<7?Math.PI:0)+(rnd()-0.5)*0.25,ground(x,z)]);solid(x,z,0.45,ground(x,z)+1.1,'scooter');}
   });
   if(scoots.length){
     const cols=[0xf4f4f2,0x2b2f36,0xd8463c,0x8fb3c8,0xf2c230,0x7fd1c4,0x9aa2a8,0x2b2f36];
@@ -1542,13 +1542,14 @@ function driveStep(dt,ix,iy){
   const yawRate=flying?0:s/sp.wb*Math.tan(DRIVE.steer),h=DRIVE.heading+yawRate*dt;
   const nx=v.x+Math.sin(h)*s*dt,nz=v.z+Math.cos(h)*s*dt;
   const stuck=vehBlocked(v,v.x,v.z,DRIVE.heading);
-  const s0=s;let hit=Math.abs(s)>0.01?vehBlocked(v,nx,nz,h):null,crashed=false;
+  const s0=s;LASTSOLID=null;let hit=Math.abs(s)>0.01?vehBlocked(v,nx,nz,h):null,crashed=false;const hitSolid=LASTSOLID;
   if(hit&&(hit.veh||hit.stu)){                        // a vehicle or a person: share momentum (see crash())
     DRIVE.speed=s;const o=hit.veh||hit.stu;const go=crash(v,o,!!hit.stu);s=DRIVE.speed;crashed=o.noHitT>DRIVE.t;if(go)hit=null;}
   // after a crash, move at the new speed
   if(!hit||stuck){const f=s0?s/s0:1;settleDriven(v,v.x+(nx-v.x)*f,v.z+(nz-v.z)*f,h,dt,yawRate);DRIVE.heading=h;}
   else if(!crashed){                                  // walls, poles, trees: bounce back a little
     if(Math.abs(s)>6)say(v,pick(['碰！','哎呀！','叩！']),1.2);
+    if(Math.abs(s)>1.2)impactSound(hit==='edge'?'curb':solidMat(hitSolid),Math.abs(s),nx,nz);
     s=Math.abs(s)>1.5?-s*0.3:0;}
   if(hit&&!stuck)settleDriven(v,v.x,v.z,DRIVE.heading,dt,0);   // stopped by something: the body still settles/falls
   DRIVE.speed=s;
@@ -1609,6 +1610,7 @@ function crash(A,o,isStu){
   const vAx=hx*DRIVE.speed,vAz=hz*DRIVE.speed,[vBx,vBz]=velOf(o,isStu);
   const closing=(vAx-vBx)*nx+(vAz-vBz)*nz;
   if(closing<0.3)return false;                                  // just touching: treat as an obstacle
+  if(closing>1)impactSound(isStu?'person':vehKind(o),closing,(A.x+o.x)/2,(A.z+o.z)/2);
   const J=1.15*closing/(1/mA+1/mB);                             // restitution 0.15: a crash, not a bounce
   const dA=J/mA,dB=J/mB;
   DRIVE.speed=(vAx-dA*nx)*hx+(vAz-dA*nz)*hz;
@@ -1896,7 +1898,7 @@ function fountainAt(x,z,r){
 function signpost(x,z){const y=ground(x,z);
   const post=shade(new THREE.Mesh(new THREE.BoxGeometry(0.25,2.4,0.25),toon(0x8a5a3b)));post.position.set(x,y+1.2,z);scene.add(post);
   const board=shade(new THREE.Mesh(new THREE.BoxGeometry(2.6,1.2,0.18),toon(0xb07a4f)));board.position.set(x,y+2.3,z);scene.add(board);
-  const o={kind:'circle',x,z,r:0.4,top:y+3};gridAdd(o,x-1,z-1,x+1,z+1);}
+  const o={kind:'circle',x,z,r:0.4,top:y+3,mat:'tree'};gridAdd(o,x-1,z-1,x+1,z+1);}
 function makeSmallBoat(c){const b=new THREE.Group();
   const hull=shade(new THREE.Mesh(new THREE.BoxGeometry(2.2,0.9,6),toon(c)));b.add(hull);
   const bow=shade(new THREE.Mesh(new THREE.ConeGeometry(1.1,2,4),toon(c)));bow.rotation.x=Math.PI/2;bow.rotation.y=Math.PI/4;bow.position.set(0,0,4);b.add(bow);
@@ -1955,8 +1957,8 @@ function busStop(s){
   scene.add(g);
   // shelter body is solid; the open front can be walked up to
   const bx2=x+Math.sin(rot)*0.9,bz2=z+Math.cos(rot)*0.9;
-  const o={kind:'circle',x:bx2,z:bz2,r:1.0,top:y+3};gridAdd(o,bx2-3,bz2-3,bx2+3,bz2+3);
-  for(const k of [-2,2]){const ex=bx2+Math.cos(rot)*k,ez=bz2-Math.sin(rot)*k;const o2={kind:'circle',x:ex,z:ez,r:0.6,top:y+3};gridAdd(o2,ex-1,ez-1,ex+1,ez+1);}
+  const o={kind:'circle',x:bx2,z:bz2,r:1.0,top:y+3,mat:'glass'};gridAdd(o,bx2-3,bz2-3,bx2+3,bz2+3);
+  for(const k of [-2,2]){const ex=bx2+Math.cos(rot)*k,ez=bz2-Math.sin(rot)*k;const o2={kind:'circle',x:ex,z:ez,r:0.6,top:y+3,mat:'glass'};gridAdd(o2,ex-1,ez-1,ex+1,ez+1);}
   BUS_SHELTERS.push({x,z,zh:s.zh});
   if(!spots.some(q=>q.id==='bus'+s.zh))spots.push({id:'bus'+s.zh,no:0,zh:s.zh,en:'Bus stop',zone:'n',x,z,r:9,kind:'s'});
 }
@@ -2117,7 +2119,7 @@ function trees(){
     M.compose(new THREE.Vector3(x,ly,z),q,new THREE.Vector3(s,sy,s));leaf.setMatrixAt(i,M);
     M.compose(new THREE.Vector3(x,ly,z),q,new THREE.Vector3(s*1.07,sy*1.07,s*1.07));leafO.setMatrixAt(i,M);
     leaf.setColorAt(i,col.setHex(greens[(r*greens.length)|0]));
-    const o={kind:'circle',x,z,r:0.5*s,top:y+4};gridAdd(o,x-1,z-1,x+1,z+1);
+    const o={kind:'circle',x,z,r:0.5*s,top:y+4,mat:'tree'};gridAdd(o,x-1,z-1,x+1,z+1);
   });
   trunk.castShadow=leaf.castShadow=true;leaf.receiveShadow=true;scene.add(trunk,leaf,leafO);
 }
@@ -2482,12 +2484,13 @@ function startPlay(){
 
 /* ---------- movement ---------- */
 let R=0.5;
+let LASTSOLID=null;   // what the most recent hitsSolid() hit (impact sounds read it)
 function hitsSolid(x,z,y){
   for(const o of cell(x,z)){
     if(y>=o.top-0.05)continue;
     if(o.step&&y>=o.top-0.5)continue;
-    if(o.kind==='poly'){if(x<o.x0-R||x>o.x1+R||z<o.z0-R||z>o.z1+R)continue;if(pip(o.p,x,z)||polyEdgeDist(o.p,x,z)<R)return o;}
-    else if(Math.hypot(o.x-x,o.z-z)<o.r+R)return o;}
+    if(o.kind==='poly'){if(x<o.x0-R||x>o.x1+R||z<o.z0-R||z>o.z1+R)continue;if(pip(o.p,x,z)||polyEdgeDist(o.p,x,z)<R)return LASTSOLID=o;}
+    else if(Math.hypot(o.x-x,o.z-z)<o.r+R)return LASTSOLID=o;}
   return null;}
 function blocked(x,z,y,step){
   if(x<BX0||x>BX1||z<BZ0||z>BZ1)return true;
@@ -2670,13 +2673,14 @@ function rideStep(dt,mag,dx,dz,run,ix,iy){
   const step=BK.speed*dt,dir=step<0?-1:1;
   const nx=P.x+hx*step,nz=P.z+hz*step;
   if(step!==0){
-    if(!bikeBlocked(nx,nz,hx,hz,dir,Math.abs(step))){P.x=nx;P.z=nz;}
+    LASTSOLID=null;if(!bikeBlocked(nx,nz,hx,hz,dir,Math.abs(step))){P.x=nx;P.z=nz;}
     else{
       // bounce: reflect the velocity off the surface; the part along the frame becomes the new (possibly backwards) speed,
       // the sideways part becomes a short shove, and a glancing hit turns the bike along the wall
       const n=awayNormal(nx,nz,P.y,0.9)||[-hx*dir,-hz*dir];
       const vx=hx*BK.speed,vz=hz*BK.speed,vn=vx*n[0]+vz*n[1];
       if(vn<0){
+        if(Math.abs(vn)>1.5){const hv=hitsVehicle(nx+hx*0.9*dir,nz+hz*0.9*dir,0.6,P.y+0.5);impactSound(hv?vehKind(hv):solidMat(LASTSOLID),Math.abs(vn)*0.7,nx,nz);}
         const e=Math.abs(vn)>3?0.35:0.15,fr=0.85;
         const tx=(vx-vn*n[0])*fr,tz=(vz-vn*n[1])*fr;              // tangential part, a little friction
         const rx=tx-e*vn*n[0],rz=tz-e*vn*n[1];                    // reflected velocity
@@ -3590,6 +3594,7 @@ function audioInit(){
   for(let i=0;i<n;i++){last=(last+0.02*(Math.random()*2-1))/1.02;d[i]=last*3.5;}
   const bed=(type,f,q,g)=>{const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;s.loopStart=Math.random()*3;const fl=ctx.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;
     const gn=ctx.createGain();gn.gain.value=g;s.connect(fl);fl.connect(gn);gn.connect(M);s.start(0,Math.random()*3);return gn;};
+  {const w=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate),wd=w.getChannelData(0);for(let i=0;i<wd.length;i++)wd[i]=Math.random()*2-1;SND.white=w;}
   SND.sea=bed('lowpass',420,0.4,0);SND.wind=bed('bandpass',800,0.5,0);SND.tyre=bed('lowpass',380,0.6,0);
   // motor voices: a soft sine pair per vehicle, panned
   const voice=()=>{const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain(),g2=ctx.createGain(),p=ctx.createStereoPanner?ctx.createStereoPanner():null;
@@ -3633,20 +3638,61 @@ function updateAudio(dt){
   // electric traffic: the three nearest moving vehicles get a motor voice; all of them add tyre hiss
   const near=[];let hiss=0;
   for(const v of VEH.list.concat(PARKED)){if(v===DRIVE.v||!v.g)continue;const sp=Math.abs(v.v||0);if(sp<0.5)continue;
-    const d=Math.hypot(v.x-cx,v.z-cz);if(d>80)continue;const k=Math.min(1,sp/14)/(1+(d/10)**2);hiss+=k;near.push({v,d,sp,k});}
+    const d=Math.hypot(v.x-cx,v.z-cz);if(d>100)continue;const k=Math.min(1,sp/14)/(1+(d/15)**2);hiss+=k;near.push({v,d,sp,k});}
   near.sort((a,b)=>b.k-a.k);
   SND.voices.forEach((vo,i)=>{const n=near[i];
     if(!n){ramp(vo.g.gain,0,0.3);return;}
     const base=n.v.type==='bus'||n.v.type==='truck'?95:n.v.type==='scooter'?260:150;
     ramp(vo.o.frequency,base+n.sp*14,0.2);ramp(vo.o2.frequency,(base+n.sp*14)*2.01,0.2);
-    ramp(vo.g.gain,Math.min(0.03,0.035*n.k),0.2);if(vo.p)ramp(vo.p.pan,panOf(n.v.x,n.v.z),0.15);});
+    ramp(vo.g.gain,Math.min(0.075,0.09*n.k),0.2);if(vo.p)ramp(vo.p.pan,panOf(n.v.x,n.v.z),0.15);});
   // your own vehicle: a gentle hum that rises with speed
   const own=SND.own,dv=DRIVE.v;
   if(dv){const sp=Math.abs(DRIVE.speed),base=dv.type==='bus'||dv.type==='truck'?90:dv.type==='scooter'?240:140;
-    ramp(own.o.frequency,base+sp*16,0.15);ramp(own.o2.frequency,(base+sp*16)*2.01,0.15);ramp(own.g.gain,0.008+Math.min(0.03,sp*0.0018),0.2);hiss+=Math.min(1,sp/14)*0.6;}
+    ramp(own.o.frequency,base+sp*16,0.15);ramp(own.o2.frequency,(base+sp*16)*2.01,0.15);ramp(own.g.gain,0.014+Math.min(0.05,sp*0.003),0.2);hiss+=Math.min(1,sp/14)*0.6;}
   else ramp(own.g.gain,0,0.3);
-  ramp(SND.tyre.gain,Math.min(0.12,hiss*0.09),0.3);
+  ramp(SND.tyre.gain,Math.min(0.22,hiss*0.17),0.3);
 }
+// ---- impacts: what you hit decides the sound; how hard (m/s) decides how loud and how much crunch ----
+// solids carry a material (`mat`) where they're made; untagged thin tall posts are poles, everything else is wall/concrete
+function solidMat(o){if(!o)return 'curb';if(o.mat)return o.mat;if(o.kind==='poly')return 'wall';return o.top>=90&&o.r<=0.3?'pole':'wall';}
+function noiseHit(t,dur,type,f,q,vol,out,attack=0.004){const c=SND.ctx,s=c.createBufferSource();s.buffer=SND.white;s.playbackRate.value=0.8+Math.random()*0.4;
+  const fl=c.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=c.createGain();
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(fl);fl.connect(g);g.connect(out);s.start(t,Math.random()*2);s.stop(t+dur+0.05);}
+function toneHit(t,f0,f1,dur,vol,out,type='sine'){const c=SND.ctx,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+0.005);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(out);o.start(t);o.stop(t+dur+0.05);}
+const lastImpact={};
+function impactSound(kind,speed,x,z){
+  const c=SND.ctx;if(!c||!soundOn()||mode==='pause')return;
+  const now=c.currentTime;if(lastImpact[kind]&&now-lastImpact[kind]<0.18)return;lastImpact[kind]=now;   // one sound per bump, not per frame
+  const d=Math.hypot(x-camera.position.x,z-camera.position.z),k=Math.min(1,Math.max(0.15,speed/12))*Math.max(0,1-d/90);if(k<=0.02)return;
+  let out=SND.master;if(c.createStereoPanner){const p=c.createStereoPanner();p.pan.value=panOf(x,z)*0.7;p.connect(SND.master);out=p;}
+  const t=now+0.005,hard=speed>8;
+  switch(kind){
+    case 'wall':                                         // concrete / buildings: a deep thud, crunch when fast
+      toneHit(t,85,45,0.35,0.5*k,out);noiseHit(t,0.3,'lowpass',380,0.7,0.6*k,out);if(hard)noiseHit(t,0.25,'bandpass',1600,1.2,0.25*k,out);break;
+    case 'tree':                                         // a woody knock, then the leaves shiver
+      toneHit(t,210,130,0.16,0.35*k,out,'triangle');noiseHit(t,0.12,'bandpass',700,2,0.35*k,out);noiseHit(t+0.05,0.9,'highpass',3200,0.5,0.12*k,out,0.08);break;
+    case 'pole':                                         // metal: a short inharmonic clang
+      for(const [f,v,dur] of [[540,0.22,0.9],[1290,0.14,0.6],[1960,0.09,0.4],[2830,0.05,0.25]])toneHit(t,f,f*0.995,dur,v*k,out);noiseHit(t,0.05,'highpass',2500,0.7,0.2*k,out);break;
+    case 'bush':                                         // hedges: a soft rustle
+      noiseHit(t,0.55,'bandpass',2200,0.6,0.25*k,out,0.03);toneHit(t,120,80,0.12,0.12*k,out);break;
+    case 'glass':                                        // the bus shelter: a thump and a few tinkles
+      toneHit(t,140,80,0.2,0.25*k,out);for(let i=0;i<4;i++){const f=2600+Math.random()*2600;toneHit(t+0.02+i*0.035,f,f,0.35,0.06*k,out);}break;
+    case 'curb':                                         // kerb or a steep bank: a low bump
+      toneHit(t,70,40,0.22,0.35*k,out);noiseHit(t,0.15,'lowpass',250,0.7,0.35*k,out);break;
+    case 'car':                                          // body panels: crunch over a thud
+      toneHit(t,95,50,0.3,0.45*k,out);noiseHit(t,0.35,'bandpass',900,0.9,0.5*k,out);noiseHit(t+0.03,0.2,'bandpass',2600,1.5,0.18*k,out);break;
+    case 'bus':                                          // big and heavy: a low boom and a hollow ring
+      toneHit(t,60,35,0.6,0.6*k,out);noiseHit(t,0.45,'lowpass',500,0.7,0.5*k,out);toneHit(t,310,300,0.7,0.08*k,out,'triangle');break;
+    case 'scooter':                                      // light plastic and metal: clatter, then it scrapes away
+      noiseHit(t,0.12,'bandpass',1400,1.5,0.35*k,out);toneHit(t,700,640,0.3,0.08*k,out);toneHit(t+0.06,1150,1100,0.25,0.05*k,out);
+      if(hard)noiseHit(t+0.08,0.8,'bandpass',3000,0.8,0.12*k,out,0.05);break;
+    case 'person':                                       // muffled and soft — no gore
+      toneHit(t,120,70,0.18,0.3*k,out);noiseHit(t,0.14,'lowpass',300,0.6,0.3*k,out);break;
+  }
+}
+function vehKind(o){return o.type==='bus'||o.type==='truck'?'bus':o.type==='scooter'?'scooter':'car';}
 // the first tap or key anywhere starts the audio (and the title toggle / menus can too)
 for(const ev of ['pointerdown','keydown','touchend'])addEventListener(ev,()=>{if(soundOn())audioInit();},{passive:true});
 function refreshSoundBtn(){const b=$('#tSound');if(!b)return;const on=soundOn();b.setAttribute('aria-pressed',String(on));b.innerHTML=on?'<b>聲音 開</b><span>Sound on</span>':'<b>聲音 關</b><span>Sound off</span>';}

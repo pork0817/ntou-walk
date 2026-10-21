@@ -188,6 +188,13 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   type and speed, distance-attenuated, panned by the camera's right vector); your own vehicle hums with speed. Birds
   (short chirp trills) by day 05:30–18:30, crickets (4.6 kHz trilled at 32 Hz, gated chirps) at night. Soft two-tone
   horns (yours, H / 喇叭, and traffic honking at you), a door chime when the intro bus stops.
+- Traffic was raised after the user found it too quiet (voice cap 0.075, falloff 1/(1+(d/15)²) out to 100 m, tyre hiss
+  up to 0.22). Crashes (`impactSound(kind,speed,x,z)`, debounced per kind, loudness by impact speed and distance) have
+  a sound per thing hit: wall/concrete thud (+crunch when fast), tree knock + leaf shiver, pole metal clang, hedge
+  rustle, bus-shelter glass tinkle, kerb/bank bump, car crunch, bus/truck boom, scooter plastic clatter + scrape, a soft
+  muffled thump for people. Solids carry `mat` where they're created (palms/trees 'tree', hedges 'bush', scooter rows
+  'scooter', shelters 'glass'); `solidMat` falls back to 'pole' (thin, tall) or 'wall'. `hitsSolid` records LASTSOLID.
+  Driving uses it for walls/trees/poles and crash() for vehicles/people; the bicycle's bounce uses it too (softer).
 - `SET.sound` on/off: 聲音 toggle top-right of the title screen and a row in Settings. Audio starts on the first tap/key
   (browser rule), master fades to 0 in the pause menu, after Quit and when the tab is hidden. The clock option was removed
   (user request); the game clock is always real Taiwan time plus the offset.
