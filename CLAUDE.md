@@ -156,7 +156,7 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 - Intro (`INTRO`, `startIntro`, `updateIntro`, `endIntro`, `setupArrival`, `introBus`; mode 'intro'): after 開始探索 in a new
   game, ~24 s letterboxed film, narrated (browser speechSynthesis, zh-TW voice if present) with subtitles: aerial welcome
   (歡迎來到國立臺灣海洋大學) → a scripted bus brakes evenly into 海大(濱海校門) on the gate (south) side of 北寧路, watched from
-  the gutter (下一站，海大，濱海校門) → you step out of its rear door onto the kerb edge (歡迎來到海大！) in an over-the-shoulder
+  the gutter (下一站，海大，濱海校門) → you step out of its rear door onto the kerb edge (door chime) in an over-the-shoulder
   shot → the camera pulls back into the play camera and the bus pulls away. Play starts exactly there, facing the gate.
   `setupArrival` (after `buildChains`) sets START (+ `rot`, `yaw`) in road terms (along the bus chain / lateral from the
   centre line), picks a standing spot and camera angle with a clear view (`clearView`: no tall trunk/pole near the line;
@@ -168,7 +168,7 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   age and progress), 新遊戲 New Game (confirms before clearing a save, then character choice) and 設定 Settings. Esc or the
   選單 Menu button pauses the world and opens Resume / Settings / Back to title (save + reload) / Quit (save, try window.close,
   else a goodbye screen). Settings live in localStorage `ntou-walk-settings` (`SET`): graphics quality (pixel ratio, shadows),
-  traffic and crowd multipliers (`VEH.base`, `STU.base`), clock (Taiwan real time or a fixed 10:00 start),
+  traffic and crowd multipliers (`VEH.base`, `STU.base`), sound on/off,
   camera sensitivity.
 - Emotes: 1 揮手, 2 歡呼, 3 鞠躬, 4 跳舞, 5 坐下 (mobile: 表情 button).
 
@@ -179,6 +179,18 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   (`grep -c window.DBG index.html` is 0), commit with a short description and push `main`. Never push work in progress.
 - `.gitignore` keeps out `.claude/` (local preview config and test hook), `docs/school-map.jpg` (the school's artwork) and
   any Street View screenshots (reference only, never published).
+
+## Sound (`SND`, `audioInit`, `updateAudio`)
+
+- Relaxing game: everything soft and synthesised with Web Audio, no files. One looped brown-noise buffer feeds a sea bed
+  (low-pass, slow swell, louder the more water is within ~45/110 m), a faint breeze (band-pass) and tyre hiss (sum over
+  moving vehicles). Traffic is electric: the 3 most audible moving vehicles get a sine+triangle motor whine (pitch by
+  type and speed, distance-attenuated, panned by the camera's right vector); your own vehicle hums with speed. Birds
+  (short chirp trills) by day 05:30–18:30, crickets (4.6 kHz trilled at 32 Hz, gated chirps) at night. Soft two-tone
+  horns (yours, H / 喇叭, and traffic honking at you), a door chime when the intro bus stops.
+- `SET.sound` on/off: 聲音 toggle top-right of the title screen and a row in Settings. Audio starts on the first tap/key
+  (browser rule), master fades to 0 in the pause menu, after Quit and when the tab is hidden. The clock option was removed
+  (user request); the game clock is always real Taiwan time plus the offset.
 
 ## Phones (body.touch)
 

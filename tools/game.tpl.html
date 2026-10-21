@@ -75,6 +75,9 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 #pick h2 span,.mCard h2 span{font:700 .85rem/1 var(--display);color:var(--muted);text-shadow:none;margin-left:6px}
 #pick p{margin:0;font:600 .9rem/1.4 var(--body);color:var(--muted);text-align:center}
 .screen{position:fixed;inset:0;display:flex;align-items:center;padding:24px max(24px,env(safe-area-inset-left,0px));background:linear-gradient(90deg,rgba(11,28,44,.92) 0%,rgba(11,28,44,.78) 45%,rgba(11,28,44,.25) 75%,rgba(11,28,44,0) 92%);z-index:10}
+#tSound{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));display:flex;gap:6px;align-items:baseline;background:var(--navy);color:var(--paper)}
+#tSound span{font:700 .72rem/1 var(--display);color:var(--muted)}
+#tSound[aria-pressed="false"]{opacity:.75}
 .tCard{display:flex;flex-direction:column;gap:14px;max-width:440px;margin-left:clamp(0px,5vw,72px)}
 .tCard.center{margin:0 auto;align-items:center;text-align:center}
 #bye{background:rgba(11,28,44,.9)}
@@ -242,6 +245,7 @@ body.touch #toast b{font-size:1rem}
 
 <!-- title screen: live aerial fly-around of the campus behind the menu -->
 <div id="title" class="screen">
+  <button class="btn" id="tSound" type="button" aria-pressed="true"><b>聲音 開</b><span>Sound on</span></button>
   <div class="tCard">
     <h1>海大<em>漫遊</em></h1>
     <p class="tSub">NTOU Walk · 國立臺灣海洋大學 校本部 · 基隆市北寧路2號</p>
@@ -299,7 +303,7 @@ body.touch #toast b{font-size:1rem}
     <div class="sRow"><label>畫質 <span>Graphics</span></label><div class="seg" data-key="quality"><button type="button" data-v="low">低</button><button type="button" data-v="mid">中</button><button type="button" data-v="high">高</button></div></div>
     <div class="sRow"><label>車流量 <span>Traffic</span></label><div class="seg" data-key="traffic"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
     <div class="sRow"><label>人潮 <span>Crowd</span></label><div class="seg" data-key="crowd"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
-    <div class="sRow"><label>時鐘 <span>Clock</span></label><div class="seg" data-key="clock"><button type="button" data-v="real">台灣即時</button><button type="button" data-v="day">從 10:00 開始</button></div></div>
+    <div class="sRow"><label>聲音 <span>Sound</span></label><div class="seg" data-key="sound"><button type="button" data-v="on">開</button><button type="button" data-v="off">關</button></div></div>
     <div class="sRow"><label for="sSens">視角靈敏度 <span>Camera</span></label><input id="sSens" type="range" min="0.4" max="2" step="0.1"><output id="sSensV"></output></div>
     <button class="btn mDone" id="setDone" type="button">完成 Done</button>
   </div>
@@ -345,7 +349,7 @@ const isTouch=matchMedia('(pointer:coarse)').matches||('ontouchstart' in window)
 // player settings, kept in this browser
 document.body.classList.toggle('touch',isTouch);
 const SET_KEY='ntou-walk-settings';
-const SET=Object.assign({quality:isTouch?'mid':'high',traffic:'1',crowd:'1',clock:'real',sens:1},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}')||{};}catch(e){return {};}})());
+const SET=Object.assign({quality:isTouch?'mid':'high',traffic:'1',crowd:'1',sound:'on',sens:1},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}')||{};}catch(e){return {};}})());
 const D=JSON.parse(document.getElementById('campus-data').textContent);
 
 /* ---------- terrain grid (heights in decimeters, 4 m cells) ---------- */
@@ -2204,7 +2208,7 @@ addEventListener('keydown',e=>{if(mode!=='play')return;keys[e.code]=true;
   if(e.code==='KeyM')toggleMap();
   if(e.code==='KeyF'){if(!toggleDrive()&&!DRIVE.v)toggleBike();}
   if(e.code==='KeyE'&&!DRIVE.v)toggleBike();
-  if(e.code==='KeyH'&&DRIVE.v)say(DRIVE.v,pick(['叭叭！','叭——！','嗶嗶！']),1.2);
+  if(e.code==='KeyH'&&DRIVE.v){say(DRIVE.v,pick(['叭叭！','叭——！','嗶嗶！']),1.2);hornSound(DRIVE.v.x,DRIVE.v.z);}
   if(e.code==='KeyR')toggleRide();
   if(e.code==='KeyG'&&DRIVE.v)toggleHazard(DRIVE.v);
   const em=EMOTES.find(q=>q.key===e.code);if(em)startEmote(em.k);
@@ -2243,7 +2247,7 @@ $('#rideBtn').addEventListener('click',()=>toggleRide());
 // while driving, the jump button is the handbrake
 $('#jumpBtn').addEventListener('pointerdown',()=>{if(DRIVE.v)DRIVE.hand=true;});
 for(const ev of ['pointerup','pointercancel','pointerleave'])$('#jumpBtn').addEventListener(ev,()=>{DRIVE.hand=false;});
-$('#emoteBtn').addEventListener('click',()=>{if(DRIVE.v){say(DRIVE.v,pick(['叭叭！','叭——！','嗶嗶！']),1.2);return;}const b=$('#emoteBar');b.hidden=!b.hidden;});
+$('#emoteBtn').addEventListener('click',()=>{if(DRIVE.v){say(DRIVE.v,pick(['叭叭！','叭——！','嗶嗶！']),1.2);hornSound(DRIVE.v.x,DRIVE.v.z);return;}const b=$('#emoteBar');b.hidden=!b.hidden;});
 function buildEmoteBar(){const bar=$('#emoteBar');for(const e of EMOTES){const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=e.zh;b.addEventListener('click',()=>startEmote(e.k));bar.appendChild(b);}}
 $('#tMinus').addEventListener('click',()=>shiftClock(-1));$('#tPlus').addEventListener('click',()=>shiftClock(1));
 $('#tFast').addEventListener('click',toggleFast);$('#tNow').addEventListener('click',resetClock);
@@ -2292,11 +2296,11 @@ const show=(id,on)=>{$(id).hidden=!on;};
 let modalBack=null;                                     // where Done / Cancel return focus to
 // intro after a new game: an aerial welcome, then the bus pulls in at 海大(濱海校門), you step off onto the sidewalk and the
 // camera settles behind you; play starts right there, with your bicycle parked beside the stop. A narrator speaks the
-// captions (browser speech, zh-TW) and they show as subtitles.
+// bus announcement (browser speech, zh-TW) and captions show as subtitles.
 const INTRO=[
-  {id:'air',dur:7,t:'國立臺灣海洋大學',b:'依山面海的海大校本部，就在基隆北寧路上。',say:'歡迎來到國立臺灣海洋大學。'},
+  {id:'air',dur:7,t:'國立臺灣海洋大學',b:'依山面海的海大校本部，就在基隆北寧路上。',say:''},
   {id:'bus',dur:7.5,t:'公車進站',b:'下一站，海大，濱海校門。',say:'下一站，海大，濱海校門。'},
-  {id:'off',dur:6.5,t:'歡迎來到海大！',b:'你的腳踏車就停在站牌旁邊。騎上它，開始探索整個校園吧。',say:'歡迎來到海大！你的腳踏車就停在旁邊，開始你的海大漫遊吧。'},
+  {id:'off',dur:6.5,t:'歡迎來到海大！',b:'你的腳踏車就停在站牌旁邊。騎上它，開始探索整個校園吧。',say:'',chime:true},
   {id:'go',dur:3.5,t:'',b:'',say:''}];
 const IN={t:0,i:-1,total:0,bus:null};
 // the arrival: the 海大(濱海校門) stop on the gate side of 北寧路. Everything is laid out in road terms: along (m on the bus
@@ -2347,7 +2351,7 @@ function introBus(){
   ARR.lane.veh.push(v);VEH.list.push(v);placeVehicle(v);return v;
 }
 function narrate(text){
-  try{if(!window.speechSynthesis||!text)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=0.95;
+  try{if(!window.speechSynthesis||!text||!soundOn())return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=0.95;
     const vs=speechSynthesis.getVoices();u.voice=vs.find(v=>/zh[-_]TW/i.test(v.lang))||vs.find(v=>/^zh/i.test(v.lang))||null;speechSynthesis.speak(u);}catch(e){}
 }
 function startIntro(){
@@ -2366,7 +2370,7 @@ function updateIntro(dt){
   if(i!==IN.i){IN.i=i;const cap=$('#introCap');cap.classList.remove('on');
     $('#icStep').textContent=sh.t?'NTOU WALK':'';$('#icT').textContent=sh.t;$('#icB').textContent=sh.b;
     [...$('#icDots').children].forEach((d,j)=>d.classList.toggle('on',j===i));
-    if(sh.t)setTimeout(()=>cap.classList.add('on'),250);narrate(sh.say);}
+    if(sh.t)setTimeout(()=>cap.classList.add('on'),250);narrate(sh.say);if(sh.chime)chime();}
   // fades: in at the start of the film, a quick dip between the aerial and the street, none into play
   const fade=i===0?Math.max(t<0.6?1-t/0.6:0,t>sh.dur-0.5?(t-(sh.dur-0.5))/0.5:0):i===1&&t<0.5?1-t/0.5:0;
   $('#introFade').style.transition='none';$('#introFade').style.opacity=fade;
@@ -2426,7 +2430,7 @@ $('#go').addEventListener('click',()=>{phoneFullscreen();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
   found.clear();show('#pick',false);startNewDay();startPlay();startIntro();});
 // a new game always begins at 09:00, then the clock runs on from there
-function startNewDay(){resetClock();const base=SET.clock==='day'?10:realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
+function startNewDay(){resetClock();const base=realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
 // settings
 function applySettings(first){
   const pr={low:1,mid:Math.min(devicePixelRatio||1,1.25),high:Math.min(devicePixelRatio||1,isTouch?1.5:2)}[SET.quality]||1;
@@ -2435,6 +2439,7 @@ function applySettings(first){
   resize();
   VEH.max=Math.round(VEH.base*+SET.traffic);STU.max=Math.round(STU.base*+SET.crowd);
   for(const seg of document.querySelectorAll('.seg'))for(const b of seg.children)b.setAttribute('aria-pressed',String(SET[seg.dataset.key])===b.dataset.v);
+  refreshSoundBtn();if(!first&&soundOn())audioInit();
   $('#sSens').value=SET.sens;$('#sSensV').textContent='×'+(+SET.sens).toFixed(1);
 }
 const saveSettings=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET));}catch(e){}};
@@ -2787,7 +2792,7 @@ function toggleMap(){const m=$('#map');m.hidden=!m.hidden;if(!m.hidden){drawBigM
 /* ---------- clock: Taiwan time, with an hour offset and a ×60 fast-forward ---------- */
 const CLOCK={offset:0,fast:false,acc:0};
 function realSecTaipei(){const d=new Date();return ((d.getUTCHours()+8)%24)*3600+d.getUTCMinutes()*60+d.getUTCSeconds()+d.getUTCMilliseconds()/1000;}
-function gameSec(){let s=((SET.clock==='day'?10*3600:realSecTaipei())+CLOCK.offset*3600+CLOCK.acc)%86400;if(s<0)s+=86400;return s;}
+function gameSec(){let s=(realSecTaipei()+CLOCK.offset*3600+CLOCK.acc)%86400;if(s<0)s+=86400;return s;}
 function gameHour(){return gameSec()/3600;}
 // relative traffic and crowd level by hour 0–23: morning rush 7–9, the big one 16–19, almost nothing after midnight
 const TRAFFIC=[0.06,0.04,0.03,0.03,0.05,0.12,0.35,0.8,0.95,0.6,0.5,0.55,0.65,0.55,0.5,0.6,0.95,1.0,0.9,0.55,0.4,0.3,0.2,0.1];
@@ -3128,7 +3133,7 @@ function updateVehicles(dt){
       if(v.shift){const m=Math.min(Math.abs(v.shift),1.4*dt);v.shift-=Math.sign(v.shift)*m;}   // drifting across into the new lane
       placeVehicle(v);
       // honk at a player standing in the road
-      if(v.blockedByPlayer&&v.v<0.5){v.honk+=dt;if(v.honk>2.5){say(v,pick(['叭叭！','叭——！','借過一下！']),1.6);v.honk=-4;}}else if(v.honk>0)v.honk=0;
+      if(v.blockedByPlayer&&v.v<0.5){v.honk+=dt;if(v.honk>2.5){say(v,pick(['叭叭！','叭——！','借過一下！']),1.6);hornSound(v.x,v.z);v.honk=-4;}}else if(v.honk>0)v.honk=0;
       tickBubble(v,dt,v.x,v.g.position.y+(v.type==='bus'?3.9:2.6),v.z);
     }
   }
@@ -3569,6 +3574,84 @@ function placeBikeStations(){
   }
 }
 
+/* ---------- sound: everything is synthesised (Web Audio), kept soft — it's a relaxing walk.
+   A sea + breeze bed (louder near the coast), birds by day and crickets at night, and electric traffic: a quiet motor
+   whine and tyre hiss from the nearest few vehicles, panned to where they are. Starts on the first tap/key (browsers
+   require a gesture); fades out in the pause menu and when the tab is hidden. ---------- */
+const SND={ctx:null,master:null,acc:0,birdT:2,crT:0,voices:[],own:null};
+function soundOn(){return SET.sound!=='off';}
+function audioInit(){
+  if(SND.ctx){if(SND.ctx.state==='suspended')SND.ctx.resume().catch(()=>{});return;}
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  let ctx;try{ctx=new AC();}catch(e){return;}
+  SND.ctx=ctx;const M=ctx.createGain();M.gain.value=0;M.connect(ctx.destination);SND.master=M;
+  // 4 s of soft (brown-ish) noise, looped, feeds every bed
+  const n=ctx.sampleRate*4,buf=ctx.createBuffer(1,n,ctx.sampleRate),d=buf.getChannelData(0);let last=0;
+  for(let i=0;i<n;i++){last=(last+0.02*(Math.random()*2-1))/1.02;d[i]=last*3.5;}
+  const bed=(type,f,q,g)=>{const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;s.loopStart=Math.random()*3;const fl=ctx.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;
+    const gn=ctx.createGain();gn.gain.value=g;s.connect(fl);fl.connect(gn);gn.connect(M);s.start(0,Math.random()*3);return gn;};
+  SND.sea=bed('lowpass',420,0.4,0);SND.wind=bed('bandpass',800,0.5,0);SND.tyre=bed('lowpass',380,0.6,0);
+  // motor voices: a soft sine pair per vehicle, panned
+  const voice=()=>{const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain(),g2=ctx.createGain(),p=ctx.createStereoPanner?ctx.createStereoPanner():null;
+    o.type='sine';o2.type='triangle';g.gain.value=0;g2.gain.value=0.25;o.connect(g);o2.connect(g2);g2.connect(g);
+    if(p){g.connect(p);p.connect(M);}else g.connect(M);o.start();o2.start();return {o,o2,g,p};};
+  SND.voices=[voice(),voice(),voice()];SND.own=voice();
+  // crickets: a 4.6 kHz tone trilled at ~32 Hz, gated into short chirps by updateAudio
+  const co=ctx.createOscillator(),cg=ctx.createGain(),lfo=ctx.createOscillator(),lg=ctx.createGain(),cr=ctx.createGain();
+  co.frequency.value=4600;lfo.frequency.value=32;lg.gain.value=0.5;cg.gain.value=0.5;lfo.connect(lg);lg.connect(cg.gain);co.connect(cg);cg.connect(cr);cr.gain.value=0;cr.connect(M);co.start();lfo.start();SND.cricket=cr;
+}
+const ramp=(p,v,tc=0.25)=>{if(p&&SND.ctx)p.setTargetAtTime(v,SND.ctx.currentTime,tc);};
+// short one-off sounds
+function blip(f0,f1,dur,vol,pan=0,type='sine',delay=0){const c=SND.ctx;if(!c||!soundOn())return;const t=c.currentTime+delay;
+  const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+Math.min(0.02,dur/4));g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  let out=g;if(c.createStereoPanner){const p=c.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan));g.connect(p);out=p;}
+  o.connect(g);out.connect(SND.master);o.start(t);o.stop(t+dur+0.05);}
+function birdCall(pan){const base=2600+Math.random()*1600,n=2+((Math.random()*4)|0);
+  for(let i=0;i<n;i++){const f=base*(0.9+Math.random()*0.25);blip(f,f*(1.15+Math.random()*0.3),0.07+Math.random()*0.06,0.018,pan,'sine',i*(0.11+Math.random()*0.06));}}
+// a soft electric-car horn (two short mellow tones), quieter with distance
+function hornSound(x,z){if(!SND.ctx)return;const d=Math.hypot(x-camera.position.x,z-camera.position.z),k=Math.max(0,1-d/80);if(k<=0)return;
+  const pan=panOf(x,z);blip(523,520,0.16,0.05*k,pan,'triangle');blip(659,655,0.2,0.04*k,pan,'triangle',0.19);}
+function chime(){blip(988,985,0.6,0.035,0,'sine');blip(784,780,0.9,0.035,0,'sine',0.38);}
+function panOf(x,z){const e=camera.matrixWorld.elements,rl=Math.hypot(e[0],e[2])||1,rx=e[0]/rl,rz=e[2]/rl;   // the camera's right, flat
+  const dx=x-camera.position.x,dz=z-camera.position.z,l=Math.hypot(dx,dz)||1;return Math.max(-0.9,Math.min(0.9,(dx*rx+dz*rz)/l));}
+function updateAudio(dt){
+  const c=SND.ctx;if(!c)return;
+  const live=soundOn()&&!document.hidden&&mode!=='pause'&&mode!=='bye';
+  ramp(SND.master.gain,live?0.6:0,live?0.6:0.15);
+  if(!live)return;
+  SND.acc-=dt;if(SND.acc>0)return;SND.acc=0.1;
+  const cx=camera.position.x,cz=camera.position.z,h=gameHour(),day=h>=5.5&&h<18.5;
+  // the sea: how much water is around (a ring of samples)
+  let wet=0;for(let k=0;k<12;k++){const a=k/12*TAU;if(ground(cx+Math.cos(a)*45,cz+Math.sin(a)*45)<0)wet++;if(ground(cx+Math.cos(a)*110,cz+Math.sin(a)*110)<0)wet+=0.5;}
+  const sea=Math.min(1,wet/9),t=c.currentTime;
+  ramp(SND.sea.gain,(0.05+0.2*sea)*(0.75+0.25*Math.sin(t*0.7)),0.8);   // slow swell, like waves arriving
+  ramp(SND.wind.gain,0.025+0.015*Math.sin(t*0.23+1),1.2);
+  // birds by day, crickets at night (only away from the busiest road noise isn't modelled: keep both faint)
+  SND.birdT-=0.1;if(day&&SND.birdT<=0){birdCall(Math.random()*1.6-0.8);SND.birdT=2.5+Math.random()*6;}
+  if(!day){SND.crT-=0.1;if(SND.crT<=0){const g=SND.cricket.gain;g.cancelScheduledValues(t);g.setValueAtTime(0,t);g.linearRampToValueAtTime(0.012,t+0.03);g.linearRampToValueAtTime(0,t+0.22+Math.random()*0.15);SND.crT=0.35+Math.random()*0.5;}}
+  // electric traffic: the three nearest moving vehicles get a motor voice; all of them add tyre hiss
+  const near=[];let hiss=0;
+  for(const v of VEH.list.concat(PARKED)){if(v===DRIVE.v||!v.g)continue;const sp=Math.abs(v.v||0);if(sp<0.5)continue;
+    const d=Math.hypot(v.x-cx,v.z-cz);if(d>80)continue;const k=Math.min(1,sp/14)/(1+(d/10)**2);hiss+=k;near.push({v,d,sp,k});}
+  near.sort((a,b)=>b.k-a.k);
+  SND.voices.forEach((vo,i)=>{const n=near[i];
+    if(!n){ramp(vo.g.gain,0,0.3);return;}
+    const base=n.v.type==='bus'||n.v.type==='truck'?95:n.v.type==='scooter'?260:150;
+    ramp(vo.o.frequency,base+n.sp*14,0.2);ramp(vo.o2.frequency,(base+n.sp*14)*2.01,0.2);
+    ramp(vo.g.gain,Math.min(0.03,0.035*n.k),0.2);if(vo.p)ramp(vo.p.pan,panOf(n.v.x,n.v.z),0.15);});
+  // your own vehicle: a gentle hum that rises with speed
+  const own=SND.own,dv=DRIVE.v;
+  if(dv){const sp=Math.abs(DRIVE.speed),base=dv.type==='bus'||dv.type==='truck'?90:dv.type==='scooter'?240:140;
+    ramp(own.o.frequency,base+sp*16,0.15);ramp(own.o2.frequency,(base+sp*16)*2.01,0.15);ramp(own.g.gain,0.008+Math.min(0.03,sp*0.0018),0.2);hiss+=Math.min(1,sp/14)*0.6;}
+  else ramp(own.g.gain,0,0.3);
+  ramp(SND.tyre.gain,Math.min(0.12,hiss*0.09),0.3);
+}
+// the first tap or key anywhere starts the audio (and the title toggle / menus can too)
+for(const ev of ['pointerdown','keydown','touchend'])addEventListener(ev,()=>{if(soundOn())audioInit();},{passive:true});
+function refreshSoundBtn(){const b=$('#tSound');if(!b)return;const on=soundOn();b.setAttribute('aria-pressed',String(on));b.innerHTML=on?'<b>聲音 開</b><span>Sound on</span>':'<b>聲音 關</b><span>Sound off</span>';}
+$('#tSound').addEventListener('click',()=>{SET.sound=soundOn()?'off':'on';saveSettings();applySettings();if(soundOn())audioInit();});
+
 /* ---------- loop ---------- */
 let last=performance.now(),hudT=0;
 function shiftClock(h){CLOCK.offset+=h;hudT=0;}
@@ -3603,7 +3686,7 @@ function frame(now){
   hudT-=dt;if(hudT<=0){hudT=0.5;const h=gameHour();$('#clockT').textContent=fmtClock();$('#clockP').textContent=periodLabel(h)+(CLOCK.offset||CLOCK.fast?'':' · 現在');}
   sun.position.set(P.x+sunDir.x,P.y+sunDir.y,P.z+sunDir.z);sun.target.position.set(P.x,P.y,P.z);
   if(mode==='play'&&(saveT+=dt)>5){saveT=0;saveGame();}
-  fadeLabels();
+  fadeLabels();updateAudio(dt);
   renderer.render(scene,camera);
   requestAnimationFrame(frame);
 }
