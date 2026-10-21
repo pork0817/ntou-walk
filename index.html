@@ -1414,6 +1414,7 @@ function enterVehicle(v){
     say(v,pick(['欸？！我的車！','你要開走喔？','好啦借你']),2.2);v.lane=null;v.c=null;v.id=-1;PARKED.push(v);}
   const kn=KNOCK.findIndex(q=>q.o===v);if(kn>=0)KNOCK.splice(kn,1);v.roll=0;placeFree(v,v.x,v.z,Math.atan2(v.hx,v.hz));   // pick a fallen scooter back up
   v.abandonT=undefined;
+  v.yv=undefined;v.air=false;
   DRIVE.v=v;DRIVE.speed=v.v||0;DRIVE.heading=Math.atan2(v.hx,v.hz);DRIVE.steer=0;v.parked=false;v.v=0;
   if(v.rider)v.rider.forEach(m=>m.visible=false);
   if(v.type==='scooter'){scene.remove(player.root);v.g.add(player.root);player.root.position.set(0,0.02,-0.25);player.root.rotation.set(0,0,0);
@@ -1432,13 +1433,15 @@ function exitVehicle(){
   if(v.type==='scooter'){v.g.remove(player.root);scene.add(player.root);}else player.root.visible=true;
   const c=player;c.body.rotation.x=0;c.head.rotation.set(0,0,0);c.armL.rotation.set(0,0,0);c.armR.rotation.set(0,0,0);c.legL.rotation.x=0;c.legR.rotation.x=0;
   P.x=sx;P.z=sz;P.y=ground(sx,sz);P.rot=DRIVE.heading;P.vy=0;player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
+  v.air=false;v.yv=undefined;placeFree(v,v.x,v.z,DRIVE.heading);
   v.parked=true;v.abandonT=0;DRIVE.v=null;DRIVE.speed=0;$('#drive').hidden=true;refreshDriveUI(true);
 }
 function toggleRide(){if(P.onBus){leaveBus();return;}if(DRIVE.v)return;const b=nearestStoppedBus();if(b)boardBus(b);}
 function toggleDrive(){if(P.onBus)return true;if(DRIVE.v){exitVehicle();return true;}const v=nearestDrivable();if(v){enterVehicle(v);return true;}return false;}
 // is the vehicle's body (sampled along its outline) clear of buildings, props, other vehicles, people, sea and cliffs?
 function vehBlocked(v,x,z,h,ignore,soft){
-  const hx=Math.sin(h),hz=Math.cos(h),L=v.len/2-0.1,Wd=v.wid/2-0.05,g0=ground(x,z),y=g0+0.45;const r0=R;R=0.05;let hit=null;
+  // a vehicle in the air is checked from where its body actually is, so it can fly over low things
+  const hx=Math.sin(h),hz=Math.cos(h),L=v.len/2-0.1,Wd=v.wid/2-0.05,g0=v.air&&v.yv>ground(x,z)?v.yv-0.1:ground(x,z),y=g0+0.45;const r0=R;R=0.05;let hit=null;
   for(const a of [-1,-0.5,0,0.5,1])for(const l of [-1,0,1]){if(l===0&&Math.abs(a)<1)continue;
     const px=x+hx*a*L+hz*l*Wd,pz=z+hz*a*L-hx*l*Wd;
     if(px<BX0||px>BX1||pz<BZ0||pz>BZ1||ground(px,pz)<0.8||ground(px,pz)-g0>1.1){hit='edge';break;}
@@ -1446,31 +1449,74 @@ function vehBlocked(v,x,z,h,ignore,soft){
     const hv=hitsVehicle(px,pz,0.05,y,v);if(hv&&hv!==ignore){if(v===DRIVE.v&&hv.noHitT>DRIVE.t)continue;hit={veh:hv};break;}
     for(const s of STU.list)if(Math.abs(s.x-px)<0.8&&Math.abs(s.z-pz)<0.8&&!(v===DRIVE.v&&s.noHitT>DRIVE.t)){hit=s.state==='down'?'solid':{stu:s};break;}if(hit)break;}   // someone lying in the road stops you
   R=r0;return hit;}
+// ground under the four wheels: where the body sits, and the pitch/roll that the terrain asks for
+function wheelGround(v,x,z,hx,hz){
+  const a=v.len*0.38,b=v.wid*0.42,lx=hz,lz=-hx;   // (lx,lz) points to the vehicle's left
+  const g=(u,l)=>ground(x+hx*u+lx*l,z+hz*u+lz*l);
+  const fl=g(a,b),fr=g(a,-b),bl=g(-a,b),br=g(-a,-b);
+  return {y:Math.max(ground(x,z),(fl+fr+bl+br)/4)+0.1,pitch:Math.atan2(fl+fr-bl-br,4*a),roll:Math.atan2(fl+bl-fr-br,4*b)};
+}
+// the driven vehicle's body: it follows the ground while the ground can hold it, and flies when the ground drops away faster
+// than gravity can pull it down (a crest taken at speed). Landing compresses the suspension, may bounce, and costs speed.
+// Cars pitch/roll with the terrain and lean out of fast turns; scooters lean into them.
+function settleDriven(v,x,z,h,dt,yawRate){
+  const hx=Math.sin(h),hz=Math.cos(h),W=wheelGround(v,x,z,hx,hz),s=DRIVE.speed;
+  if(v.yv===undefined||!isFinite(v.yv)){v.yv=W.y;v.vy=0;v.air=false;v.pS=W.pitch;v.rS=0;v.comp=0;}
+  const gRate=(W.y-v.yv)/Math.max(dt,1e-3);       // how fast the road surface moves the body up/down right now
+  const moved=Math.hypot(x-v.x,z-v.z)/Math.max(dt,1e-3);   // stopped dead by a wall: the climb stops too, no launch
+  if(!v.air&&moved<1){v.vy=Math.min(v.vy,gRate);}
+  if(!v.air){
+    if(v.vy-gRate>2.2&&moved>5){v.air=true;v.airT=0;v.liftPitch=v.pS;}
+    else{if(gRate-v.vy>1.5)v.comp=Math.min(0.2,v.comp+(gRate-v.vy)*0.02);   // into a dip: the springs take it
+      v.vy=Math.max(-15,Math.min(15,gRate));v.yv=W.y;}}
+  if(v.air){
+    v.airT+=dt;v.vy-=9.8*dt;v.yv+=v.vy*dt;
+    if(v.yv<=W.y){const imp=Math.max(0,gRate-v.vy);v.yv=W.y;
+      v.comp=Math.min(0.28,imp*0.04);DRIVE.speed*=1-Math.min(0.3,imp*0.025);
+      if(imp>7)say(v,pick(['碰！','哇——','咚！']),1.2);
+      if(imp>4.5&&v.airT>0.25){v.vy=gRate+imp*0.22;v.airT=0;}     // a hard landing bounces once
+      else{v.air=false;v.vy=gRate;}}}
+  v.comp*=Math.exp(-dt*7);
+  // pitch: the terrain on the ground; in the air the nose slowly follows the flight path
+  const flight=Math.atan2(v.vy,Math.max(1,Math.abs(s)))*(s<0?-1:1);
+  if(v.air)v.pS+=(flight*0.7+v.liftPitch*0.3-v.pS)*Math.min(1,dt*1.6);
+  else v.pS+=(W.pitch-v.comp*0.25-v.pS)*Math.min(1,dt*12);
+  const aLeft=s*yawRate;                                  // sideways (centripetal) acceleration towards the left
+  const rollT=v.air?v.rS*0.98:v.type==='scooter'?-Math.atan(aLeft/9.8):W.roll+Math.max(-0.1,Math.min(0.1,aLeft*0.011));
+  v.rS+=(rollT-v.rS)*Math.min(1,dt*(v.type==='scooter'?5:8));
+  v.x=x;v.z=z;v.heading=h;v.hx=hx;v.hz=hz;
+  v.g.position.set(x,v.yv-v.comp,z);v.g.rotation.set(0,h,0);v.g.rotateX(-v.pS);v.g.rotateZ(v.rS);
+  v.base=v.yv;v.top=v.base+v.hgt;
+}
 function driveStep(dt,ix,iy){
   const v=DRIVE.v,sp=VSPEC[v.type];jumpQueued=false;DRIVE.t+=dt;
   const hand=keys.Space||DRIVE.hand;let s=DRIVE.speed;
-  if(hand)s-=Math.sign(s)*Math.min(Math.abs(s),12*dt);
+  const flying=v.air&&v.g.position.y-ground(v.x,v.z)>0.25;   // wheels off the ground: no throttle, brakes or steering
+  if(flying){ix=0;iy=0;}
+  if(flying)s-=Math.sign(s)*Math.min(Math.abs(s),0.01*s*s*dt);
+  else if(hand)s-=Math.sign(s)*Math.min(Math.abs(s),12*dt);
   else if(iy>0.1){if(s<-0.3)s+=9*dt*iy;else s+=sp.acc*iy*dt*(1-0.6*Math.max(0,s)/sp.vmax);}
   else if(iy<-0.1){if(s>0.3)s-=9*dt*-iy;else s-=sp.acc*0.6*-iy*dt;}
   else s-=Math.sign(s)*Math.min(Math.abs(s),(0.8+0.015*s*s)*dt);   // rolling and air drag
   s=Math.max(-5,Math.min(sp.vmax,s));
   // uphill slows, downhill speeds up a little
-  const gr=ground(v.x+v.hx,v.z+v.hz)-ground(v.x,v.z);s-=gr*6*dt*Math.sign(s||1);
+  if(!flying){const gr=ground(v.x+v.hx,v.z+v.hz)-ground(v.x,v.z);s-=gr*9.8*dt;}   // g·sin(slope) along the road
   // steering is limited by grip: the wheel angle can't ask for more than ~9 m/s² of sideways acceleration,
   // so turns get gentler as speed rises (full lock only at parking speeds); the wheel also moves slower at speed
   const fr=Math.min(1,Math.abs(s)/sp.vmax),cap=Math.min(sp.steer,Math.atan(9*sp.wb/Math.max(1,s*s)));
   DRIVE.steer+=(-ix*cap-DRIVE.steer)*Math.min(1,dt*(6-3.5*fr));
-  const h=DRIVE.heading+s/sp.wb*Math.tan(DRIVE.steer)*dt;
+  const yawRate=flying?0:s/sp.wb*Math.tan(DRIVE.steer),h=DRIVE.heading+yawRate*dt;
   const nx=v.x+Math.sin(h)*s*dt,nz=v.z+Math.cos(h)*s*dt;
   const stuck=vehBlocked(v,v.x,v.z,DRIVE.heading);
   const s0=s;let hit=Math.abs(s)>0.01?vehBlocked(v,nx,nz,h):null,crashed=false;
   if(hit&&(hit.veh||hit.stu)){                        // a vehicle or a person: share momentum (see crash())
     DRIVE.speed=s;const o=hit.veh||hit.stu;const go=crash(v,o,!!hit.stu);s=DRIVE.speed;crashed=o.noHitT>DRIVE.t;if(go)hit=null;}
   // after a crash, move at the new speed
-  if(!hit||stuck){const f=s0?s/s0:1;placeFree(v,v.x+(nx-v.x)*f,v.z+(nz-v.z)*f,h);DRIVE.heading=h;}
+  if(!hit||stuck){const f=s0?s/s0:1;settleDriven(v,v.x+(nx-v.x)*f,v.z+(nz-v.z)*f,h,dt,yawRate);DRIVE.heading=h;}
   else if(!crashed){                                  // walls, poles, trees: bounce back a little
     if(Math.abs(s)>6)say(v,pick(['碰！','哎呀！','叩！']),1.2);
     s=Math.abs(s)>1.5?-s*0.3:0;}
+  if(hit&&!stuck)settleDriven(v,v.x,v.z,DRIVE.heading,dt,0);   // stopped by something: the body still settles/falls
   DRIVE.speed=s;
   for(const w of v.wheels)w.rotation.x+=s*dt/0.33;
   P.x=v.x;P.z=v.z;P.y=v.base;P.rot=DRIVE.heading;
@@ -1961,6 +2007,7 @@ function drawPool(g,Wp,Hp,ppm){
   for(let k=1;k<lanes;k++){const y=m+(Hp-2*m)*k/lanes;g.fillStyle='#1f5f9a';g.fillRect(m+2*ppm,y-0.12*ppm,Wp-2*m-4*ppm,0.25*ppm);
     for(let x=m;x<Wp-m;x+=0.5*ppm){g.fillStyle=((x/(0.5*ppm))|0)%2?'#ff5a5a':'#ffffff';g.beginPath();g.arc(x,y,0.08*ppm,0,TAU);g.fill();}}
 }
+const SPORT={tracks:[],courts:[],acc:0};   // filled by buildPitches, run by updateSports
 function buildPitches(){
   for(const a of D.a){
     const isPitch=a.k==='leisure=pitch',isPool=a.k==='leisure=swimming_pool';
@@ -1970,10 +2017,10 @@ function buildPitches(){
     const ppm=Math.min(24,2048/Math.max(F.L,1),1024/Math.max(F.W,1));
     const Wp=Math.max(64,Math.round(F.L*ppm)),Hp=Math.max(32,Math.round(F.W*ppm));
     const c=document.createElement('canvas');c.width=Wp;c.height=Hp;const g=c.getContext('2d');
-    let courts=null;
+    let courts=null,isTrack=false;
     if(isPool)drawPool(g,Wp,Hp,ppm);
     else if(a.s==='tennis'||a.s==='basketball'||a.s==='beachvolleyball')courts=drawCourts(g,Wp,Hp,ppm,a.s);
-    else if(F.L/F.W>1.35&&F.L*F.W>2500)drawTrack(g,Wp,Hp,ppm);
+    else if(F.L/F.W>1.35&&F.L*F.W>2500){drawTrack(g,Wp,Hp,ppm);isTrack=true;}
     else{g.fillStyle='#6fbd52';g.fillRect(0,0,Wp,Hp);for(let x=0;x<Wp;x+=5*ppm){g.fillStyle=((x/(5*ppm))|0)%2?'#6fbd52':'#7fc95f';g.fillRect(x,0,5*ppm,Hp);}setLine(g,Math.max(1.5,0.1*ppm));g.strokeRect(ppm,ppm,Wp-2*ppm,Hp-2*ppm);g.beginPath();g.moveTo(Wp/2,ppm);g.lineTo(Wp/2,Hp-ppm);g.stroke();}
     const tex=new THREE.CanvasTexture(c);tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
     const shape=new THREE.Shape(p.map(q=>new THREE.Vector2(q[0],-q[1])));
@@ -1987,6 +2034,7 @@ function buildPitches(){
     m.receiveShadow=true;scene.add(m);
     // a little platform skirt so the flat surface meets sloping ground cleanly
     const sk=prism(p,ymax-1.2,ymax+0.05,[toon(0xd5d2ca),toon(0xc9c5bc)]);scene.add(sk);
+    if(isTrack)SPORT.tracks.push({F,y:ymax+0.06,list:[]});
     // nets and hoops
     if(courts){
       const {nx,ny,rot,spec}=courts;
@@ -1996,6 +2044,7 @@ function buildPitches(){
         // court length axis in world
         const la=rot?Math.atan2(F.c,-F.s):Math.atan2(F.s,F.c);const lx=Math.cos(la),lz=Math.sin(la);
         if(a.s==='basketball'){
+          SPORT.courts.push({x:wx,z:wz,lx,lz,y:ymax+0.06,half:spec.l/2,wid:spec.w/2,list:[],ball:null});
           for(const s of [-1,1]){const hx=wx+lx*s*(spec.l/2+0.4),hz=wz+lz*s*(spec.l/2+0.4);
             const post=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,3.3,8),toon(0x2b5f8a)));post.position.set(hx,ymax+1.65,hz);scene.add(post);
             const board=shade(new THREE.Mesh(new THREE.BoxGeometry(0.06,1.05,1.8),toon(0xffffff)));board.position.set(hx-lx*s*0.5,ymax+3.4,hz-lz*s*0.5);board.rotation.y=-la;scene.add(board);
@@ -2887,6 +2936,7 @@ function placeVehicle(v){
   const y=ground(x,z)+0.1,yf=ground(x+hx*v.len*0.5,z+hz*v.len*0.5),yb=ground(x-hx*v.len*0.5,z-hz*v.len*0.5);
   v.x=x;v.z=z;v.hx=hx;v.hz=hz;
   v.g.position.set(x,Math.max(y,(yf+yb)/2+0.1),z);v.base=v.g.position.y;v.top=v.base+v.hgt;v.g.rotation.set(0,Math.atan2(hx,hz),0);v.g.rotateX(-Math.atan2(yf-yb,v.len));
+  if(v.type!=='scooter'){const b=v.wid*0.42,yl=ground(x+hz*b,z-hx*b),yr=ground(x-hz*b,z+hx*b);v.g.rotateZ(Math.atan2(yl-yr,2*b));}
 }
 function seedTraffic(){
   const dens=profile(TRAFFIC,gameHour());
@@ -3191,16 +3241,16 @@ function animStudent(s,dt,moving,speed){
   s.arms[0].rotation.z=0;s.arms[1].rotation.z=0;s.body.rotation.x=0;s.body.rotation.y=0;
 }
 function updateStudents(dt){
-  const h=gameHour();const target=Math.round(STU.max*profile(CROWD,h));
+  const h=gameHour();const target=Math.round(STU.max*profile(CROWD,h))+STU.list.filter(s=>s.state==='sport').length;
   STU.acc-=dt;
   if(STU.acc<=0){STU.acc=0.6;
     if(STU.list.length<target)spawnAround();
     // retire students who wandered far away, or when the crowd should thin out
     for(const s of STU.list.slice()){const d=Math.hypot(s.x-P.x,s.z-P.z);
-      if(d>190||(STU.list.length>target+2&&d>40&&!s.lead&&Math.random()<0.3))removeStudent(s);}
+      if(d>190||(STU.list.length>target+2&&d>40&&!s.lead&&s.state!=='sport'&&Math.random()<0.3))removeStudent(s);}
   }
   for(const s of STU.list){
-    if(s.state==='down')continue;                   // updateKnock moves them
+    if(s.state==='down'||s.state==='sport')continue;                   // updateKnock / updateSports move them
     s.greetT-=dt;s.talkT-=dt;
     if(s.emote){s.emoteT+=dt;if(s.emoteT>(s.emote==='bow'?1.6:2.4)){s.emote=null;s.head.rotation.set(0,0,0);s.body.rotation.set(0,0,0);s.body.position.y=0;}}
     let moving=false,spd=0;
@@ -3256,6 +3306,98 @@ function updateStudents(dt){
     if(s.react){s.react.t-=dt;if(s.react.t<=0){const k=s.react.kind;say(s,pick(LINES.react[k]));if(k!=='sit'){s.emote=k==='dance'?'cheer':k;s.emoteT=0;}s.react=null;}}
     tickBubble(s,dt,s.x,s.g.position.y+2.45*s.sc,s.z);
   }
+}
+
+/* ---------- sports: joggers and evening walkers lapping the track, pickup games on the basketball courts ---------- */
+// a point on track lane offset d (m in from the outer edge), at distance u around the lap
+function trackPt(T,d,u){
+  const F=T.F,R=F.W/2,r=R-d,h=F.L/2-R,per=4*h+2*Math.PI*r;u=((u%per)+per)%per;
+  let a,b;
+  if(u<2*h){a=-h+u;b=-r;}
+  else if(u<2*h+Math.PI*r){const t=-Math.PI/2+(u-2*h)/r;a=h+r*Math.cos(t);b=r*Math.sin(t);}
+  else if(u<4*h+Math.PI*r){a=h-(u-2*h-Math.PI*r);b=r;}
+  else{const t=Math.PI/2+(u-4*h-Math.PI*r)/r;a=-h+r*Math.cos(t);b=r*Math.sin(t);}
+  const U=(F.a0+F.a1)/2+a,V=(F.b0+F.b1)/2+b;
+  return [F.cx+U*F.c-V*F.s,F.cz+U*F.s+V*F.c,per];
+}
+function sportCount(kind){
+  const h=gameHour(),k=isTouch?0.6:1;
+  if(kind==='track'){const evening=h>=17&&h<21.5,dawn=h>=5.5&&h<8;return Math.round(k*(evening?12:dawn?8:Math.max(1,10*profile(CROWD,h))));}
+  return h<7||h>=23?0:Math.round(k*(3+2*Math.min(1,profile(CROWD,h)+(h>=16&&h<21?0.5:0))));
+}
+function sportStudent(x,y,z){const s=spawnStudent(x,z,-1,'sport');s.g.position.y=y;return s;}
+const ballGeo=new THREE.SphereGeometry(0.12,12,8),ballMat=toon(0xe0702a);
+function updateSports(dt){
+  SPORT.acc-=dt;
+  const live=V=>{V.list=V.list.filter(s=>s.state==='sport'&&STU.list.includes(s));return V.list;};
+  if(SPORT.acc<=0){SPORT.acc=1;
+    for(const T of SPORT.tracks){const L=live(T),near=Math.hypot(T.F.cx-P.x,T.F.cz-P.z)<170,want=near?sportCount('track'):0;
+      if(L.length<want){const walker=Math.random()<0.35,lane=walker?4+((Math.random()*2)|0):(Math.random()*4)|0,d=0.6+(lane+0.5)*1.22;
+        const u=Math.random()*1000,[x,z]=trackPt(T,d,u);const s=sportStudent(x,T.y,z);
+        s.sport={kind:'track',T,d,u,spd:walker?1.3+Math.random()*0.3:2.6+Math.random()*1.6,walker};T.list.push(s);}
+      else if(L.length>want&&L.length&&Math.hypot(L[0].x-P.x,L[0].z-P.z)>30)removeStudent(L[0]);}
+    for(const C of SPORT.courts){const L=live(C),near=Math.hypot(C.x-P.x,C.z-P.z)<150,want=near?sportCount('ball'):0;
+      if(L.length<want){const x=C.x-C.lz*(C.wid+1),z=C.z+C.lx*(C.wid+1);const s=sportStudent(x,C.y,z);s.sport={kind:'ball',C,tx:x,tz:z,retT:0,shootT:0};C.list.push(s);}
+      else if(L.length>want&&L.length&&Math.hypot(C.x-P.x,C.z-P.z)>40)removeStudent(L[L.length-1]);
+      if(!C.list.length&&C.ball){scene.remove(C.ball.m);C.ball=null;}}}
+  for(const T of SPORT.tracks)for(const s of T.list){if(s.state!=='sport')continue;const S=s.sport;
+    let spd=S.spd;
+    const [x0,z0]=trackPt(T,S.d,S.u);
+    // someone in the way (the player, or a slower person ahead in the same lane): ease off and move out a lane to pass
+    const ahead=(px,pz)=>{const [fx,fz]=trackPt(T,S.d,S.u+1.6);return Math.hypot(px-fx,pz-fz)<1.1;};
+    let block=ahead(P.x,P.z);for(const o of T.list)if(o!==s&&o.sport.spd<spd-0.3&&ahead(o.x,o.z))block=true;
+    if(block){S.pass=2.5;spd*=0.75;}
+    S.pass=Math.max(0,(S.pass||0)-dt);const dWant=S.pass>0?Math.max(0.6+0.61,S.d-1.22)+(S.d<2?1.22:0):S.d;
+    S.dCur=(S.dCur??S.d)+(dWant-(S.dCur??S.d))*Math.min(1,dt*2);
+    S.u+=spd*dt;const [x,z]=trackPt(T,S.dCur,S.u);
+    s.rot=Math.atan2(x-s.x,z-s.z)||s.rot;s.x=x;s.z=z;
+    animStudent(s,dt,true,spd*(S.walker?1:0.85));if(!S.walker)s.body.rotation.x=0.14;
+    s.g.position.set(x,T.y,z);s.g.rotation.y=s.rot;tickBubble(s,dt,s.x,T.y+2.45*s.sc,s.z);}
+  for(const C of SPORT.courts)updateCourt(C,dt);
+}
+// a half-court pickup game: dribble, pass, shoot at the hoop, chase the rebound
+function updateCourt(C,dt){
+  const L=C.list.filter(s=>s.state==='sport');if(!L.length)return;
+  const hoop=[C.x+C.lx*(C.half-0.4),C.z+C.lz*(C.half-0.4)],rimY=C.y+3.05;
+  if(!C.ball){const m=new THREE.Mesh(ballGeo,ballMat);m.castShadow=true;scene.add(m);C.ball={m,x:L[0].x,y:C.y+1,z:L[0].z,vx:0,vy:0,vz:0,holder:null,fl:null,ph:0,holdT:2};}
+  const B=C.ball;
+  if(B.holder&&!L.includes(B.holder))B.holder=null;     // knocked over, or gone: the ball rolls free
+  const rand=()=>{const a=4+Math.random()*(C.half-5),b=(Math.random()*2-1)*(C.wid-1.5);return [C.x+C.lx*a-C.lz*b,C.z+C.lz*a+C.lx*b];};
+  const toward=(s,tx,tz,sp)=>{const dx=tx-s.x,dz=tz-s.z,d=Math.hypot(dx,dz);if(d<0.3)return 0;const st=Math.min(d,sp*dt);
+    const nx=s.x+dx/d*st,nz=s.z+dz/d*st;if(Math.hypot(nx-P.x,nz-P.z)<0.7)return 0;s.x=nx;s.z=nz;return sp;};
+  const throwTo=(tx,ty,tz,T,apex,then)=>{B.fl={x0:B.x,y0:B.y,z0:B.z,tx,ty,tz,T,t:0,apex,then};B.holder=null;};
+  if(B.fl){const f=B.fl;f.t+=dt;const k=Math.min(1,f.t/f.T);
+    B.x=f.x0+(f.tx-f.x0)*k;B.z=f.z0+(f.tz-f.z0)*k;B.y=f.y0+(f.ty-f.y0)*k+4*f.apex*k*(1-k);
+    if(k>=1){B.fl=null;f.then();}}
+  else if(B.holder){const H=B.holder;B.ph+=dt*7.5;
+    B.x=H.x+Math.sin(H.rot+1.2)*0.4;B.z=H.z+Math.cos(H.rot+1.2)*0.4;B.y=C.y+0.12+Math.abs(Math.sin(B.ph))*0.8;
+    B.holdT-=dt;
+    if(B.holdT<=0){const dh=Math.hypot(hoop[0]-H.x,hoop[1]-H.z),mates=L.filter(o=>o!==H);
+      if(dh<7.5||!mates.length||Math.random()<0.3){                 // shoot
+        const make=Math.random()<Math.max(0.25,0.7-dh*0.05);H.sport.shootT=0.6;B.y=C.y+2.3;
+        throwTo(hoop[0]+(make?0:(Math.random()-0.5)*0.7),rimY+0.05,hoop[1]+(make?0:(Math.random()-0.5)*0.7),0.8+dh*0.05,1.3+dh*0.1,()=>{
+          if(make){B.vx=0;B.vz=0;B.vy=-1.5;if(Math.hypot(H.x-P.x,H.z-P.z)<30&&Math.random()<0.5)say(H,pick(['進了！','Nice!','唰！','爽！']),1.6);}
+          else{const a=Math.random()*TAU;B.vx=Math.cos(a)*2.5-C.lx*1.5;B.vz=Math.sin(a)*2.5-C.lz*1.5;B.vy=2;}});}
+      else{const o=mates[(Math.random()*mates.length)|0];const d=Math.hypot(o.x-H.x,o.z-H.z);B.y=C.y+1.3;
+        throwTo(o.x,C.y+1.2,o.z,Math.max(0.3,d/9),0.35,()=>{B.holder=o;B.holdT=1+Math.random()*3;});}}}
+  else{                                                      // loose: gravity, bounces, rolling friction
+    B.vy-=9.8*dt;B.x+=B.vx*dt;B.y+=B.vy*dt;B.z+=B.vz*dt;
+    if(B.y<C.y+0.12){B.y=C.y+0.12;B.vy=Math.abs(B.vy)>1?-B.vy*0.65:0;const f=Math.exp(-dt*(B.vy?0.5:1.6));B.vx*=f;B.vz*=f;}
+    // keep it on the court
+    const da=(B.x-C.x)*C.lx+(B.z-C.z)*C.lz,db=-(B.x-C.x)*C.lz+(B.z-C.z)*C.lx;
+    if(Math.abs(da)>C.half+1){B.vx-=C.lx*Math.sign(da)*4*dt;B.vz-=C.lz*Math.sign(da)*4*dt;}
+    if(Math.abs(db)>C.wid+1){B.vx+=C.lz*Math.sign(db)*4*dt;B.vz-=C.lx*Math.sign(db)*4*dt;}}
+  B.m.position.set(B.x,B.y,B.z);B.m.rotation.x+=dt*6;
+  // the player nearest a loose ball goes for it; the others find space
+  let chaser=null;if(!B.holder&&!B.fl){let bd=1e9;for(const s of L){const d=Math.hypot(s.x-B.x,s.z-B.z);if(d<bd){bd=d;chaser=s;}}}
+  for(const s of L){const S=s.sport;let sp=0;
+    if(s===chaser){sp=toward(s,B.x,B.z,3.4);if(Math.hypot(s.x-B.x,s.z-B.z)<0.6&&B.y<C.y+1.4){B.holder=s;B.holdT=1+Math.random()*3;}}
+    else{S.retT-=dt;if(S.retT<=0){[S.tx,S.tz]=rand();S.retT=1.5+Math.random()*2.5;}sp=toward(s,S.tx,S.tz,s===B.holder?1.6:2.2);}
+    for(const o of L)if(o!==s){const dx=s.x-o.x,dz=s.z-o.z,d=Math.hypot(dx,dz);if(d<0.7&&d>0.01){s.x+=dx/d*(0.7-d)*0.5;s.z+=dz/d*(0.7-d)*0.5;}}
+    const fx=s===B.holder?hoop[0]:B.x,fz=s===B.holder?hoop[1]:B.z;let dr=Math.atan2(fx-s.x,fz-s.z)-s.rot;dr=Math.atan2(Math.sin(dr),Math.cos(dr));s.rot+=dr*Math.min(1,dt*6);
+    animStudent(s,dt,sp>0.1,sp);
+    if(S.shootT>0){S.shootT-=dt;s.arms[0].rotation.x=s.arms[1].rotation.x=-2.8;}
+    s.g.position.set(s.x,C.y,s.z);s.g.rotation.y=s.rot;tickBubble(s,dt,s.x,C.y+2.45*s.sc,s.z);}
 }
 function nearestNode(x,z){let best=PG.comp[0],bd=1e9;for(const id of PG.comp){const d=Math.abs(PG.nx[id]-x)+Math.abs(PG.nz[id]-z);if(d<bd){bd=d;best=id;}}return best;}
 function placeStu(s){s.g.position.set(s.x,ground(s.x,s.z)+0.12,s.z);s.g.rotation.y=s.rot;}
@@ -3352,7 +3494,7 @@ function frame(now){
   else if(mode==='play')updatePlay(dt);
   if(mode!=='pause'){                                    // the menu pauses the whole world
   if(CLOCK.fast)CLOCK.acc+=dt*59;
-  updateSky();updateSignals();updateVehicles(dt);updateStudents(dt);updateKnock(dt);updateRecover(dt);flexPosts(dt);updateHazards(dt);updateAbandoned(dt);updateVehLights();
+  updateSky();updateSignals();updateVehicles(dt);updateStudents(dt);updateSports(dt);updateKnock(dt);updateRecover(dt);flexPosts(dt);updateHazards(dt);updateAbandoned(dt);updateVehLights();
   }
   tickBubble(playerTalk,dt,P.x,P.y+2.75,P.z);
   hudT-=dt;if(hudT<=0){hudT=0.5;const h=gameHour();$('#clockT').textContent=fmtClock();$('#clockP').textContent=periodLabel(h)+(CLOCK.offset||CLOCK.fast?'':' · 現在');}

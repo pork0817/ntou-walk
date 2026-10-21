@@ -99,6 +99,13 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 - Students: walking graph from footpaths, campus roads, sidewalks and zebra crossings (largest component ~1000 nodes, A* routes).
   Count follows CROWD[hour]. Solo walkers, pairs, and chatting groups near buildings; speech bubbles in Chinese (lines vary by
   morning / peak / night); they wait for the walking man, greet the player, and react to emotes.
+- Sports (`SPORT`, `updateSports`, `updateCourt`): `buildPitches` records the running tracks and basketball courts.
+  Within ~170 m of the player, joggers (2.6–4.2 m/s, inner lanes, leaning forward) and walkers (outer lanes) lap the track
+  (`trackPt` = stadium-shaped lane path); they ease off and swing out a lane to pass the player or slower people. Each
+  basketball court gets a half-court pickup game (daytime to 23:00): a real ball is dribbled, passed, shot at the rim
+  (make chance falls with distance), bounces with gravity, and the nearest player chases rebounds. Busier in the evening.
+  They are students with `state:'sport'` (skipped by `updateStudents`, not counted in the walking crowd); a knocked-down
+  one recovers as an ordinary walker and the venue spawns a replacement.
 - Bikes: S brakes, then rolls backwards (A/D steer like a car in reverse). Hitting something bounces the bike off it
   (velocity reflected about the surface normal from 16 probes; glancing hits slide and turn along the wall); `unstick()` frees
   the player if anything overlaps. Vehicles collide as slim boxes with real roof heights (cars: low hood/boot, taller cabin),
@@ -124,6 +131,13 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   Lane changes: a traffic vehicle with something stuck in its lane ahead (crash, parked or recovering vehicle, or a stopped queue
   behind one) moves to the adjacent same-direction lane when the gap there is safe (`laneChanges`, drifting across via `v.shift`).
   It checks every 1.5 s while blocked (5 s cooldown after a change); a bus waiting at a stop counts as a blockage.
+- Slope physics (`wheelGround`, `settleDriven`): the driven vehicle sits on its four wheel contact points. Grounded, its
+  vertical speed is the rate the road moves it; when the ground drops away more than 2.2 m/s faster than that (a crest
+  at speed) it goes ballistic (gravity, no throttle/brake/steering, nose slowly follows the flight path), and landing
+  compresses the suspension, costs speed by impact, and a hard one bounces once. A sudden stop never launches it. Cars
+  pitch/roll with the terrain and roll outward in fast turns (~0.011 rad per m/s²); scooters lean into turns
+  (atan(a/g)). Gravity along the slope is g·sin. Airborne collision checks use the body height. Traffic pitches and
+  rolls with the terrain (`placeVehicle`).
 - Buses dwell 6–12 s (never over 15) once within 3.5 m of a stop (they stop a safety gap short of the marker). Each bus has
   its own route sign (`BUS_ROUTES`). Traffic continues from a road into the road that joins it end-to-end (中正路 → 北寧路).
 - The orange delineator posts on 北寧路's centre line are not solid: they bend over when the player or the player's vehicle
