@@ -172,13 +172,21 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 
 ## Phones (body.touch)
 
-- Compact HUD: small minimap with 地圖 / 選單 only (time controls live in the pause menu for everyone), no hint bar.
+- No on-screen hints anywhere (user request): no key bar, no "press E/F" tips, no hints setting. The two warnings that
+  matter ("stop first", "wait for the bus to stop") are speech bubbles on the vehicle. The intro still teaches controls.
+- Compact HUD: location card without the English line, small stats; minimap 112×82 with 地圖 / 選單 only (time controls live
+  in the pause menu for everyone). Driving shows a slim speed pill (no name line): under the HUD in portrait, top-centre
+  between the cards in landscape. The new-place toast sits below the HUD.
 - Floating joystick: touching anywhere in the lower-left (`#joyZone`, 50vw × 60vh) places the stick under the thumb.
-- Thumb cluster bottom-right: 跳 / 跑 / 表情, with 騎車 / 開車 / 搭車 stacked above 跳 when relevant; while driving they become
-  手煞 / 雙黃燈 / 喇叭, on a bus only 下車 shows (`refreshTouchButtons`). Two-finger pinch zooms the camera.
-- Portrait gets a wider field of view (74°) and the camera starts further back (11 m). Driving panel and tips sit below the
-  minimap in portrait, top-centre in landscape. The pause menu has 全螢幕 Fullscreen where the browser supports it.
-- Short screens (≤520 px tall) use a compact title screen.
+- Thumb cluster bottom-right: 跳 / 跑 / 表情, with 騎車 / 開車 / 搭車 stacked above 跳 in portrait and in a row to the left of
+  the cluster in landscape (so they never reach the minimap); while driving they become 手煞 / 雙黃燈 / 喇叭, on a bus only
+  下車 shows (`refreshTouchButtons`). Two-finger pinch zooms the camera.
+- Portrait gets a wider field of view (74°) and the camera starts further back (11 m).
+- Starting or continuing a game on a phone asks for fullscreen (that tap is the gesture browsers require; iPhone Safari
+  ignores it); the pause menu can leave or re-enter it. Resizes on orientation change and visual-viewport changes.
+- Short screens (≤520 px tall, i.e. phones in landscape): compact title, and the pause menu and settings go two columns so
+  nothing needs scrolling. Modals use dvh so mobile browser bars don't cut them off; no pull-to-refresh/overscroll.
+- Testing tip: the browser pane only emulates touch below 768 px wide, so test landscape at e.g. 760×360.
 
 ## Known gaps / next steps (agreed with the user)
 

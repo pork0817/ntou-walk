@@ -18,6 +18,7 @@
 }
 [hidden]{display:none!important}
 html,body{height:100%;overflow:hidden}
+html,body{overscroll-behavior:none}
 body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
 .panel{background:var(--navy-soft);border:2px solid var(--ink);border-radius:14px;box-shadow:0 4px 0 var(--ink)}
@@ -34,7 +35,6 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 .btn{font:800 .85rem/1 var(--body);color:var(--ink);background:var(--paper);border:2px solid var(--ink);border-radius:10px;padding:8px 10px;box-shadow:0 3px 0 var(--ink);cursor:pointer}
 .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
 .btn:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
-#hint{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:8px 14px;font:600 .85rem/1.4 var(--body);white-space:nowrap;transition:opacity .8s}
 #toast{position:absolute;left:50%;top:calc(84px + env(safe-area-inset-top,0px));transform:translate(-50%,-10px);opacity:0;padding:10px 18px;text-align:center;transition:opacity .3s,transform .3s;border-color:var(--signal);max-width:80vw}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 #toast small{display:block;font:700 .72rem/1 var(--display);color:var(--signal);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
@@ -55,11 +55,9 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 #emoteBar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(120px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;padding:8px;pointer-events:auto;z-index:5}
 #emoteBar .btn{padding:10px 12px;font-size:.9rem}
 #bikeBtn{background:#7fd1c4;font-size:.9rem}
-#bikeTip{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));padding:8px 16px;font:800 .95rem/1.3 var(--body);border-color:#7fd1c4;white-space:nowrap}
 #runBtn{width:60px;height:60px;font-size:.85rem}
 #driveBtn{background:#f2c230;font-size:.9rem}
 #rideBtn{background:#7fb8e6;font-size:.9rem}
-#driveTip{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));padding:8px 16px;font:800 .95rem/1.3 var(--body);border-color:#f2c230;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
 #drive{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:10px 16px 12px;min-width:180px}
 .dRow{display:flex;align-items:baseline;gap:6px}
 #dSpd{font:800 2.8rem/1 var(--display);font-variant-numeric:tabular-nums;min-width:2.2ch;text-align:right}
@@ -70,8 +68,7 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 #dBar{height:8px;margin-top:8px;border-radius:4px;background:rgba(255,248,236,.18);overflow:hidden}
 #dBar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--signal));transition:width .15s linear}
 #dName{display:block;margin-top:6px;font:700 .8rem/1 var(--body);color:var(--muted)}
-#driveTip.inCar{left:calc(12px + env(safe-area-inset-left,0px));transform:none;max-width:calc(100vw - 240px);white-space:normal}
-@media (pointer:coarse){#driveTip.inCar{left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px)}#drive{right:auto;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;min-width:150px;padding:6px 12px 8px}#dSpd{font-size:2rem}}
+@media (pointer:coarse){#drive{right:auto;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;min-width:150px;padding:6px 12px 8px}#dSpd{font-size:2rem}}
 #runBtn[aria-pressed="true"]{background:var(--sea);color:var(--paper)}
 #pick{position:fixed;left:0;right:0;bottom:0;padding:20px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(to top,rgba(11,28,44,.94) 70%,rgba(11,28,44,0));display:flex;flex-direction:column;align-items:center;gap:12px}
 #pick h2,.mCard h2{margin:0;font:900 1.6rem/1.1 var(--body);text-shadow:0 3px 0 var(--ink)}
@@ -95,7 +92,7 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 .mBtn:disabled{opacity:.6;cursor:wait}
 .screen .note{margin:6px 0 0;font:600 .72rem/1.5 var(--body);color:var(--muted);max-width:36em}
 .modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(11,28,44,.55);z-index:30;padding:16px}
-.mCard{background:var(--navy);width:min(440px,100%);padding:20px 22px 22px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.mCard{background:var(--navy);width:min(440px,100%);padding:20px 22px 22px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
 .mCard .mBtn{min-width:0}
 .sRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,248,236,.12)}
 .sRow label{font:800 .95rem/1.2 var(--body)}
@@ -118,7 +115,6 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 /* phones and tablets */
 body.touch{-webkit-touch-callout:none}
 body.touch .btn{touch-action:manipulation}
-body.touch #hint{display:none}
 body.touch #zone{padding:6px 10px 7px;max-width:calc(100vw - 176px)}
 body.touch #zoneT{font-size:1rem}
 body.touch #mini{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px}
@@ -138,15 +134,51 @@ body.touch #ctx{right:9px;bottom:94px;display:flex;flex-direction:column-reverse
 body.touch #ctx .round{width:62px;height:62px;font-size:.88rem}
 body.touch #emoteBar{bottom:calc(236px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 24px);flex-wrap:wrap;justify-content:center}
 body.touch #drive{top:calc(12px + env(safe-area-inset-top,0px) + 168px);min-width:170px;right:auto;left:50%;transform:translateX(-50%);bottom:auto}
-body.touch #driveTip,body.touch #bikeTip{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px) + 168px);}
-body.touch #driveTip.inCar{top:calc(12px + env(safe-area-inset-top,0px) + 252px)}
-body.touch #driveTip,body.touch #bikeTip,body.touch #driveTip.inCar{bottom:auto;left:50%;transform:translateX(-50%);font-size:.85rem;padding:6px 12px;max-width:calc(100vw - 32px);white-space:normal;text-align:center}
-@media (orientation:landscape){body.touch #drive{top:calc(10px + env(safe-area-inset-top,0px))}
-  body.touch #driveTip,body.touch #bikeTip{top:calc(10px + env(safe-area-inset-top,0px) + 100px)}
-  body.touch #driveTip.inCar{top:calc(10px + env(safe-area-inset-top,0px) + 100px)}}
+@media (orientation:landscape){body.touch #drive{top:calc(10px + env(safe-area-inset-top,0px))}}
 @media (max-height:520px){.screen{padding-top:12px;padding-bottom:12px}.tCard{gap:8px}.tCard h1{font-size:2.6rem}.tSub{font-size:.82rem}
   .tMenu{gap:6px;margin-top:2px}.mBtn{padding:8px 14px}.mBtn b{font-size:1.02rem}.screen .note{display:none}
   #pick{padding-top:10px;gap:8px}#pick h2{font-size:1.25rem}}
+/* ---- phones: a compact HUD that leaves the view open, in both orientations ---- */
+body.touch #zone{padding:5px 9px 6px;max-width:calc(100vw - 170px)}
+body.touch #zoneT{font-size:.95rem;gap:6px}
+body.touch #zoneDot{width:10px;height:10px}
+body.touch #zoneEn{display:none}
+body.touch #stats{margin-top:3px;gap:8px;font-size:.7rem}
+body.touch #clock{margin-top:3px;gap:6px;font-size:.68rem}
+body.touch #clock b{font-size:.9rem}
+body.touch #mini{gap:4px;padding:4px}
+body.touch #miniC{width:112px;height:82px}
+body.touch #mapBtn,body.touch #menuBtn{padding:6px 2px;font-size:.68rem;border-radius:8px}
+/* driving: one slim speed pill, centred under the HUD in portrait, between the HUD cards in landscape */
+body.touch #drive{width:148px;min-width:0;padding:5px 10px 6px;top:calc(env(safe-area-inset-top,0px) + 142px)}
+body.touch #dSpd{font-size:1.6rem}
+body.touch #dGear{font-size:.95rem;padding:3px 7px}
+body.touch #dHaz{font-size:.68rem;padding:4px 5px}
+body.touch #dBar{height:5px;margin-top:5px}
+body.touch #dName{display:none}
+body.touch #toast{top:calc(env(safe-area-inset-top,0px) + 200px);padding:8px 14px}
+body.touch #toast b{font-size:1rem}
+@media (orientation:landscape){
+  body.touch #drive{top:calc(env(safe-area-inset-top,0px) + 8px)}
+  body.touch #toast{top:calc(env(safe-area-inset-top,0px) + 72px)}
+  /* the vehicle / bike buttons line up left of the thumb cluster instead of stacking into the minimap */
+  body.touch #ctx{right:222px;bottom:2px;flex-direction:row-reverse}
+  body.touch #emoteBar{bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+}
+/* short screens (phones in landscape): menus go two columns so nothing needs scrolling */
+@media (max-height:520px){
+  .modal{padding:10px max(10px,env(safe-area-inset-right,0px)) 10px max(10px,env(safe-area-inset-left,0px))}
+  .mCard{padding:12px 16px 14px;gap:8px;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px)}
+  .mCard h2{font-size:1.25rem}
+  #menu .mCard,#settings .mCard{width:min(720px,100%)}
+  #menu .tMenu{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #menu .mTime{grid-column:1/-1;order:-1;padding:2px}
+  #menu .mBtn{padding:9px 14px}#menu .mBtn b{font-size:1rem}
+  #settings .mCard{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;row-gap:4px}
+  #settings h2,#settings .mDone{grid-column:1/-1}
+  #settings .mDone{justify-self:end}
+  .sRow{padding:4px 0}.seg button{padding:7px 10px}
+}
 #intro{position:fixed;inset:0;z-index:15;pointer-events:none}
 #intro .lb{position:absolute;left:0;right:0;height:9vh;background:#05101b}
 #intro .lb.top{top:0}#intro .lb.bot{bottom:0}
@@ -180,7 +212,7 @@ body.touch #driveTip,body.touch #bikeTip,body.touch #driveTip.inCar{bottom:auto;
 .key{display:inline-flex;align-items:center;gap:6px}
 .key i{width:12px;height:12px;border-radius:3px;border:2px solid var(--ink)}
 .credit{font-size:.7rem;color:var(--muted)}
-@media (prefers-reduced-motion:reduce){#toast,#hint{transition:none}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
 </style>
 
 <canvas id="c" tabindex="0" aria-label="3D 海大校園"></canvas>
@@ -188,9 +220,6 @@ body.touch #driveTip,body.touch #bikeTip,body.touch #driveTip.inCar{bottom:auto;
 <div id="hud" hidden>
   <div id="zone" class="panel"><div id="zoneT"><i id="zoneDot"></i><span id="zoneZh">北寧校區</span></div><span id="zoneEn">Beining Campus</span><div id="stats"><span id="found">已探索 0 / 0</span><span id="ele">海拔 0 m</span></div><div id="clock"><b id="clockT">--:--</b><span id="clockP">一般時段</span></div></div>
   <div id="mini" class="panel"><canvas id="miniC" width="300" height="220"></canvas><button class="btn" id="mapBtn" type="button">地圖 Map</button><button class="btn" id="menuBtn" type="button">選單 Menu</button><div class="trow"><button class="btn sm" id="tMinus" type="button" aria-label="Back one hour">−1h</button><button class="btn sm" id="tFast" type="button" aria-pressed="false" aria-label="Fast forward">×60</button><button class="btn sm" id="tPlus" type="button" aria-label="Forward one hour">+1h</button></div><button class="btn sm" id="tNow" type="button">現在時間</button></div>
-  <div id="hint" class="panel">WASD 移動 · 空白 跳 · Shift 跑 · E 腳踏車 · F 開車 · R 搭公車 · 1–5 表情 · [ ] 調時間 · M 地圖</div>
-  <div id="bikeTip" class="panel" hidden>按 E 騎上腳踏車</div>
-  <div id="driveTip" class="panel" hidden>按 F 開車</div>
   <div id="drive" class="panel" hidden><div class="dRow"><b id="dSpd">0</b><span class="dUnit">km/h</span><i id="dHaz" hidden>雙黃燈</i><i id="dGear">N</i></div><div id="dBar"><i></i></div><span id="dName">轎車 Car</span></div>
   <div id="toast" class="panel"><small id="tNo">New place</small><b id="tZh"></b><span id="tEn"></span></div>
 </div>
@@ -271,7 +300,6 @@ body.touch #driveTip,body.touch #bikeTip,body.touch #driveTip.inCar{bottom:auto;
     <div class="sRow"><label>車流量 <span>Traffic</span></label><div class="seg" data-key="traffic"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
     <div class="sRow"><label>人潮 <span>Crowd</span></label><div class="seg" data-key="crowd"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
     <div class="sRow"><label>時鐘 <span>Clock</span></label><div class="seg" data-key="clock"><button type="button" data-v="real">台灣即時</button><button type="button" data-v="day">從 10:00 開始</button></div></div>
-    <div class="sRow"><label>操作提示 <span>Control hints</span></label><div class="seg" data-key="hints"><button type="button" data-v="on">顯示</button><button type="button" data-v="off">隱藏</button></div></div>
     <div class="sRow"><label for="sSens">視角靈敏度 <span>Camera</span></label><input id="sSens" type="range" min="0.4" max="2" step="0.1"><output id="sSensV"></output></div>
     <button class="btn mDone" id="setDone" type="button">完成 Done</button>
   </div>
@@ -317,7 +345,7 @@ const isTouch=matchMedia('(pointer:coarse)').matches||('ontouchstart' in window)
 // player settings, kept in this browser
 document.body.classList.toggle('touch',isTouch);
 const SET_KEY='ntou-walk-settings';
-const SET=Object.assign({quality:isTouch?'mid':'high',traffic:'1',crowd:'1',clock:'real',hints:'on',sens:1},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}')||{};}catch(e){return {};}})());
+const SET=Object.assign({quality:isTouch?'mid':'high',traffic:'1',crowd:'1',clock:'real',sens:1},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}')||{};}catch(e){return {};}})());
 const D=JSON.parse(document.getElementById('campus-data').textContent);
 
 /* ---------- terrain grid (heights in decimeters, 4 m cells) ---------- */
@@ -427,6 +455,8 @@ const scene=new THREE.Scene();scene.background=new THREE.Color(SKY);scene.fog=ne
 const camera=new THREE.PerspectiveCamera(60,1,0.1,2000);
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w/h<0.8?74:60;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
+addEventListener('orientationchange',()=>{setTimeout(resize,150);setTimeout(resize,500);});
+if(window.visualViewport)visualViewport.addEventListener('resize',resize);
 scene.add(new THREE.HemisphereLight(0xffffff,0x7fae6a,0.62));
 const sun=new THREE.DirectionalLight(0xfff4e0,0.9);
 sun.castShadow=true;sun.shadow.mapSize.set(isTouch?1024:2048,isTouch?1024:2048);
@@ -1425,7 +1455,7 @@ function enterVehicle(v){
 }
 function exitVehicle(){
   const v=DRIVE.v;if(!v)return;
-  if(Math.abs(DRIVE.speed)>2.5){$('#driveTip').textContent='先停車再下車 · Stop first';return;}
+  if(Math.abs(DRIVE.speed)>2.5){say(v,'先停車再下車！',1.6);return;}
   // step out on the driver's (left) side, else the right, behind or in front
   const lx=v.hz,lz=-v.hx;let sx=v.x,sz=v.z;R=0.5;
   for(const [u,k] of [[1,0.6],[-1,0.6],[0,-1],[0,1]]){const x=v.x+lx*u*(v.wid/2+0.8)+v.hx*k*(u?0.4:v.len/2+0.8),z=v.z+lz*u*(v.wid/2+0.8)+v.hz*k*(u?0.4:v.len/2+0.8);
@@ -1542,13 +1572,9 @@ function refreshDriveUI(force){
     $('#dBar').firstElementChild.style.width=Math.min(100,Math.abs(DRIVE.speed)/VSPEC[DRIVE.v.type].vmax*100)+'%';
     const hz=!!DRIVE.v.hazard&&(hazT%0.8)<0.4;$('#dHaz').hidden=!DRIVE.v.hazard;$('#dHaz').style.opacity=hz?1:0.45;}
   if(state===driveUI&&!force)return;driveUI=state;
-  const tip=$('#driveTip'),btn=$('#driveBtn'),rb=$('#rideBtn');tip.classList.toggle('inCar',!!DRIVE.v||!!P.onBus);if(DRIVE.v||P.onBus)$('#hint').style.opacity=0;
-  tip.hidden=!state;btn.hidden=!state||!isTouch||state==='bus';btn.textContent=DRIVE.v?'下車':'開車';
+  const btn=$('#driveBtn'),rb=$('#rideBtn');
+  btn.hidden=!state||!isTouch||state==='bus';btn.textContent=DRIVE.v?'下車':'開車';
   rb.hidden=!isTouch||!(P.onBus||bus);rb.textContent=P.onBus?'下車':'搭車';
-  if(P.onBus){tip.textContent=isTouch?'公車停下時按「下車」':'R 下車（公車停下時）· 拖曳轉視角';return;}
-  if(bus){tip.textContent=isTouch?`開公車或搭乘 ${bus.route}`:`F 開公車 · R 搭公車（${bus.route}）`;return;}
-  tip.textContent=DRIVE.v?(isTouch?'搖桿：上油門 · 下煞車/倒車 · 左右轉向':'F 下車 · W 油門 · S 煞車/倒車 · A/D 轉向 · 空白 手煞車 · H 喇叭 · G 雙黃燈')
-    :`按 F 開${near?VSPEC[near.type].zh:'車'} · Drive`;
 }
 // parked vehicles: the G5 lot and the far-east lot, a row on 154巷, and one scooter by the start point
 function placeParkedVehicles(){
@@ -1713,7 +1739,7 @@ function boardBus(v){
   say(v,pick(['嗶——','歡迎搭乘','請往後走']),1.6);refreshDriveUI(true);}
 function leaveBus(force){
   const v=P.onBus;if(!v)return;
-  if(!force&&v.v>0.5){$('#driveTip').textContent='等公車停下再下車 · Wait for the bus to stop';return;}
+  if(!force&&v.v>0.5){say(v,'車停了再下車喔',1.6);return;}
   const rx=-v.hz,rz=v.hx;let sx=v.x,sz=v.z;R=0.5;                       // step out on the kerb (right) side
   for(const [u,k] of [[1,0.3],[1,-1.5],[1,2],[-1,0.3],[0,-1]]){
     const x=v.x+rx*u*(v.wid/2+0.9)+v.hx*k*(u?1:v.len/2+1),z=v.z+rz*u*(v.wid/2+0.9)+v.hz*k*(u?1:v.len/2+1);
@@ -2308,17 +2334,19 @@ function updateIntro(dt){
 function endIntro(){
   if(mode!=='intro')return;show('#intro',false);$('#introCap').classList.remove('on');
   mode='play';yaw=Math.PI;pitch=0.38;dist=isTouch?11:9;$('#hud').hidden=false;$('#touch').hidden=!isTouch;
-  $('#hint').style.opacity=1;setTimeout(()=>{$('#hint').style.opacity=0;},9000);cv.focus();
+  cv.focus();
 }
 $('#introSkip').addEventListener('click',endIntro);
 function toTitle(){mode='title';show('#title',true);show('#pick',false);($('#tCont').hidden?$('#tNew'):$('#tCont')).focus();}
 function toPick(){mode='pick';show('#title',false);show('#pick',true);$('#go').focus();}
-$('#tCont').addEventListener('click',()=>{const d=readSave();show('#title',false);if(d)setPick(d.gender);startPlay();if(d)restoreGame(d);});
+function phoneFullscreen(){if(!isTouch)return;const de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
+  if(req&&!(document.fullscreenElement||document.webkitFullscreenElement)){try{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{});}catch(e){}}}
+$('#tCont').addEventListener('click',()=>{phoneFullscreen();const d=readSave();show('#title',false);if(d)setPick(d.gender);startPlay();if(d)restoreGame(d);});
 $('#tNew').addEventListener('click',()=>{if(readSave()){modalBack=$('#tNew');show('#confirm',true);$('#cfNo').focus();}else toPick();});
 $('#cfNo').addEventListener('click',()=>{show('#confirm',false);modalBack&&modalBack.focus();});
 $('#cfYes').addEventListener('click',()=>{show('#confirm',false);toPick();});
 $('#pickBack').addEventListener('click',toTitle);
-$('#go').addEventListener('click',()=>{
+$('#go').addEventListener('click',()=>{phoneFullscreen();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
   found.clear();show('#pick',false);startPlay();startIntro();});
 // settings
@@ -2328,7 +2356,6 @@ function applySettings(first){
   if(renderer.shadowMap.enabled!==sh){renderer.shadowMap.enabled=sh;if(!first)scene.traverse(o=>{if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true);});}
   resize();
   VEH.max=Math.round(VEH.base*+SET.traffic);STU.max=Math.round(STU.base*+SET.crowd);
-  $('#hint').hidden=SET.hints==='off';
   for(const seg of document.querySelectorAll('.seg'))for(const b of seg.children)b.setAttribute('aria-pressed',String(SET[seg.dataset.key])===b.dataset.v);
   $('#sSens').value=SET.sens;$('#sSensV').textContent='×'+(+SET.sens).toFixed(1);
 }
@@ -2367,8 +2394,6 @@ function startPlay(){
   P.riding=false;P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=0;yaw=Math.PI;pitch=0.38;
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
   show('#title',false);show('#pick',false);$('#hud').hidden=false;$('#touch').hidden=!isTouch;
-  if(isTouch)$('#hint').textContent='搖桿移動 · 拖曳轉視角 · 表情鍵打招呼';
-  setTimeout(()=>{$('#hint').style.opacity=0;},9000);
   updateFound();cv.focus();
 }
 
@@ -2477,9 +2502,8 @@ let bikeUI='';
 function refreshBikeUI(){
   const state=DRIVE.v||P.onBus?'':P.riding?'ride':nearBike()?'near':'';
   if(state===bikeUI)return;bikeUI=state;
-  const btn=$('#bikeBtn'),tip=$('#bikeTip');
+  const btn=$('#bikeBtn');
   btn.hidden=!state||!isTouch;btn.textContent=P.riding?'下車':'騎車';
-  tip.hidden=!state||isTouch;tip.textContent=P.riding?'按 E 下車 · Shift 加速 · S 煞車/倒退':'按 E 騎上腳踏車';
 }
 
 let tAcc=0,yawHeld=false;
