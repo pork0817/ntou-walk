@@ -54,6 +54,10 @@ Needs Python 3 with numpy, scipy, matplotlib (godmap.py uses the Noto Sans CJK f
 - Courts/track/pool use their own high-resolution canvas textures fitted to each OSM polygon.
 - Building footprints that reach over a main road or its sidewalk are pulled back behind the kerb-side wall at load
   (`setBackFootprints`: half road width + 2.6 m sidewalk + 1 m, 0.6 m on tertiary roads); only the overhanging part moves.
+- Road signs are boards from `signBoard()` (front = local +z; back is plain metal or a second readable face, never a mirrored
+  double-sided texture): speed limits on signal poles face approaching traffic with a metal back; curve chevrons sit on top of a
+  short post with the arrow for each direction on each face; bus stops have a blue 公車 disc and a name board (stop name, routes)
+  facing along the road toward the oncoming bus, readable from both sides.
 - Bus stops: one shelter per OSM stop node, snapped to the kerb on its side, open side facing the road; if a building footprint
   reaches the sidewalk there, it slides along the kerb to the nearest clear spot (祥豐校門 south side moves 8 m west).
 - 北寧路 roadside (`buildRoadside`, from `docs/streetview-notes.md`): red/grey brick sidewalks, fan palms on both kerbs,
@@ -117,7 +121,29 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   panel shows route and next stop, arrivals pop a toast; R gets off whenever it is stopped, on the kerb side. Leaving the
   map or the end of the line lets you off. HUD: km/h, gear (D/R/N/P), speed bar, vehicle name. Saved with the game
   (`cars`, `driving`).
+  Vehicle lamps (`LAMP`, `setVehLights`, `updateVehLights`): headlights with a glow and a light pool on the road, and tail lights,
+  come on through dusk (from `nightLevel`) for traffic, the player's vehicle and recovering vehicles; parked ones stay dark.
+  Tail lights brighten as brake lights day or night (traffic slowing or stopped; the player braking or on the handbrake).
+- Intro (`INTRO`, `startIntro`, `updateIntro`, `endIntro`; mode 'intro'): after 開始探索 in a new game, ~32 s of letterboxed
+  camera shots with captions (welcome aerial, NTOU letters, 北寧路 traffic with E/F/R/G, campus life, map/clock/menu, then a
+  drop onto the player). Touch devices get touch hints. 略過 Skip, Esc, Space or Enter skips. Continue never plays it.
+- Screens (`mode`: title / pick / intro / play / pause / bye): the title screen (aerial fly-around) offers 繼續遊戲 Continue (with the save's
+  age and progress), 新遊戲 New Game (confirms before clearing a save, then character choice) and 設定 Settings. Esc or the
+  選單 Menu button pauses the world and opens Resume / Settings / Back to title (save + reload) / Quit (save, try window.close,
+  else a goodbye screen). Settings live in localStorage `ntou-walk-settings` (`SET`): graphics quality (pixel ratio, shadows),
+  traffic and crowd multipliers (`VEH.base`, `STU.base`), clock (Taiwan real time or a fixed 10:00 start), control hints,
+  camera sensitivity.
 - Emotes: 1 揮手, 2 歡呼, 3 鞠躬, 4 跳舞, 5 坐下 (mobile: 表情 button).
+
+## Phones (body.touch)
+
+- Compact HUD: small minimap with 地圖 / 選單 only (time controls live in the pause menu for everyone), no hint bar.
+- Floating joystick: touching anywhere in the lower-left (`#joyZone`, 50vw × 60vh) places the stick under the thumb.
+- Thumb cluster bottom-right: 跳 / 跑 / 表情, with 騎車 / 開車 / 搭車 stacked above 跳 when relevant; while driving they become
+  手煞 / 雙黃燈 / 喇叭, on a bus only 下車 shows (`refreshTouchButtons`). Two-finger pinch zooms the camera.
+- Portrait gets a wider field of view (74°) and the camera starts further back (11 m). Driving panel and tips sit below the
+  minimap in portrait, top-centre in landscape. The pause menu has 全螢幕 Fullscreen where the browser supports it.
+- Short screens (≤520 px tall) use a compact title screen.
 
 ## Known gaps / next steps (agreed with the user)
 

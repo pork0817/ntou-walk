@@ -1,0 +1,15 @@
+# Local tooling for Claude Code sessions (preview server config, test hook)
+.claude/
+
+# The school's own illustrated campus map: used locally by tools/fit.py, not ours to republish
+docs/school-map.jpg
+
+# Street View reference screenshots must never be published (they live outside this folder; this is a safety net)
+reference/
+*street*view*
+截圖*
+
+# macOS / Python clutter
+.DS_Store
+__pycache__/
+*.pyc

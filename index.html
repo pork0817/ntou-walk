@@ -74,19 +74,105 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 @media (pointer:coarse){#driveTip.inCar{left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px)}#drive{right:auto;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));bottom:auto;min-width:150px;padding:6px 12px 8px}#dSpd{font-size:2rem}}
 #runBtn[aria-pressed="true"]{background:var(--sea);color:var(--paper)}
 #pick{position:fixed;left:0;right:0;bottom:0;padding:20px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(to top,rgba(11,28,44,.94) 70%,rgba(11,28,44,0));display:flex;flex-direction:column;align-items:center;gap:12px}
-#pick h1{margin:0;font:800 clamp(2.2rem,8vw,3.4rem)/1 var(--display);letter-spacing:.02em;text-shadow:0 4px 0 var(--ink)}
-#pick h1 em{font-style:normal;color:var(--signal)}
+#pick h2,.mCard h2{margin:0;font:900 1.6rem/1.1 var(--body);text-shadow:0 3px 0 var(--ink)}
+#pick h2 span,.mCard h2 span{font:700 .85rem/1 var(--display);color:var(--muted);text-shadow:none;margin-left:6px}
 #pick p{margin:0;font:600 .9rem/1.4 var(--body);color:var(--muted);text-align:center}
+.screen{position:fixed;inset:0;display:flex;align-items:center;padding:24px max(24px,env(safe-area-inset-left,0px));background:linear-gradient(90deg,rgba(11,28,44,.92) 0%,rgba(11,28,44,.78) 45%,rgba(11,28,44,.25) 75%,rgba(11,28,44,0) 92%);z-index:10}
+.tCard{display:flex;flex-direction:column;gap:14px;max-width:440px;margin-left:clamp(0px,5vw,72px)}
+.tCard.center{margin:0 auto;align-items:center;text-align:center}
+#bye{background:rgba(11,28,44,.9)}
+.tCard h1{margin:0;font:800 clamp(3rem,10vw,5rem)/1 var(--display);letter-spacing:.02em;text-shadow:0 5px 0 var(--ink)}
+.tCard h1 em{font-style:normal;color:var(--signal)}
+.tSub{margin:0;font:600 .95rem/1.5 var(--body);color:var(--muted)}
+.tMenu{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.mBtn{display:grid;grid-template-columns:auto 1fr;align-items:baseline;column-gap:10px;min-width:280px;padding:13px 18px;text-align:left;background:var(--navy);color:var(--paper)}
+.mBtn b{font:900 1.2rem/1.2 var(--body)}
+.mBtn span{font:700 .78rem/1 var(--display);color:var(--muted)}
+.mBtn small{grid-column:1/-1;margin-top:4px;font:600 .75rem/1.3 var(--body);color:var(--ink);opacity:.8}
+.mBtn.primary{background:var(--signal);color:var(--ink)}
+.mBtn.primary span{color:var(--ink);opacity:.7}
+.mBtn:hover:not(:disabled){filter:brightness(1.12)}
+.mBtn:disabled{opacity:.6;cursor:wait}
+.screen .note{margin:6px 0 0;font:600 .72rem/1.5 var(--body);color:var(--muted);max-width:36em}
+.modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(11,28,44,.55);z-index:30;padding:16px}
+.mCard{background:var(--navy);width:min(440px,100%);padding:20px 22px 22px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow:auto}
+.mCard .mBtn{min-width:0}
+.sRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,248,236,.12)}
+.sRow label{font:800 .95rem/1.2 var(--body)}
+.sRow label span{font:700 .72rem/1 var(--display);color:var(--muted);margin-left:4px}
+.seg{display:flex;border:2px solid var(--ink);border-radius:10px;overflow:hidden}
+.seg button{font:800 .82rem/1 var(--body);padding:8px 12px;border:0;border-left:2px solid var(--ink);background:var(--paper);color:var(--ink);cursor:pointer}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--signal)}
+.seg button:focus-visible,.sRow input:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+#sSens{flex:1;min-width:120px;accent-color:var(--signal)}
+#sSensV{font:800 .85rem/1 var(--display);min-width:2.6em;text-align:right}
+.mDone{align-self:flex-end;margin-top:6px;padding:10px 22px;font-size:.95rem}
+.cfText{margin:0;font:600 .92rem/1.5 var(--body);color:var(--muted)}
+.btn.danger{background:var(--brick);color:var(--paper)}
+#menuBtn{background:#ffd38a}
+.mTime{display:flex;align-items:center;gap:6px;padding:6px 2px}
+.mTime>span{flex:1;font:800 1rem/1 var(--body)}.mTime small{font:700 .72rem var(--display);color:var(--muted)}
+.mTime .btn{flex:none;padding:8px 10px}
+#mtFast[aria-pressed="true"]{background:var(--signal)}
+/* phones and tablets */
+body.touch{-webkit-touch-callout:none}
+body.touch .btn{touch-action:manipulation}
+body.touch #hint{display:none}
+body.touch #zone{padding:6px 10px 7px;max-width:calc(100vw - 176px)}
+body.touch #zoneT{font-size:1rem}
+body.touch #mini{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px}
+body.touch #miniC{grid-column:1/-1;width:132px;height:97px}
+body.touch #mini .trow,body.touch #tNow{display:none}
+body.touch #mapBtn,body.touch #menuBtn{padding:7px 4px;font-size:.74rem}
+#joyZone{position:absolute;left:0;bottom:0;width:50vw;height:60vh;pointer-events:auto;touch-action:none}
+body.touch #joy{pointer-events:none;opacity:.5;transition:opacity .15s;width:116px;height:116px}
+body.touch #knob{width:52px;height:52px;margin:-26px 0 0 -26px}
+body.touch #joy.active{opacity:1;transition:none}
+body.touch #acts{display:block;width:214px;height:210px;gap:0;pointer-events:none}
+body.touch #acts>.btn,body.touch #ctx{position:absolute;pointer-events:auto}
+body.touch #jumpBtn{right:0;bottom:0;width:80px;height:80px;font-size:1.1rem}
+body.touch #runBtn{right:92px;bottom:6px;width:60px;height:60px;font-size:.82rem}
+body.touch #emoteBtn{right:162px;bottom:12px;width:52px;height:52px;font-size:.78rem}
+body.touch #ctx{right:9px;bottom:94px;display:flex;flex-direction:column-reverse;gap:8px}
+body.touch #ctx .round{width:62px;height:62px;font-size:.88rem}
+body.touch #emoteBar{bottom:calc(236px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 24px);flex-wrap:wrap;justify-content:center}
+body.touch #drive{top:calc(12px + env(safe-area-inset-top,0px) + 168px);min-width:170px;right:auto;left:50%;transform:translateX(-50%);bottom:auto}
+body.touch #driveTip,body.touch #bikeTip{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px) + 168px);}
+body.touch #driveTip.inCar{top:calc(12px + env(safe-area-inset-top,0px) + 252px)}
+body.touch #driveTip,body.touch #bikeTip,body.touch #driveTip.inCar{bottom:auto;left:50%;transform:translateX(-50%);font-size:.85rem;padding:6px 12px;max-width:calc(100vw - 32px);white-space:normal;text-align:center}
+@media (orientation:landscape){body.touch #drive{top:calc(10px + env(safe-area-inset-top,0px))}
+  body.touch #driveTip,body.touch #bikeTip{top:calc(10px + env(safe-area-inset-top,0px) + 100px)}
+  body.touch #driveTip.inCar{top:calc(10px + env(safe-area-inset-top,0px) + 100px)}}
+@media (max-height:520px){.screen{padding-top:12px;padding-bottom:12px}.tCard{gap:8px}.tCard h1{font-size:2.6rem}.tSub{font-size:.82rem}
+  .tMenu{gap:6px;margin-top:2px}.mBtn{padding:8px 14px}.mBtn b{font-size:1.02rem}.screen .note{display:none}
+  #pick{padding-top:10px;gap:8px}#pick h2{font-size:1.25rem}}
+#intro{position:fixed;inset:0;z-index:15;pointer-events:none}
+#intro .lb{position:absolute;left:0;right:0;height:9vh;background:#05101b}
+#intro .lb.top{top:0}#intro .lb.bot{bottom:0}
+#introCap{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(9vh + 22px);max-width:min(560px,calc(100vw - 48px));opacity:0;transform:translateY(10px);transition:opacity .6s,transform .6s}
+#introCap.on{opacity:1;transform:none}
+#introCap small{display:block;font:800 .72rem/1 var(--display);letter-spacing:.14em;color:var(--signal);text-transform:uppercase;margin-bottom:8px;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+#introCap h2{margin:0 0 6px;font:900 clamp(1.6rem,4.5vw,2.4rem)/1.15 var(--body);text-shadow:0 3px 0 var(--ink),0 0 18px rgba(0,0,0,.45)}
+#introCap p{margin:0;font:600 clamp(.92rem,2.2vw,1.05rem)/1.55 var(--body);text-shadow:0 2px 8px rgba(0,0,0,.75)}
+#icKeys{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+#icKeys span{font:700 .82rem/1 var(--body);background:rgba(11,28,44,.72);border:2px solid var(--ink);border-radius:8px;padding:6px 9px}
+#icKeys kbd{font:900 .8rem/1 var(--display);background:var(--paper);color:var(--ink);border-radius:5px;padding:2px 6px;margin-right:5px;box-shadow:0 2px 0 var(--ink)}
+#icDots{position:absolute;right:max(24px,env(safe-area-inset-right,0px));bottom:calc(9vh + 26px);display:flex;gap:6px}
+#icDots i{width:8px;height:8px;border-radius:50%;background:rgba(255,248,236,.35)}
+#icDots i.on{background:var(--signal)}
+#introSkip{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:calc(9vh + 14px);pointer-events:auto;background:rgba(255,248,236,.92)}
+#introFade{position:absolute;inset:0;background:#05101b;opacity:1;transition:opacity .45s}
+@media (max-width:640px){#icDots{display:none}}
+@media (max-width:640px){.screen{align-items:flex-end;background:linear-gradient(to top,rgba(11,28,44,.94) 55%,rgba(11,28,44,0))}.tCard{margin:0 auto;width:100%}.mBtn{min-width:0}}
 .choices{display:flex;gap:12px}
 .choice{min-width:120px;padding:12px 18px;font:900 1.05rem/1.2 var(--body);background:var(--navy);color:var(--paper)}
 .choice span{display:block;font:700 .75rem/1 var(--display);color:var(--muted);margin-top:2px}
 .choice[aria-pressed="true"]{background:var(--signal);color:var(--ink)}
 .choice[aria-pressed="true"] span{color:var(--ink)}
-#go,#cont{font-size:1.1rem;padding:12px 34px}
-#cont{background:var(--signal)}
+#go{font-size:1.05rem;padding:12px 30px;background:var(--signal)}
+#pickBack{font-size:1.05rem;padding:12px 22px}
 .startRow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-#go:disabled{opacity:.6;cursor:wait}
-#pick .note{font-size:.72rem;max-width:36em}
 #map{position:fixed;inset:0;background:rgba(11,28,44,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .mapwrap{width:100%;max-width:1300px;overflow:auto;border:2px solid var(--ink);border-radius:14px;max-height:80vh}
 #mapC{display:block;width:100%;min-width:680px;background:#2f9fd3}
@@ -101,7 +187,7 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 
 <div id="hud" hidden>
   <div id="zone" class="panel"><div id="zoneT"><i id="zoneDot"></i><span id="zoneZh">北寧校區</span></div><span id="zoneEn">Beining Campus</span><div id="stats"><span id="found">已探索 0 / 0</span><span id="ele">海拔 0 m</span></div><div id="clock"><b id="clockT">--:--</b><span id="clockP">一般時段</span></div></div>
-  <div id="mini" class="panel"><canvas id="miniC" width="300" height="220"></canvas><button class="btn" id="mapBtn" type="button">地圖 Map</button><div class="trow"><button class="btn sm" id="tMinus" type="button" aria-label="Back one hour">−1h</button><button class="btn sm" id="tFast" type="button" aria-pressed="false" aria-label="Fast forward">×60</button><button class="btn sm" id="tPlus" type="button" aria-label="Forward one hour">+1h</button></div><button class="btn sm" id="tNow" type="button">現在時間</button></div>
+  <div id="mini" class="panel"><canvas id="miniC" width="300" height="220"></canvas><button class="btn" id="mapBtn" type="button">地圖 Map</button><button class="btn" id="menuBtn" type="button">選單 Menu</button><div class="trow"><button class="btn sm" id="tMinus" type="button" aria-label="Back one hour">−1h</button><button class="btn sm" id="tFast" type="button" aria-pressed="false" aria-label="Fast forward">×60</button><button class="btn sm" id="tPlus" type="button" aria-label="Forward one hour">+1h</button></div><button class="btn sm" id="tNow" type="button">現在時間</button></div>
   <div id="hint" class="panel">WASD 移動 · 空白 跳 · Shift 跑 · E 腳踏車 · F 開車 · R 搭公車 · 1–5 表情 · [ ] 調時間 · M 地圖</div>
   <div id="bikeTip" class="panel" hidden>按 E 騎上腳踏車</div>
   <div id="driveTip" class="panel" hidden>按 F 開車</div>
@@ -111,30 +197,102 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 
 <div id="emoteBar" class="panel" hidden></div>
 <div id="touch" hidden>
+  <div id="joyZone" aria-hidden="true"></div>
   <div id="joy"><div id="knob"></div></div>
   <div id="acts">
+    <div id="ctx">
+      <button class="btn round" id="bikeBtn" type="button" hidden>騎車</button>
+      <button class="btn round" id="driveBtn" type="button" hidden>開車</button>
+      <button class="btn round" id="rideBtn" type="button" hidden>搭車</button>
+    </div>
     <button class="btn round" id="emoteBtn" type="button">表情</button>
-    <button class="btn round" id="bikeBtn" type="button" hidden>騎車</button>
-    <button class="btn round" id="driveBtn" type="button" hidden>開車</button>
-    <button class="btn round" id="rideBtn" type="button" hidden>搭車</button>
     <button class="btn round" id="runBtn" type="button" aria-pressed="false">跑</button>
     <button class="btn round" id="jumpBtn" type="button">跳</button>
   </div>
 </div>
 
-<div id="pick">
-  <h1>海大<em>漫遊</em></h1>
-  <p>國立臺灣海洋大學 校本部 · 基隆市北寧路2號<br>選一位角色，牽著腳踏車從濱海校門出發</p>
+<!-- title screen: live aerial fly-around of the campus behind the menu -->
+<div id="title" class="screen">
+  <div class="tCard">
+    <h1>海大<em>漫遊</em></h1>
+    <p class="tSub">NTOU Walk · 國立臺灣海洋大學 校本部 · 基隆市北寧路2號</p>
+    <div class="tMenu">
+      <button class="btn mBtn primary" id="tCont" type="button" hidden><b>繼續遊戲</b><span>Continue</span><small id="tSave"></small></button>
+      <button class="btn mBtn" id="tNew" type="button" disabled><b>載入中…</b><span>Loading</span></button>
+      <button class="btn mBtn" id="tSet" type="button"><b>設定</b><span>Settings</span></button>
+    </div>
+    <p class="note">建築外形與道路來自 OpenStreetMap，實際比例。地形高度依內政部水準點與山林範圍估算。<br>Map data © OpenStreetMap contributors</p>
+  </div>
+</div>
+
+<!-- character choice for a new game -->
+<div id="pick" hidden>
+  <h2>選擇角色 <span>Choose your character</span></h2>
+  <p>牽著腳踏車，從濱海校門出發</p>
   <div class="choices">
     <button class="btn choice" id="pickM" type="button" aria-pressed="true">男生<span>Male</span></button>
     <button class="btn choice" id="pickF" type="button" aria-pressed="false">女生<span>Female</span></button>
   </div>
   <div class="startRow">
-    <button class="btn" id="cont" type="button" hidden>繼續 Continue</button>
-    <button class="btn" id="go" type="button" disabled>載入中 Loading…</button>
+    <button class="btn" id="pickBack" type="button">返回 Back</button>
+    <button class="btn" id="go" type="button">開始探索 Start</button>
   </div>
-  <p class="note" id="saveInfo" hidden></p>
-  <p class="note">建築外形與道路來自 OpenStreetMap，實際比例。地形高度依內政部水準點與山林範圍估算。</p>
+</div>
+
+<!-- intro after a new game: camera shots across campus with captions -->
+<div id="intro" hidden>
+  <div class="lb top"></div><div class="lb bot"></div>
+  <div id="introCap"><small id="icStep"></small><h2 id="icT"></h2><p id="icB"></p><div id="icKeys"></div></div>
+  <div id="icDots"></div>
+  <button class="btn" id="introSkip" type="button">略過 Skip ›</button>
+  <div id="introFade"></div>
+</div>
+
+<!-- in-game menu (Esc) -->
+<div id="menu" class="modal" hidden>
+  <div class="mCard panel" role="dialog" aria-labelledby="menuH">
+    <h2 id="menuH">暫停 <span>Paused</span></h2>
+    <div class="tMenu">
+      <button class="btn mBtn primary" id="mResume" type="button"><b>繼續遊戲</b><span>Resume · Esc</span></button>
+      <button class="btn mBtn" id="mSet" type="button"><b>設定</b><span>Settings</span></button>
+      <div class="mTime"><span>時間 <small>Time</small></span><button class="btn sm" id="mtMinus" type="button">−1h</button><button class="btn sm" id="mtFast" type="button" aria-pressed="false">×60</button><button class="btn sm" id="mtPlus" type="button">+1h</button><button class="btn sm" id="mtNow" type="button">現在</button></div>
+      <button class="btn mBtn" id="mFull" type="button" hidden><b>全螢幕</b><span>Fullscreen</span></button>
+      <button class="btn mBtn" id="mTitle" type="button"><b>回到標題畫面</b><span>Back to title · 會自動存檔</span></button>
+      <button class="btn mBtn" id="mQuit" type="button"><b>離開遊戲</b><span>Quit · 會自動存檔</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- settings, from the title or the in-game menu -->
+<div id="settings" class="modal" hidden>
+  <div class="mCard panel" role="dialog" aria-labelledby="setH">
+    <h2 id="setH">設定 <span>Settings</span></h2>
+    <div class="sRow"><label>畫質 <span>Graphics</span></label><div class="seg" data-key="quality"><button type="button" data-v="low">低</button><button type="button" data-v="mid">中</button><button type="button" data-v="high">高</button></div></div>
+    <div class="sRow"><label>車流量 <span>Traffic</span></label><div class="seg" data-key="traffic"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
+    <div class="sRow"><label>人潮 <span>Crowd</span></label><div class="seg" data-key="crowd"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
+    <div class="sRow"><label>時鐘 <span>Clock</span></label><div class="seg" data-key="clock"><button type="button" data-v="real">台灣即時</button><button type="button" data-v="day">從 10:00 開始</button></div></div>
+    <div class="sRow"><label>操作提示 <span>Control hints</span></label><div class="seg" data-key="hints"><button type="button" data-v="on">顯示</button><button type="button" data-v="off">隱藏</button></div></div>
+    <div class="sRow"><label for="sSens">視角靈敏度 <span>Camera</span></label><input id="sSens" type="range" min="0.4" max="2" step="0.1"><output id="sSensV"></output></div>
+    <button class="btn mDone" id="setDone" type="button">完成 Done</button>
+  </div>
+</div>
+
+<!-- confirm (new game over an existing save) -->
+<div id="confirm" class="modal" hidden>
+  <div class="mCard panel" role="alertdialog" aria-labelledby="cfH">
+    <h2 id="cfH">開始新遊戲？ <span>Start a new game?</span></h2>
+    <p class="cfText">目前的存檔和探索紀錄會被清除。<br>Your current save and explored places will be cleared.</p>
+    <div class="startRow"><button class="btn" id="cfNo" type="button">取消 Cancel</button><button class="btn danger" id="cfYes" type="button">開始新遊戲 New game</button></div>
+  </div>
+</div>
+
+<!-- after Quit -->
+<div id="bye" class="screen" hidden>
+  <div class="tCard center">
+    <h1>海大<em>漫遊</em></h1>
+    <p class="tSub">已儲存進度，可以關閉這個分頁了。<br>Progress saved. You can close this tab.</p>
+    <div class="tMenu"><button class="btn mBtn primary" id="byeTitle" type="button"><b>回到標題畫面</b><span>Back to title</span></button></div>
+  </div>
 </div>
 
 <div id="map" hidden>
@@ -156,6 +314,10 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 const $=s=>document.querySelector(s);
 const TAU=Math.PI*2;
 const isTouch=matchMedia('(pointer:coarse)').matches||('ontouchstart' in window);
+// player settings, kept in this browser
+document.body.classList.toggle('touch',isTouch);
+const SET_KEY='ntou-walk-settings';
+const SET=Object.assign({quality:isTouch?'mid':'high',traffic:'1',crowd:'1',clock:'real',hints:'on',sens:1},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}')||{};}catch(e){return {};}})());
 const D=JSON.parse(document.getElementById('campus-data').textContent);
 
 /* ---------- terrain grid (heights in decimeters, 4 m cells) ---------- */
@@ -263,7 +425,7 @@ renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 const SKY=0x9fdcf5;
 const scene=new THREE.Scene();scene.background=new THREE.Color(SKY);scene.fog=new THREE.Fog(SKY,220,700);
 const camera=new THREE.PerspectiveCamera(60,1,0.1,2000);
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w/h<0.8?74:60;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
 scene.add(new THREE.HemisphereLight(0xffffff,0x7fae6a,0.62));
 const sun=new THREE.DirectionalLight(0xfff4e0,0.9);
@@ -368,6 +530,18 @@ function labelSprite(no,zh,en,zone,scale=1){
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,fog:true,depthWrite:false}));
   s.scale.set(17*scale,17*150/640*scale,1);LABELS.push(s);return s;
 }
+
+/* ---------- road signs: a thin board whose +z face is the readable front; the back is plain metal or a second readable face ---------- */
+const SIGNS=[];                                          // (for checks) every sign board and which way its front faces
+const signMetal=new THREE.MeshToonMaterial({color:0x9aa2a8,gradientMap:null});
+function signBoard(w,h,front,back,shape){
+  const g=new THREE.Group();
+  const geo=shape==='circle'?new THREE.CircleGeometry(w/2,28):new THREE.PlaneGeometry(w,h);
+  const f=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:front}));f.position.z=0.026;g.add(f);
+  const b=new THREE.Mesh(geo,back?new THREE.MeshBasicMaterial({map:back}):signMetal);b.rotation.y=Math.PI;b.position.z=-0.026;g.add(b);
+  const rim=new THREE.Mesh(shape==='circle'?new THREE.CylinderGeometry(w/2+0.01,w/2+0.01,0.05,28):new THREE.BoxGeometry(w+0.02,h+0.02,0.05),signMetal);
+  if(shape==='circle')rim.rotation.x=Math.PI/2;g.add(rim);
+  SIGNS.push(g);return g;}
 
 /* ---------- geometry helpers ---------- */
 function pip(poly,x,z){let r=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],zi=poly[i][1],xj=poly[j][0],zj=poly[j][1];
@@ -735,7 +909,8 @@ function buildStreetFurniture(){
       let along=5;for(const a of [5,7,9,11,13,3])if(!inRoad(x.x+nx*off*s-x.tx*a*s,x.z+nz*off*s-x.tz*a*s)){along=a;break;}
       const px=x.x+nx*off*s-x.tx*along*s,pz=x.z+nz*off*s-x.tz*along*s;const y=ground(px,pz)+0.2;
       const g=new THREE.Group();g.position.set(px,y,pz);
-      // face oncoming traffic: arm points toward road centre
+      // the arm points toward the road centre; the pole stands before the crossing for the traffic on its side, so that
+      // traffic approaches along local +z: signal lenses face local -z (toward it), the walking man faces the crossing (+z)
       g.rotation.y=Math.atan2(-nx*s,-nz*s)-Math.PI/2;
       const pole=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,6.2,10),toon(0x9aa2a8)));pole.position.y=3.1;g.add(pole);
       const reach=Math.min(x.w/2,6);
@@ -743,12 +918,12 @@ function buildStreetFurniture(){
       const head=shade(new THREE.Mesh(new THREE.BoxGeometry(1.2,0.42,0.3),toon(0x23292e)));head.position.set(reach-0.4,5.55,0);g.add(head);
       const head3=[];
       [[0xd8262f,-0.38,.25],[0xf2c230,0,.25],[0x2fd17a,0.38,1]].forEach(([c,o,a])=>{const l=new THREE.Mesh(new THREE.CircleGeometry(0.14,14),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:a}));
-        l.position.set(reach-0.4+o,5.55,0.16*s);l.rotation.y=s>0?0:Math.PI;g.add(l);head3.push(l.material);});
-      const ped=shade(new THREE.Mesh(new THREE.BoxGeometry(0.42,0.75,0.3),toon(0x23292e)));ped.position.set(0,2.6,0.25*s);g.add(ped);
+        l.position.set(reach-0.4+o,5.55,-0.16);l.rotation.y=Math.PI;g.add(l);head3.push(l.material);});
+      const ped=shade(new THREE.Mesh(new THREE.BoxGeometry(0.42,0.75,0.3),toon(0x23292e)));ped.position.set(0,2.6,0.25);g.add(ped);
       const pc=document.createElement('canvas');pc.width=64;pc.height=96;const pt=new THREE.CanvasTexture(pc);
-      const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.51),new THREE.MeshBasicMaterial({map:pt}));pl.position.set(0,2.6,0.25*s+0.16*s);pl.rotation.y=s>0?0:Math.PI;g.add(pl);
+      const pl=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.51),new THREE.MeshBasicMaterial({map:pt}));pl.position.set(0,2.6,0.41);pl.rotation.y=0;g.add(pl);
       (x.heads||(x.heads=[])).push({veh:head3,pc,pt,last:'',px,pz});
-      if(signs++%2===0){const sg=new THREE.Mesh(new THREE.CircleGeometry(0.4,24),new THREE.MeshBasicMaterial({map:limit,side:THREE.DoubleSide}));sg.position.set(0,4.2,0.2*s);g.add(sg);}
+      if(signs++%2===0){const sg=signBoard(0.8,0.8,limit,null,'circle');sg.position.set(0,4.2,-0.22);sg.rotation.y=Math.PI;sg.userData.kind='limit';g.add(sg);}
       scene.add(g);const o={kind:'circle',x:px,z:pz,r:0.25,top:99};gridAdd(o,px-1,pz-1,px+1,pz+1);
     }
   }
@@ -889,11 +1064,11 @@ function buildRoadside(){
       if(!inMap(x,z)||ground(x,z)<0.8||chevPlaced.some(p=>Math.hypot(p[0]-x,p[1]-z)<14)||nearXing(x,z,8)||joins(x,z,1)||!free(x,z,0.4))continue;
       chevPlaced.push([x,z]);
       const g=new THREE.Group();g.position.set(x,ground(x,z)+0.15,z);
-      const pole=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,2.3,8),toon(0xffffff,poleTex)));pole.position.y=1.15;g.add(pole);
-      // traffic going +u turns right when cr>0: its face looks back along -u and points to the inside
-      for(const d of [1,-1]){const turnRight=(cr>0)===(d>0);
-        const f=new THREE.Mesh(new THREE.PlaneGeometry(0.6,0.75),toon(0xffffff,chevTex(turnRight?1:-1)));
-        f.rotation.y=Math.atan2(-ux*d,-uz*d);f.position.set(-ux*d*0.03,2.0,-uz*d*0.03);g.add(f);}
+      const pole=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,8),toon(0xffffff,poleTex)));pole.position.y=0.8;g.add(pole);
+      // one board on top of the post; its front faces traffic going +u (which turns right when cr>0), its back faces
+      // traffic going -u, each with the arrow pointing to the inside of the bend for that direction
+      const turnRightF=cr>0;
+      const sb=signBoard(0.7,0.9,chevTex(turnRightF?1:-1),chevTex(turnRightF?-1:1));sb.position.y=2.05;sb.rotation.y=Math.atan2(-ux,-uz);sb.userData.kind='chevron';g.add(sb);
       scene.add(g);solid(x,z,0.15,99);
     }
   }
@@ -1181,7 +1356,18 @@ function driveStep(dt,ix,iy){
   tickBubble(v,dt,v.x,v.top+1,v.z);
 }
 let driveUI='';
+// phone buttons follow what you're doing: on foot / bike, driving (horn, hazards, handbrake), riding a bus (just get off)
+let touchState='';
+function refreshTouchButtons(){
+  if(!isTouch)return;const st=DRIVE.v?'drive':P.onBus?'bus':'foot';if(st===touchState&&st!=='drive')return;
+  if(st!==touchState){touchState=st;
+    $('#emoteBtn').textContent=st==='drive'?'喇叭':'表情';$('#jumpBtn').textContent=st==='drive'?'手煞':'跳';
+    for(const id of ['#emoteBtn','#runBtn','#jumpBtn'])$(id).hidden=st==='bus';if(st!=='foot')$('#emoteBar').hidden=true;}
+  if(st==='drive'){$('#runBtn').textContent='雙黃燈';$('#runBtn').setAttribute('aria-pressed',!!DRIVE.v.hazard);}
+  else{$('#runBtn').textContent='跑';$('#runBtn').setAttribute('aria-pressed',runToggle);}
+}
 function refreshDriveUI(force){
+  refreshTouchButtons();
   const near=!DRIVE.v&&!P.riding&&!P.onBus?nearestDrivable():null,bus=!DRIVE.v&&!P.onBus?nearestStoppedBus():null;
   const state=DRIVE.v?'in':P.onBus?'bus':bus?'busnear'+bus.route:near?'near':'';
   if(DRIVE.v){const kmh=Math.round(Math.abs(DRIVE.speed)*3.6);$('#dSpd').textContent=kmh;
@@ -1548,10 +1734,18 @@ function busStop(s){
   const ad=new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.7),toon(0xffd38a));ad.position.set(-1.6,1.55,0.95);ad.rotation.y=Math.PI;g.add(ad);
   const bench=shade(new THREE.Mesh(new THREE.BoxGeometry(3.2,0.12,0.5),toon(0xd9a383)));bench.position.set(0.4,0.55,0.65);g.add(bench);
   for(const k of [-1,1]){const l=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.5,0.4),toon(0x8a8f96));l.position.set(0.4+k*1.4,0.27,0.65);g.add(l);}
-  // stop sign on its own pole at the kerb, facing the road
+  // stop sign on its own pole at the downstream end of the shelter; buses approach along local +x, so its front faces -x
   const pole=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,3.0,8),toon(0x8a8f96)));pole.position.set(3.1,1.5,-0.7);g.add(pole);
-  const sign=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.06,20),toon(0x1f6fa8));sign.rotation.x=Math.PI/2;sign.position.set(3.1,2.9,-0.7);g.add(sign);
-  const sb=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,0.06),toon(0xffffff));sb.position.set(3.1,2.1,-0.7);g.add(sb);
+  const busDisc=tileTex('busDisc',128,128,(c,w,h)=>{c.fillStyle='#ffffff';c.beginPath();c.arc(64,64,64,0,TAU);c.fill();c.fillStyle='#1f6fa8';c.beginPath();c.arc(64,64,58,0,TAU);c.fill();
+    c.fillStyle='#ffffff';c.fillRect(30,34,68,44);c.fillStyle='#1f6fa8';c.fillRect(36,40,24,16);c.fillRect(66,40,26,16);c.fillStyle='#ffffff';c.beginPath();c.arc(44,82,7,0,TAU);c.arc(84,82,7,0,TAU);c.fill();
+    c.font='900 20px "Noto Sans TC",sans-serif';c.textAlign='center';c.fillText('公車',64,112);});
+  const nameTex=canvasTex(128,192,c=>{c.fillStyle='#ffffff';c.fillRect(0,0,128,192);c.fillStyle='#1f6fa8';c.fillRect(0,0,128,40);
+    c.fillStyle='#fff';c.font='900 24px "Noto Sans TC",sans-serif';c.textAlign='center';c.fillText('公車站',64,29);
+    c.fillStyle='#13304a';const nm=(s.zh||'').replace(/^海大/,'');c.font='900 22px "Noto Sans TC",sans-serif';c.fillText('海大',64,78);
+    c.font='900 '+(nm.length>6?16:20)+'px "Noto Sans TC",sans-serif';c.fillText(nm,64,110,120);
+    c.font='700 15px "Baloo 2",sans-serif';c.fillStyle='#d4661f';c.fillText('Bus Stop',64,150);c.fillStyle='#1f6fa8';c.font='800 14px "Baloo 2",sans-serif';c.fillText(BUS_ROUTES.map(r=>r.split(' ')[0]).join(' · '),64,176);});
+  const disc=signBoard(0.85,0.85,busDisc,busDisc,'circle');disc.position.set(3.1,3.0,-0.7);disc.rotation.y=-Math.PI/2;disc.userData.kind='bus';g.add(disc);
+  const board=signBoard(0.6,0.9,nameTex,nameTex);board.position.set(3.1,2.05,-0.7-0.36);board.rotation.y=-Math.PI/2;board.userData.kind='busname';g.add(board);
   const lab=labelSprite(null,s.zh,'Bus stop','n',0.7);lab.position.set(0,5,0.2);g.add(lab);
   scene.add(g);
   // shelter body is solid; the open front can be walked up to
@@ -1793,8 +1987,8 @@ function makeChar(gender){
 /* ---------- state ---------- */
 const START={x:D.spawn[0],z:D.spawn[1]};
 const P={x:START.x,y:0,z:START.z,vy:0,ground:true,rot:0,phase:0,speed:0};
-let yaw=Math.PI,pitch=0.38,dist=9;
-let mode='pick',gender='m',player=null,chars={};
+let yaw=Math.PI,pitch=0.38,dist=isTouch?11:9;
+let mode='title',gender='m',player=null,chars={};
 let found=new Set();
 try{found=new Set(JSON.parse(localStorage.getItem('ntou-walk-found-v3')||'[]'));}catch(e){}
 const saveFound=()=>{try{localStorage.setItem('ntou-walk-found-v3',JSON.stringify([...found]));}catch(e){}};
@@ -1815,9 +2009,15 @@ addEventListener('keydown',e=>{if(mode!=='play')return;keys[e.code]=true;
 addEventListener('keyup',e=>{keys[e.code]=false;});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
 const cv=$('#c');let drag=null;
-cv.addEventListener('pointerdown',e=>{if(mode!=='play')return;drag={id:e.pointerId,x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);cv.focus();});
-cv.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const k=e.pointerType==='touch'?0.008:0.005;
-  BK.lastDrag=performance.now();yaw-=(e.clientX-drag.x)*k;pitch=Math.min(1.25,Math.max(-0.1,pitch+(e.clientY-drag.y)*k*0.8));drag.x=e.clientX;drag.y=e.clientY;});
+const touchPts=new Map();let pinch=0;
+cv.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;touchPts.set(e.pointerId,[e.clientX,e.clientY]);
+  if(touchPts.size===2){const [a,b]=[...touchPts.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);drag=null;}});
+cv.addEventListener('pointermove',e=>{if(!touchPts.has(e.pointerId))return;touchPts.set(e.pointerId,[e.clientX,e.clientY]);
+  if(pinch&&touchPts.size===2){const [a,b]=[...touchPts.values()];const d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(d>10){dist=Math.min(24,Math.max(4,dist*pinch/d));pinch=d;}}});
+for(const ev of ['pointerup','pointercancel'])cv.addEventListener(ev,e=>{touchPts.delete(e.pointerId);if(touchPts.size<2)pinch=0;});
+cv.addEventListener('pointerdown',e=>{if(mode!=='play'||pinch)return;drag={id:e.pointerId,x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);cv.focus();});
+cv.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;let k=e.pointerType==='touch'?0.008:0.005;
+  BK.lastDrag=performance.now();k*=SET.sens;yaw-=(e.clientX-drag.x)*k;pitch=Math.min(1.25,Math.max(-0.1,pitch+(e.clientY-drag.y)*k*0.8));drag.x=e.clientX;drag.y=e.clientY;});
 const endDrag=e=>{if(drag&&drag.id===e.pointerId)drag=null;};
 cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
 cv.addEventListener('wheel',e=>{dist=Math.min(24,Math.max(4,dist+e.deltaY*0.01));e.preventDefault();},{passive:false});
@@ -1825,10 +2025,13 @@ const joyEl=$('#joy'),knob=$('#knob');let joyId=null;
 function joyMove(e){const r=joyEl.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,R=r.width/2-12;
   let dx=e.clientX-cx,dy=e.clientY-cy;const l=Math.hypot(dx,dy);if(l>R){dx*=R/l;dy*=R/l;}
   knob.style.transform=`translate(${dx}px,${dy}px)`;joy.x=dx/R;joy.y=-dy/R;}
-joyEl.addEventListener('pointerdown',e=>{joyId=e.pointerId;joyEl.setPointerCapture(e.pointerId);joyMove(e);e.preventDefault();});
-joyEl.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joyMove(e);});
-const joyEnd=e=>{if(e.pointerId!==joyId)return;joyId=null;joy.x=joy.y=0;knob.style.transform='';};
-joyEl.addEventListener('pointerup',joyEnd);joyEl.addEventListener('pointercancel',joyEnd);
+// the stick appears wherever the thumb lands on the lower-left part of the screen, and returns to its spot after
+const joyZone=$('#joyZone');
+joyZone.addEventListener('pointerdown',e=>{if(mode!=='play')return;joyId=e.pointerId;try{joyZone.setPointerCapture(e.pointerId);}catch(err){}
+  const w=joyEl.offsetWidth;joyEl.style.left=(e.clientX-w/2)+'px';joyEl.style.top=(e.clientY-w/2)+'px';joyEl.style.bottom='auto';joyEl.classList.add('active');joyMove(e);e.preventDefault();});
+joyZone.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joyMove(e);});
+const joyEnd=e=>{if(e.pointerId!==joyId)return;joyId=null;joy.x=joy.y=0;knob.style.transform='';joyEl.classList.remove('active');joyEl.style.left=joyEl.style.top=joyEl.style.bottom='';};
+joyZone.addEventListener('pointerup',joyEnd);joyZone.addEventListener('pointercancel',joyEnd);
 $('#jumpBtn').addEventListener('pointerdown',e=>{jumpQueued=true;e.preventDefault();});
 $('#bikeBtn').addEventListener('click',()=>toggleBike());
 $('#driveBtn').addEventListener('click',()=>toggleDrive());
@@ -1836,11 +2039,11 @@ $('#rideBtn').addEventListener('click',()=>toggleRide());
 // while driving, the jump button is the handbrake
 $('#jumpBtn').addEventListener('pointerdown',()=>{if(DRIVE.v)DRIVE.hand=true;});
 for(const ev of ['pointerup','pointercancel','pointerleave'])$('#jumpBtn').addEventListener(ev,()=>{DRIVE.hand=false;});
-$('#emoteBtn').addEventListener('click',()=>{const b=$('#emoteBar');b.hidden=!b.hidden;});
+$('#emoteBtn').addEventListener('click',()=>{if(DRIVE.v){say(DRIVE.v,pick(['叭叭！','叭——！','嗶嗶！']),1.2);return;}const b=$('#emoteBar');b.hidden=!b.hidden;});
 function buildEmoteBar(){const bar=$('#emoteBar');for(const e of EMOTES){const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=e.zh;b.addEventListener('click',()=>startEmote(e.k));bar.appendChild(b);}}
 $('#tMinus').addEventListener('click',()=>shiftClock(-1));$('#tPlus').addEventListener('click',()=>shiftClock(1));
 $('#tFast').addEventListener('click',toggleFast);$('#tNow').addEventListener('click',resetClock);
-$('#runBtn').addEventListener('click',()=>{runToggle=!runToggle;$('#runBtn').setAttribute('aria-pressed',runToggle);});
+$('#runBtn').addEventListener('click',()=>{if(DRIVE.v){toggleHazard(DRIVE.v);return;}runToggle=!runToggle;$('#runBtn').setAttribute('aria-pressed',runToggle);});
 $('#mapBtn').addEventListener('click',toggleMap);
 $('#mapClose').addEventListener('click',toggleMap);
 document.addEventListener('gesturestart',e=>e.preventDefault());
@@ -1854,7 +2057,7 @@ const SAVE_KEY='ntou-walk-save-v1';
 function readSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
   return d&&d.v===1&&Number.isFinite(d.x)&&Number.isFinite(d.z)&&(d.gender==='m'||d.gender==='f')?d:null;}catch(e){return null;}}
 function saveGame(){
-  if(mode!=='play')return;
+  if(mode!=='play'&&mode!=='pause')return;
   if(DRIVE.v)DRIVE.v.heading=DRIVE.heading;
   const d={v:1,t:Date.now(),gender,x:P.x,z:P.z,rot:P.rot,yaw,pitch,dist,riding:P.riding,bike:P.riding?BIKES.indexOf(bike):-1,heading:BK.heading,
     bikes:BIKES.map(b=>[+b.px.toFixed(2),+b.pz.toFixed(2),+b.prot.toFixed(3)]),clock:CLOCK.offset,
@@ -1880,18 +2083,111 @@ const agoText=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?'剛剛':m
 let saveT=0;
 addEventListener('pagehide',saveGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveGame();});
-$('#cont').addEventListener('click',()=>{const d=readSave();if(d)setPick(d.gender);startPlay();if(d)restoreGame(d);});
-let newArm=0;
+/* ---------- title screen, character choice, settings, in-game menu ---------- */
+const show=(id,on)=>{$(id).hidden=!on;};
+let modalBack=null;                                     // where Done / Cancel return focus to
+// intro: each shot moves the camera from→to while looking from lookA→lookB; captions explain the game
+const INTRO=[
+  {from:[60,70,-330],to:[-30,48,-262],lookA:[-60,6,-120],lookB:[-90,6,-100],dur:6,
+   t:'歡迎來到海大',b:'國立臺灣海洋大學 校本部，在基隆北寧路上，依山面海。整個校園照實際比例做成，可以自由探索。',k:[]},
+  {from:[-52,2.8,-160],to:[-38,2.5,-162],lookA:[-45,1.9,-181],lookB:[-43,1.9,-181],dur:5.5,
+   t:'走遍校園',b:'校園裡有 {N} 個地點等你發現。走近建築物、校門或公車站就會解鎖，左上角會記錄你的進度。',k:[]},
+  {from:[-106,1.8,-96],to:[-84,1.9,-108],lookA:[-50,3,-132],lookB:[-40,3,-136],dur:5.5,
+   t:'怎麼移動都可以',b:'走路、騎腳踏車、開車，或在公車站搭公車。路上的車和機車都可以開。',k:[['E','腳踏車'],['F','開車'],['R','搭公車'],['G','雙黃燈']],tk:'用畫面右下角的「騎車」「開車」「搭車」按鈕'},
+  {from:[-106,3.4,-99],to:[-114,3,-97],lookA:[-131,2.4,-80],lookB:[-132,2.4,-79],dur:5.5,
+   t:'校園生活',b:'同學們在校園裡走路、聊天、等紅綠燈。跟他們打個招呼吧！',k:[['1–5','表情'],['空白','跳']],tk:'用「表情」按鈕打招呼'},
+  {from:[150,55,-170],to:[215,42,-150],lookA:[236,8,-30],lookB:[250,6,-20],dur:5.5,
+   t:'地圖與時間',b:'時間跟著台灣即時時間，白天晚上、上下班尖峰都不一樣。遊戲會自動存檔。',k:[['M','地圖'],['[ ]','調時間'],['Esc','選單']],tk:'右上角有地圖、時間和選單'},
+  {from:null,to:null,dur:4.5,
+   t:'準備好了嗎？出發！',b:'牽著腳踏車，從濱海校門開始你的海大漫遊。',k:[['WASD','移動'],['Shift','跑'],['滑鼠拖曳','轉視角']],tk:'左下搖桿移動，拖曳畫面轉視角'}];
+const IN={t:0,i:-1,total:0,end:null};
+function startIntro(){
+  mode='intro';IN.t=0;IN.i=-1;IN.total=INTRO.reduce((a,s)=>a+s.dur,0);
+  // the last shot swoops down to where the play camera will be
+  const gy=ground(START.x,START.z),ty=gy+1.6,cp=Math.cos(0.38);
+  IN.end={cam:[START.x+Math.sin(Math.PI)*cp*9,ty+Math.sin(0.38)*9,START.z+Math.cos(Math.PI)*cp*9],look:[START.x,ty,START.z]};
+  const last=INTRO[INTRO.length-1];last.from=[START.x+2,gy+42,START.z-12];last.to=IN.end.cam;last.lookA=[START.x,gy,START.z];last.lookB=IN.end.look;
+  $('#icDots').innerHTML=INTRO.map(()=>'<i></i>').join('');
+  show('#hud',false);show('#touch',false);show('#intro',true);$('#introFade').style.opacity=1;$('#introSkip').focus();
+}
+function updateIntro(dt){
+  IN.t+=dt;if(IN.t>=IN.total){endIntro();return;}
+  let t=IN.t,i=0;while(i<INTRO.length-1&&t>=INTRO[i].dur){t-=INTRO[i].dur;i++;}
+  const sh=INTRO[i];
+  if(i!==IN.i){IN.i=i;const cap=$('#introCap');cap.classList.remove('on');
+    $('#icStep').textContent=`${i+1} / ${INTRO.length}`;$('#icT').textContent=sh.t;$('#icB').textContent=sh.b.replace('{N}',spots.length);
+    $('#icKeys').innerHTML=isTouch?(sh.tk?`<span>${sh.tk}</span>`:''):sh.k.map(([k,l])=>`<span><kbd>${k}</kbd>${l}</span>`).join('');
+    [...$('#icDots').children].forEach((d,j)=>d.classList.toggle('on',j===i));
+    setTimeout(()=>cap.classList.add('on'),250);}
+  // fade in at the start of each shot and out at its end (not into the last one's end: play begins there)
+  const fade=Math.max(t<0.45?1-t/0.45:0,i<INTRO.length-1&&t>sh.dur-0.45?(t-(sh.dur-0.45))/0.45:0);
+  $('#introFade').style.transition='none';$('#introFade').style.opacity=fade;
+  const u=t/sh.dur,e=u*u*(3-2*u),L=(a,b)=>a.map((v,j)=>v+(b[j]-v)*e);
+  const c=L(sh.from,sh.to),l=L(sh.lookA,sh.lookB);c[1]=Math.max(c[1],ground(c[0],c[2])+1.2);
+  camera.position.set(...c);camera.lookAt(...l);
+}
+function endIntro(){
+  if(mode!=='intro')return;show('#intro',false);$('#introCap').classList.remove('on');
+  mode='play';yaw=Math.PI;pitch=0.38;dist=isTouch?11:9;$('#hud').hidden=false;$('#touch').hidden=!isTouch;
+  $('#hint').style.opacity=1;setTimeout(()=>{$('#hint').style.opacity=0;},9000);cv.focus();
+}
+$('#introSkip').addEventListener('click',endIntro);
+function toTitle(){mode='title';show('#title',true);show('#pick',false);($('#tCont').hidden?$('#tNew'):$('#tCont')).focus();}
+function toPick(){mode='pick';show('#title',false);show('#pick',true);$('#go').focus();}
+$('#tCont').addEventListener('click',()=>{const d=readSave();show('#title',false);if(d)setPick(d.gender);startPlay();if(d)restoreGame(d);});
+$('#tNew').addEventListener('click',()=>{if(readSave()){modalBack=$('#tNew');show('#confirm',true);$('#cfNo').focus();}else toPick();});
+$('#cfNo').addEventListener('click',()=>{show('#confirm',false);modalBack&&modalBack.focus();});
+$('#cfYes').addEventListener('click',()=>{show('#confirm',false);toPick();});
+$('#pickBack').addEventListener('click',toTitle);
 $('#go').addEventListener('click',()=>{
-  if(readSave()&&!newArm){newArm=setTimeout(()=>{newArm=0;$('#go').textContent='重新開始 New game';},3000);$('#go').textContent='確定重新開始？Confirm';return;}
-  clearTimeout(newArm);newArm=0;
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
-  found.clear();startPlay();});
+  found.clear();show('#pick',false);startPlay();startIntro();});
+// settings
+function applySettings(first){
+  const pr={low:1,mid:Math.min(devicePixelRatio||1,1.25),high:Math.min(devicePixelRatio||1,isTouch?1.5:2)}[SET.quality]||1;
+  renderer.setPixelRatio(pr);const sh=SET.quality!=='low';
+  if(renderer.shadowMap.enabled!==sh){renderer.shadowMap.enabled=sh;if(!first)scene.traverse(o=>{if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true);});}
+  resize();
+  VEH.max=Math.round(VEH.base*+SET.traffic);STU.max=Math.round(STU.base*+SET.crowd);
+  $('#hint').hidden=SET.hints==='off';
+  for(const seg of document.querySelectorAll('.seg'))for(const b of seg.children)b.setAttribute('aria-pressed',String(SET[seg.dataset.key])===b.dataset.v);
+  $('#sSens').value=SET.sens;$('#sSensV').textContent='×'+(+SET.sens).toFixed(1);
+}
+const saveSettings=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET));}catch(e){}};
+for(const seg of document.querySelectorAll('.seg'))seg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;SET[seg.dataset.key]=b.dataset.v;saveSettings();applySettings();});
+$('#sSens').addEventListener('input',e=>{SET.sens=+e.target.value;saveSettings();applySettings();});
+function openSettings(back){modalBack=back;show('#settings',true);$('#setDone').focus();}
+$('#tSet').addEventListener('click',()=>openSettings($('#tSet')));
+$('#setDone').addEventListener('click',()=>{show('#settings',false);modalBack&&modalBack.focus();});
+// in-game menu: the world pauses while it is open
+function openMenu(){if(mode!=='play')return;mode='pause';for(const k in keys)keys[k]=false;joy.x=joy.y=0;DRIVE.hand=false;show('#menu',true);$('#mResume').focus();}
+function closeMenu(){if(mode!=='pause')return;show('#menu',false);show('#settings',false);mode='play';cv.focus();}
+$('#menuBtn').addEventListener('click',openMenu);
+$('#mtMinus').addEventListener('click',()=>shiftClock(-1));$('#mtPlus').addEventListener('click',()=>shiftClock(1));$('#mtNow').addEventListener('click',()=>{resetClock();$('#mtFast').setAttribute('aria-pressed','false');});
+$('#mtFast').addEventListener('click',()=>{toggleFast();$('#mtFast').setAttribute('aria-pressed',CLOCK.fast);});
+{const de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
+  if(req&&(document.fullscreenEnabled||document.webkitFullscreenEnabled)){show('#mFull',true);
+    const lab=()=>{$('#mFull').innerHTML=(document.fullscreenElement||document.webkitFullscreenElement)?'<b>離開全螢幕</b><span>Exit fullscreen</span>':'<b>全螢幕</b><span>Fullscreen</span>';};
+    $('#mFull').addEventListener('click',()=>{if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document);else req.call(de);});
+    document.addEventListener('fullscreenchange',lab);document.addEventListener('webkitfullscreenchange',lab);}}
+$('#mResume').addEventListener('click',closeMenu);
+$('#mSet').addEventListener('click',()=>openSettings($('#mSet')));
+$('#mTitle').addEventListener('click',()=>{saveGame();location.reload();});
+$('#mQuit').addEventListener('click',()=>{saveGame();show('#menu',false);show('#hud',false);show('#touch',false);mode='bye';try{window.close();}catch(e){}show('#bye',true);$('#byeTitle').focus();});
+$('#byeTitle').addEventListener('click',()=>location.reload());
+addEventListener('keydown',e=>{
+  if(mode==='intro'&&['Escape','Space','Enter'].includes(e.code)){e.preventDefault();endIntro();return;}
+  if(e.code!=='Escape')return;
+  if(!$('#confirm').hidden){$('#cfNo').click();return;}
+  if(!$('#settings').hidden){$('#setDone').click();return;}
+  if(mode==='play'&&!$('#map').hidden)return;          // the map's own Esc handler closes it
+  if(mode==='play')openMenu();else if(mode==='pause')closeMenu();else if(mode==='pick')toTitle();
+});
 function startPlay(){
   mode='play';player=chars[gender];scene.remove(chars[gender==='m'?'f':'m'].root);
   P.riding=false;P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=0;yaw=Math.PI;pitch=0.38;
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
-  $('#pick').hidden=true;$('#hud').hidden=false;$('#touch').hidden=!isTouch;
+  show('#title',false);show('#pick',false);$('#hud').hidden=false;$('#touch').hidden=!isTouch;
   if(isTouch)$('#hint').textContent='搖桿移動 · 拖曳轉視角 · 表情鍵打招呼';
   setTimeout(()=>{$('#hint').style.opacity=0;},9000);
   updateFound();cv.focus();
@@ -2210,7 +2506,7 @@ function toggleMap(){const m=$('#map');m.hidden=!m.hidden;if(!m.hidden){drawBigM
 /* ---------- clock: Taiwan time, with an hour offset and a ×60 fast-forward ---------- */
 const CLOCK={offset:0,fast:false,acc:0};
 function realSecTaipei(){const d=new Date();return ((d.getUTCHours()+8)%24)*3600+d.getUTCMinutes()*60+d.getUTCSeconds()+d.getUTCMilliseconds()/1000;}
-function gameSec(){let s=(realSecTaipei()+CLOCK.offset*3600+CLOCK.acc)%86400;if(s<0)s+=86400;return s;}
+function gameSec(){let s=((SET.clock==='day'?10*3600:realSecTaipei())+CLOCK.offset*3600+CLOCK.acc)%86400;if(s<0)s+=86400;return s;}
 function gameHour(){return gameSec()/3600;}
 // relative traffic and crowd level by hour 0–23: morning rush 7–9, the big one 16–19, almost nothing after midnight
 const TRAFFIC=[0.06,0.04,0.03,0.03,0.05,0.12,0.35,0.8,0.95,0.6,0.5,0.55,0.65,0.55,0.5,0.6,0.95,1.0,0.9,0.55,0.4,0.3,0.2,0.1];
@@ -2331,7 +2627,7 @@ function chatLine(){const h=gameHour();
   return pick(LINES.pair);}
 
 /* ---------- traffic: lanes, vehicles, signals, bus stops ---------- */
-const VEH={chains:[],list:[],max:isTouch?26:50};
+const VEH={chains:[],list:[],max:isTouch?26:50,base:isTouch?26:50};
 function projectOn(c,x,z){let best=null;for(let i=0;i<c.pts.length-1;i++){const [ax,az]=c.pts[i],[bx,bz]=c.pts[i+1];const dx=bx-ax,dz=bz-az,L2=dx*dx+dz*dz||1;let t=((x-ax)*dx+(z-az)*dz)/L2;t=Math.max(0,Math.min(1,t));const px=ax+dx*t,pz=az+dz*t;const d=Math.hypot(x-px,z-pz);if(!best||d<best.d)best={d,s:c.cum[i]+Math.sqrt(L2)*t,side:Math.sign((x-px)*(-dz)+(z-pz)*dx)||1};}return best;}
 function chainAt(c,s){s=Math.max(0,Math.min(c.L-1e-3,s));let lo=0,hi=c.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(c.cum[m]<=s)lo=m;else hi=m;}
   const [ax,az]=c.pts[lo],[bx,bz]=c.pts[lo+1];const seg=c.cum[lo+1]-c.cum[lo]||1;const t=(s-c.cum[lo])/seg;return {x:ax+(bx-ax)*t,z:az+(bz-az)*t,tx:(bx-ax)/seg,tz:(bz-az)/seg};}
@@ -2372,9 +2668,35 @@ const busFrontTex=route=>tileTex('busfront'+route,128,128,(g,w,h)=>{g.fillStyle=
   g.fillStyle='#ffb020';g.font='800 18px "Noto Sans TC",sans-serif';g.textAlign='center';g.fillText(route,64,24);
   g.fillStyle='#2c3e4c';g.fillRect(10,34,108,52);g.fillStyle='#1f6fa8';g.fillRect(0,100,w,10);
   g.fillStyle='#fff4c8';g.fillRect(10,112,22,10);g.fillRect(96,112,22,10);});
+// vehicle lamps: lens colours off/on, a soft glow and a headlight pool; switched by updateVehLights()
+const LAMP={frontOff:0xcfcabd,frontOn:0xfff8dc,rearOff:0x6e1d22,rearOn:0xff2b2b,
+  glow:canvasTex(64,64,g=>{const r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(0.25,'rgba(255,255,255,.55)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,64);}),
+  beam:canvasTex(64,128,g=>{const r=g.createRadialGradient(32,0,4,32,32,96);r.addColorStop(0,'rgba(255,255,255,.9)');r.addColorStop(0.55,'rgba(255,255,255,.35)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,128);}),
+  beamGeo:(()=>{const q=new THREE.PlaneGeometry(1,1);q.rotateX(-Math.PI/2);return q;})()};
+const _c1=new THREE.Color(),_c2=new THREE.Color();
+// night: 0 by day, 1 at night (lights come on through dusk); brake: 0..1
+function setVehLights(v,night,brake){
+  const rear=Math.min(1,night*0.55+brake*0.6),front=night;
+  const key=Math.round(front*20)+'|'+Math.round(rear*20);if(v._lk===key)return;v._lk=key;
+  for(const m of v.lights){const r=m.userData.rear,lv=r?rear:front,gl=m.userData.glow;
+    m.material.color.copy(_c1.setHex(r?LAMP.rearOff:LAMP.frontOff)).lerp(_c2.setHex(r?LAMP.rearOn:LAMP.frontOn),Math.min(1,lv*1.6));
+    if(gl){gl.visible=lv>0.03;gl.material.opacity=lv*(r?0.9:0.85);}}
+  if(v.beam){v.beam.visible=front>0.03;v.beam.material.opacity=front*0.32;}
+}
+function updateVehLights(){
+  const night=Math.max(0,Math.min(1,(nightLevel-0.3)/0.4));
+  for(const v of VEH.list)setVehLights(v,night,v.braking?1:0);
+  for(const v of PARKED){
+    const mine=v===DRIVE.v,active=mine||v.fromTraffic||RECOVER.some(r=>r.o===v);
+    const brake=mine&&((DRIVE.speed>0.3&&(keys.KeyS||keys.ArrowDown))||keys.Space||DRIVE.hand)?1:0;
+    setVehLights(v,active?night:0,brake);}
+}
 function makeVehicle(type){
   const g=new THREE.Group();const wheels=[];let len,wid,hgt,low=0,cabin=null,rider=null,route=null,lights=[];
-  const lamp=(x,y,z,c)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.14,0.06),new THREE.MeshBasicMaterial({color:c}));m.position.set(x,y,z);g.add(m);lights.push(m);};
+  const lamp=(x,y,z,c)=>{const rear=c===0xd8262f;const m=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.14,0.06),new THREE.MeshBasicMaterial({color:rear?LAMP.rearOff:LAMP.frontOff}));
+    m.position.set(x,y,z);g.add(m);m.userData.rear=rear;
+    const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:LAMP.glow,color:rear?0xff2a2a:0xfff1c8,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:0}));
+    const sc=rear?0.75:1.4;glow.scale.set(sc,sc,1);glow.position.z=rear?-0.08:0.08;glow.visible=false;m.add(glow);m.userData.glow=glow;lights.push(m);};
   if(type==='car'||type==='taxi'){
     const col=type==='taxi'?0xf2c230:pick([0xf4f4f2,0xc9ced3,0x2b2f36,0xd8463c,0x2f6fb8,0xf4f4f2,0x7d8a94,0x8fb3c8]);
     len=4.3;wid=1.8;hgt=1.62;low=1.05;cabin=[-1.35,0.95];   // hood and boot are lower than the cabin
@@ -2411,8 +2733,11 @@ function makeVehicle(type){
     for(const sx of [-0.95,0.95])for(const sz of [-2.2,2.3])vehWheel(g,wheels,sx,sz,0.45,0.26);
     lamp(-0.75,0.9,3.22,0xfff4c8);lamp(0.75,0.9,3.22,0xfff4c8);lamp(-0.8,0.9,-3.22,0xd8262f);lamp(0.8,0.9,-3.22,0xd8262f);
   }
+  // headlight pool on the road ahead (cars, taxis, trucks, buses, scooters)
+  const bw=type==='scooter'?1.8:type==='bus'?3.4:3;const beam=new THREE.Mesh(LAMP.beamGeo,new THREE.MeshBasicMaterial({map:LAMP.beam,color:0xffe9b0,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:0,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-14}));
+  beam.scale.set(bw,type==='scooter'?6:9,1);beam.position.set(0,0.07,len/2+(type==='scooter'?3:4.5));beam.visible=false;g.add(beam);
   scene.add(g);
-  return {g,wheels,len,wid,hgt,low,cabin,rider,route,type,lights};
+  return {g,wheels,len,wid,hgt,low,cabin,rider,route,type,lights,beam};
 }
 function spawnVehicle(c,lane,s){
   let type;const r=Math.random();
@@ -2512,7 +2837,7 @@ function updateVehicles(dt){
       const vmax=Math.min(v.vmax,v.cap??99)*(night?0.95:1);v.cap=undefined;
       const sStar=2.2+v.v*1.2+v.v*(v.v-lv)/(2*Math.sqrt(2.2*3.5));
       let acc=2.2*(1-Math.pow(v.v/Math.max(0.1,vmax),4)-Math.pow(Math.max(0,sStar)/Math.max(0.05,gap),2));
-      acc=Math.max(-7,Math.min(2.2,acc));
+      acc=Math.max(-7,Math.min(2.2,acc));v.braking=acc<-1||v.v<0.4;
       v.v=Math.max(0,v.v+acc*dt);
       if(gap<0.3&&v.v>0)v.v=0;
       v.s+=l.dir*v.v*dt;
@@ -2646,7 +2971,7 @@ function astar(a,b){
 function edgeBetween(a,b){return PG.adj[a].find(e=>e.to===b);}
 
 /* ---------- students ---------- */
-const STU={list:[],max:isTouch?22:44,acc:0};
+const STU={list:[],max:isTouch?22:44,base:isTouch?22:44,acc:0};
 const SGEO={
   leg:(()=>{const g=new THREE.BoxGeometry(0.17,0.72,0.19);g.translate(0,-0.36,0);return g;})(),
   arm:(()=>{const g=new THREE.BoxGeometry(0.11,0.56,0.11);g.translate(0,-0.28,0);return g;})(),
@@ -2881,7 +3206,10 @@ function frame(now){
   anim.boats.forEach((b,i)=>{b.position.y=0.1+Math.sin(t*1.3+i)*0.15;b.rotation.z=Math.sin(t+i)*0.05;});
   anim.jets.forEach((j,i)=>j.scale.set(1,0.8+Math.sin(t*3+i)*0.25,1));
   for(const r of LM.turbines)r.rotation.z=-t*0.9;
-  if(mode==='pick'){
+  if(mode==='title'||mode==='bye'){
+    // slow aerial circle over the 濱海 gate and 北寧路
+    const a=t*0.035,cx=-40,cz=-110,R=150;camera.position.set(cx+Math.cos(a)*R,70,cz+Math.sin(a)*R);camera.lookAt(cx,8,cz);
+  }else if(mode==='pick'){
     const gy=ground(START.x,START.z);
     for(const g of ['m','f']){const c=chars[g];const sel=g===gender;
       c.root.rotation.y=Math.PI+Math.sin(t*1.2)*(sel?0.5:0.1);
@@ -2890,9 +3218,12 @@ function frame(now){
       c.head.rotation.y=Math.sin(t*0.8+(g==='f'?1:0))*0.25;}
     const narrow=innerWidth/innerHeight<0.8;
     camera.position.set(START.x,gy+2.2,START.z-(narrow?10.5:8));camera.lookAt(START.x,gy+(narrow?0.6:1.3),START.z);
-  }else updatePlay(dt);
+  }else if(mode==='intro')updateIntro(dt);
+  else if(mode==='play')updatePlay(dt);
+  if(mode!=='pause'){                                    // the menu pauses the whole world
   if(CLOCK.fast)CLOCK.acc+=dt*59;
-  updateSky();updateSignals();updateVehicles(dt);updateStudents(dt);updateKnock(dt);updateRecover(dt);flexPosts(dt);updateHazards(dt);updateAbandoned(dt);
+  updateSky();updateSignals();updateVehicles(dt);updateStudents(dt);updateKnock(dt);updateRecover(dt);flexPosts(dt);updateHazards(dt);updateAbandoned(dt);updateVehLights();
+  }
   tickBubble(playerTalk,dt,P.x,P.y+2.75,P.z);
   hudT-=dt;if(hudT<=0){hudT=0.5;const h=gameHour();$('#clockT').textContent=fmtClock();$('#clockP').textContent=periodLabel(h)+(CLOCK.offset||CLOCK.fast?'':' · 現在');}
   sun.position.set(P.x+sunDir.x,P.y+sunDir.y,P.z+sunDir.z);sun.target.position.set(P.x,P.y,P.z);
@@ -2908,11 +3239,12 @@ function boot(data){
   chars.m.root.position.set(START.x-1.4,gy,START.z);chars.f.root.position.set(START.x+1.4,gy,START.z);
   scene.add(chars.m.root,chars.f.root);
   P.y=gy;
-  const go=$('#go');go.disabled=false;go.textContent='開始探索 Start';
+  applySettings(true);
+  const tn=$('#tNew');tn.disabled=false;tn.innerHTML='<b>新遊戲</b><span>New Game</span>';
   const sv=readSave();
-  if(sv){setPick(sv.gender);$('#cont').hidden=false;go.textContent='重新開始 New game';
-    const info=$('#saveInfo');info.hidden=false;info.textContent=`上次存檔 ${agoText(sv.t)} · 已探索 ${spots.filter(s=>found.has(s.id)).length} / ${spots.length}`;$('#cont').focus();}
-  if(data&&data.gender){setPick(data.gender);startPlay();if(typeof data.x==='number'){P.x=data.x;P.z=data.z;P.y=ground(P.x,P.z);yaw=data.yaw;}}
+  if(sv){setPick(sv.gender);show('#tCont',true);$('#tSave').textContent=`上次遊玩 ${agoText(sv.t)} · 已探索 ${spots.filter(s=>found.has(s.id)).length} / ${spots.length} · ${sv.gender==='f'?'女生':'男生'}`;}
+  toTitle();
+  if(data&&data.gender){show('#title',false);setPick(data.gender);startPlay();if(typeof data.x==='number'){P.x=data.x;P.z=data.z;P.y=ground(P.x,P.z);yaw=data.yaw;}}
   requestAnimationFrame(frame);
 }
 window.__ntou=()=>({chainInfo:VEH.chains.map(c=>c.nm+':'+Math.round(c.L)+'m/'+c.lanes.length+'lanes/'+c.stops.length+'stops/'+c.busStops.length+'bus'),xing:xingSpots.length,veh:VEH.list.length,chains:VEH.chains.length,stu:STU.list.length,pg:PG.comp.length,bikes:BIKES.length,hour:gameHour(),waiting:STU.list.filter(q=>q.state==='wait').length,crossing:STU.list.filter(q=>q.crossing).length,stopped:VEH.list.filter(v=>v.v<0.3).length,x:P.x,z:P.z,y:P.y,riding:!!P.riding,speed:BK.speed,heading:BK.heading});

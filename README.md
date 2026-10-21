@@ -20,8 +20,11 @@ Walk, ride a bike, drive any car or scooter, take the bus along 北寧路, and d
 | 1–5 | Emotes |
 | [ ] | Change the hour |
 | M | Map |
+| Esc | Pause menu (settings, back to title, quit) |
 
-On phones: joystick to move, buttons for jump, bike, drive and ride.
+On phones: touch the lower-left of the screen to move (the stick appears under your thumb), drag elsewhere to look,
+pinch to zoom. Buttons bottom-right for jump, run, emotes, bike, drive and ride (horn, hazards and handbrake while driving).
+The 選單 menu has the clock controls and fullscreen.
 
 The game saves automatically in your browser.
 
