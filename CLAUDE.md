@@ -384,3 +384,23 @@ It is indexed by `paveIndex()` after `rnIndex()`, and `surf(x,z)` = `ground` + `
 
 The driven vehicle keeps its jump physics on the bare terrain. `wheelGround` adds the kerb as `W.kerb` (eased into
 `v.kS`) and as extra pitch/roll, so a car rolls up onto a sidewalk without launching off the kerb.
+
+## Traffic drivers (`spawnVehicle`, `updateVehicles`)
+
+**Tempers.** Each spawned driver gets a temperament:
+- **Speeders** (`v.fast`): about 17% of cars, 26% of scooters and 5% of trucks, never buses. They drive at 1.3–1.65×
+  the usual speed (capped at 21 m/s, about 75 km/h), accelerate harder (`v.acc` 3.4), follow closer (`v.T` 0.6) and
+  honk sooner.
+- **Dawdlers** (`v.slow`): about 10%, at 0.75–0.85× speed.
+
+`v.acc` and `v.T` feed the IDM car-following rule.
+
+**The player on foot.**
+1. Traffic reacts only when you are in its path, within half its width plus 0.35 m, and close enough to need
+   stopping: `d < v²/17 + reaction + 1 + 3`. There is no gentle slow-down from 18 m away any more.
+2. It then emergency-brakes (`v.emerg`, which stays set until stopped). The deceleration is just enough to stop
+   about a metre short of you (`v.emD`, 4–9.5 m/s²).
+3. The tyres squeal (`skidSound`), the nose dips (`v.dive`) and it usually honks; speeders always do.
+4. It stays stopped while you stand within 12 m in front, then drives on.
+
+Crossing students still get the normal anticipatory stop.
