@@ -1072,7 +1072,8 @@ function drawRoadNet(){
       const outer=cn.fillet?[oB,cn.K2,oA]:[oB,oA];
       {const pp=[...curve,...outer];rnPoly((A.st.brick||Bb.st.brick)?B.brickP:B.pave,pp,SW_LIFT,(A.st.brick||Bb.st.brick)?2.5:2);
         PAVE.polys.push({p:pp,x0:Math.min(...pp.map(q=>q[0])),x1:Math.max(...pp.map(q=>q[0])),z0:Math.min(...pp.map(q=>q[1])),z1:Math.max(...pp.map(q=>q[1]))});}
-      const rows=[curve.map(p=>[p[0],ground(p[0],p[1])+RN_LIFT,p[1],0,0]),curve.map(p=>[p[0],ground(p[0],p[1])+SW_LIFT,p[1],0,1])];rnQuadStrip(B.kerb,rows);});
+      const rows=[curve.map(p=>[p[0],ground(p[0],p[1])+RN_LIFT,p[1],0,0]),curve.map(p=>[p[0],ground(p[0],p[1])+SW_LIFT,p[1],0,1])];rnQuadStrip(B.kerb,rows);
+      rnQuadStrip(B.kerb,[outer.map(p=>[p[0],ground(p[0],p[1])-0.25,p[1],0,0]),outer.map(p=>[p[0],ground(p[0],p[1])+SW_LIFT,p[1],0,1])]);});
   });
   // ---- crosswalks: every arm of a signalised junction, plus OSM crossings along the roads ----
   const xs=[];
@@ -1121,7 +1122,12 @@ function drawRoadNet(){
         const sr=run.map(({s,e})=>{const nx=-e.tz*side,nz=e.tx*side,a=[e.x+nx*e.w,e.z+nz*e.w],b=[e.x+nx*(e.w+e.st.sw),e.z+nz*(e.w+e.st.sw)];
           return {a,b,s};});
         rnQuadStrip(buf,sr.map(({a,b,s})=>[[a[0],ground(a[0],a[1])+SW_LIFT,a[1],0,s/5],[b[0],ground(b[0],b[1])+SW_LIFT,b[1],1,s/5]]));
-        rnQuadStrip(B.kerb,[sr.map(({a})=>[a[0],ground(a[0],a[1])+RN_LIFT,a[1],0,0]),sr.map(({a})=>[a[0],ground(a[0],a[1])+SW_LIFT,a[1],0,1])]);run=[];};
+        rnQuadStrip(B.kerb,[sr.map(({a})=>[a[0],ground(a[0],a[1])+RN_LIFT,a[1],0,0]),sr.map(({a})=>[a[0],ground(a[0],a[1])+SW_LIFT,a[1],0,1])]);
+        // the back edge and both ends are closed too: a solid slab, not a sheet you can see under
+        const lo=q=>[q[0],ground(q[0],q[1])-0.25,q[1]],hi=q=>[q[0],ground(q[0],q[1])+SW_LIFT,q[1]];
+        rnQuadStrip(B.kerb,[sr.map(({b})=>[...lo(b),0,0]),sr.map(({b})=>[...hi(b),0,1])]);
+        for(const q of [sr[0],sr[sr.length-1]])rnQuadStrip(B.kerb,[[[...lo(q.a),0,0],[...lo(q.b),1,0]],[[...hi(q.a),0,1],[...hi(q.b),1,1]]]);
+        run=[];};
       for(let i=0;i<=n;i++){const s=s0+(s1-s0)*i/n,e=edgeAt(E,s);if(e.st.sw>0)run.push({s,e});else flush();}flush();}
     // markings, piece by piece where the road's style changes
     const near=[];for(const k of [0,1]){const en=E.ends[k];if(en&&en.a.xing&&en.a.xing.sig)near.push(k===0?[s0,s0+30]:[s1-30,s1]);}
@@ -4472,7 +4478,10 @@ function updateStudents(dt){
       else{if(Math.random()<0.25)say(s,pick(LINES.phone));s.talkT=12+Math.random()*16;}
     }
     // greet the player when passing close by
-    if(near<3.6&&s.greetT<=0&&Math.random()<0.02){s.greetT=45;say(s,P.riding?pick(LINES.bikeHello):pick(LINES.hello));s.head.rotation.y=Math.atan2(P.x-s.x,P.z-s.z)-s.rot;}
+    if(near<3.6&&s.greetT<=0&&Math.random()<0.02){s.greetT=45;say(s,P.riding?pick(LINES.bikeHello):pick(LINES.hello));s.lookT=2.5;}
+    // a greeting turns the head toward you, as far as a neck goes, then back
+    if(!s.emote){let tgt=0;if(s.lookT>0){s.lookT-=dt;const a=Math.atan2(P.x-s.x,P.z-s.z)-s.rot;tgt=Math.max(-1.1,Math.min(1.1,Math.atan2(Math.sin(a),Math.cos(a))));}
+      if(tgt||s.head.rotation.y)s.head.rotation.y+=(tgt-s.head.rotation.y)*Math.min(1,dt*6);}
     if(s.react){s.react.t-=dt;if(s.react.t<=0){const k=s.react.kind;say(s,pick(LINES.react[k]));if(k!=='sit'){s.emote=k==='dance'?'cheer':k;s.emoteT=0;}s.react=null;}}
     tickBubble(s,dt,s.x,s.g.position.y+2.45*s.sc,s.z);
   }
