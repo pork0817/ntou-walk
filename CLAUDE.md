@@ -215,6 +215,27 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   基隆嶼 as a fog-free silhouette on the NE horizon, and squid-jigging boats with lamp rows and a big additive glow
   sprite on the night horizon (Keelung's famous night view).
 
+## Interiors (`INT`, `buildLibrary`, `buildStore`, `updateInterior`, `liftTo`; user request)
+
+- Sources (researched online): the library's 樓層配置 page (li.ntou.edu.tw, 圖書排架/樓層配置) and 7-ELEVEN's X-STORE
+  listing (X-STORE 第八店, 北寧路2號 海洋大學圖書館, 19 坪, 24 h; LiDAR grab-and-go, four-door fridge, opened 2024-10).
+  Library designed by 王秋華 with J. J. Pan and Partners (M+ archive). B1 (全興書苑) and 圖書二館 are not built yet.
+- OSM split the library outline into three ways and only the first was drawn; `mergeLibraryFootprint` chains them
+  (now a 46.8 × 37.2 m block). Five floors above ground, 4.2 m apart (= the building's 21 m), 1F = plinth top.
+- Layout in façade coordinates (u along the long SW façade from its west end, v inward). 1F: lobby, book drop, smart
+  lockers, AI 共創教室, 資訊網路服務組 and 藝文中心 offices, reading tables, X-STORE 8 in the south corner (own 24 h
+  door + glass front + stripe fascia; entry gates, gondolas, fridge wall, coffee counter, LiDAR sensor rails; entering
+  says 歡迎光臨 with a chime, and it is a discoverable place). 2F: circulation desk, new books, search terminals, 愛樂廳,
+  團體視聽室, multimedia PCs, 4 discussion rooms, reference stacks. 3F: periodical racks, bound periodicals, 夢幻海洋 VR,
+  靜音艙 pods, study carrels, manga corner. 4F: Western books, theses, children's books, 數位攝影棚, learning commons.
+  5F: Eastern books, 特藏室 display cases, AV archive, rarely-used books. Hanging signs per area, a floor directory
+  at the lift, a few readers. Books are one InstancedMesh per floor.
+- Inside: the shell (all of the building's meshes but the plinth) hides and only your floor's group shows; walls are
+  cut away at 2.7 m (dollhouse view) and the camera stays ≤ 6 m. The lift: stand on the yellow square in front of
+  the lift door → a 1F–5F panel. Collision is floor-aware: solids may carry `bot` (ignored when you are below it),
+  `kind:'floor'` slabs are stood on (`floorAt`) but never block, `nocam` solids don't pull the camera in. The
+  building's single block solid is replaced by perimeter walls with door gaps (lintel above), plus entrance steps.
+
 ## Sound (`SND`, `audioInit`, `updateAudio`)
 
 - Relaxing game: everything synthesised with Web Audio, no files. Output: master → DynamicsCompressor (−20 dB, 4:1) →

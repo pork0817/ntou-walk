@@ -52,6 +52,11 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 .trow{display:flex;gap:4px}
 .btn.sm{padding:6px 6px;font-size:.75rem;flex:1}
 #tFast[aria-pressed="true"]{background:var(--signal)}
+#lift{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);padding:10px;display:flex;flex-direction:column;gap:8px;z-index:6;pointer-events:auto}
+#lift b{font:900 1rem/1 var(--body)}#lift b span{font:700 .7rem var(--display);color:var(--muted)}
+#lift .lrow{display:flex;flex-direction:column;gap:6px}#lift .btn{min-width:64px;padding:9px 10px;font-size:1rem}
+#lift .btn[aria-pressed="true"]{background:var(--signal)}
+body.touch #lift{right:auto;left:calc(12px + env(safe-area-inset-left,0px));top:40%}
 #emoteBar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(120px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;padding:8px;pointer-events:auto;z-index:5}
 #emoteBar .btn{padding:10px 12px;font-size:.9rem}
 #bikeBtn{background:#7fd1c4;font-size:.9rem}
@@ -228,6 +233,7 @@ body.touch #toast b{font-size:1rem}
 </div>
 
 <div id="emoteBar" class="panel" hidden></div>
+<div id="lift" class="panel" hidden><b>電梯 <span>Lift</span></b><div class="lrow"><button class="btn" type="button" data-f="4">5F</button><button class="btn" type="button" data-f="3">4F</button><button class="btn" type="button" data-f="2">3F</button><button class="btn" type="button" data-f="1">2F</button><button class="btn" type="button" data-f="0">1F</button></div></div>
 <div id="touch" hidden>
   <div id="joyZone" aria-hidden="true"></div>
   <div id="joy"><div id="knob"></div></div>
@@ -1946,7 +1952,7 @@ function buildingMesh(b,idx){
     }
   }
   let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
-  const o={kind:'poly',p:offsetPoly(p,0.15),top,x0:x0-0.2,x1:x1+0.2,z0:z0-0.2,z1:z1+0.2};gridAdd(o,x0-1,z0-1,x1+1,z1+1);
+  const o={kind:'poly',p:offsetPoly(p,0.15),top,x0:x0-0.2,x1:x1+0.2,z0:z0-0.2,z1:z1+0.2};gridAdd(o,x0-1,z0-1,x1+1,z1+1);b._solid=o;
   if(b.n){
     const zl=zoneOf(b.no,cx,cz);
     let lx=cx,lz=cz;if(!pip(p,cx,cz)){lx=p[0][0];lz=p[0][1];}
@@ -2361,14 +2367,251 @@ function makeShip(){
 }
 function buildWorld(){
   buildTerrain();
-  D.b.forEach(buildingMesh);
+  mergeLibraryFootprint();
+  D.b.forEach((b,i)=>{const n0=scene.children.length;buildingMesh(b,i);if(b.no===3&&b.lib&&b.p.length>=4)INT.shell=scene.children.slice(n0+1);});   // all but the plinth
   D.m.forEach(marker);
   buildStreets();
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
-  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();
 }
+
+/* ---------- interiors: the library (圖書館, 圖書一館) with the 7-ELEVEN X-STORE 8 on its ground floor.
+   Floor list from the library's own 樓層配置 page; X-STORE 8 is in the library building (19 坪, open 24 h,
+   grab-and-go with LiDAR shelf sensors, a four-door fridge). Five floors above ground, 4.2 m apart (the building's
+   21 m). Inside, the shell hides and only your floor shows, walls cut away at 2.7 m (dollhouse view); an elevator
+   with a floor panel joins the floors. Everything is laid out in façade coordinates: u along the long south-west
+   façade from its west corner, v inward. ---------- */
+const INT={lib:null,inside:false,floor:-1,groups:[],shell:[],cab:null,talk:{bubbleT:0},inStore:false};
+const FLOOR_H=4.2;
+// OSM splits the library outline into three ways; only the first was drawn. Chain them back into one polygon.
+function mergeLibraryFootprint(){
+  const parts=D.b.filter(b=>b.no===3&&b.lib);if(parts.length<2)return;
+  const same=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1])<0.5;const chain=parts[0].p.slice(),rest=parts.slice(1).map(b=>b.p.slice());
+  for(let g=0;g<10&&rest.length;g++)for(let i=0;i<rest.length;i++){const r=rest[i],e=chain[chain.length-1];
+    if(same(r[0],e)){chain.push(...r.slice(1));rest.splice(i,1);break;}if(same(r[r.length-1],e)){chain.push(...r.slice(0,-1).reverse());rest.splice(i,1);break;}}
+  if(same(chain[0],chain[chain.length-1]))chain.pop();
+  parts[0].p=chain;for(const b of parts.slice(1))D.b.splice(D.b.indexOf(b),1);
+}
+function buildLibrary(){
+  const B=D.b.find(b=>b.no===3&&b.lib&&b.p.length>=4);if(!B||!B._solid)return;
+  const P=B.p;
+  // façade frame: the longest edge facing south-west (+z / -x) is the front
+  let fi=0,fs=-1e9;for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;const sc=L+(mz-centroid(P)[1])*1.5-(mx-centroid(P)[0])*0.5;if(sc>fs){fs=sc;fi=i;}}
+  let A=P[fi],Bp=P[(fi+1)%P.length];if(A[0]>Bp[0])[A,Bp]=[Bp,A];        // u runs from the west end
+  const L0=Math.hypot(Bp[0]-A[0],Bp[1]-A[1]),ux=(Bp[0]-A[0])/L0,uz=(Bp[1]-A[1])/L0;let vx=-uz,vz=ux;const [ccx,ccz]=centroid(P);if((ccx-A[0])*vx+(ccz-A[1])*vz<0){vx=-vx;vz=-vz;}
+  const W=(u,v)=>[A[0]+ux*u+vx*v,A[1]+uz*u+vz*v],toUV=(x,z)=>[(x-A[0])*ux+(z-A[1])*uz,(x-A[0])*vx+(z-A[1])*vz];
+  const UV=P.map(q=>toUV(...q)),U1=Math.max(...UV.map(q=>q[0])),V1=Math.max(...UV.map(q=>q[1]));
+  const rot=Math.atan2(-uz,ux);                                           // local x → u, local z → v
+  let gmax=-1e9;for(const q of P.concat([[ccx,ccz]]))gmax=Math.max(gmax,ground(q[0],q[1]));
+  const y0=gmax+1.1,yk=k=>y0+k*FLOOR_H,NF=5;
+  const inner=offsetPoly(P,-0.45),inside=(u,v,m=0)=>{const [x,z]=W(u,v);return pip(inner,x,z)&&polyEdgeDist(inner,x,z)>=m;};
+  INT.lib={B,P,W,toUV,y0,NF,rot,U1,V1,inner};
+  // the outside: remove the building's single solid block; walls with door gaps take its place
+  for(const arr of grid.values()){const i=arr.indexOf(B._solid);if(i>=0)arr.splice(i,1);}
+  const doorMain=U1*0.5,doorStore=U1-4.5;                                  // main entrance mid-façade; the store door near the south corner
+  const mats={};const M=(c,o={})=>{const k=c+JSON.stringify(o);return mats[k]||(mats[k]=o.basic?new THREE.MeshBasicMaterial(Object.assign({color:c},o.mat||{})):new THREE.MeshToonMaterial(Object.assign({color:c,gradientMap:grad},o.mat||{})));};
+  const boxG=new THREE.BoxGeometry(1,1,1);
+  // a box in façade coordinates: centre (u,v), base height y, size su × sv × h
+  const box=(grp,u,v,y,su,sv,h,c,o={})=>{const m=new THREE.Mesh(boxG,o.m||M(c,o));const [x,z]=W(u,v);m.position.set(x,y+h/2,z);m.scale.set(su,h,sv);m.rotation.y=rot+(o.r||0);
+    if(!o.noShadow){m.castShadow=false;m.receiveShadow=true;}grp.add(m);return m;};
+  const solid=(u0,v0,u1,v1,bot,top,o={})=>{const p=[W(u0,v0),W(u1,v0),W(u1,v1),W(u0,v1)];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
+    const s={kind:'poly',p,top,bot,x0,x1,z0,z1,mat:o.mat||'wall',nocam:o.nocam};gridAdd(s,x0-1,z0-1,x1+1,z1+1);return s;};
+  // perimeter walls (collision, full height) with the two ground-floor doors
+  const wallTop=yk(NF)+1;
+  for(let i=0;i<inner.length;i++){const a=toUV(...inner[i]),b=toUV(...inner[(i+1)%inner.length]);const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const du=(b[0]-a[0])/L,dv=(b[1]-a[1])/L;
+    const front=Math.abs(a[1])<1.2&&Math.abs(b[1])<1.2;
+    const gaps=front?[[doorMain-1.8,doorMain+1.8],[doorStore-1.1,doorStore+1.1]].map(([g0,g1])=>[(g0-a[0])/du,(g1-a[0])/du].sort((p,q)=>p-q)):[];
+    for(let t=0;t<L;t+=0.6){const t1=Math.min(L,t+0.6),m=(t+t1)/2;const g=gaps.find(([g0,g1])=>m>g0&&m<g1);
+      const u0=a[0]+du*t,v0=a[1]+dv*t,u1=a[0]+du*t1,v1=a[1]+dv*t1,nu=-dv*0.18,nv=du*0.18;
+      const p=[W(u0-nu,v0-nv),W(u1-nu,v1-nv),W(u1+nu,v1+nv),W(u0+nu,v0+nv)];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
+      const s={kind:'poly',p,top:wallTop,bot:g?y0+3:undefined,x0,x1,z0,z1,mat:'wall'};gridAdd(s,x0-1,z0-1,x1+1,z1+1);}}
+  // entrance steps from the plaza up to the ground floor (plinth is 1.1 m)
+  const outsideG=new THREE.Group();scene.add(outsideG);
+  for(const [du0,w] of [[doorMain,4.2],[doorStore,2.6]]){const gy=ground(...W(du0,-2));const rise=y0-gy;const n=Math.max(1,Math.ceil(rise/0.25));
+    for(let k=0;k<n;k++){const vv=-0.35-(n-k)*0.45;const top=gy+rise*(k+1)/n;box(outsideG,du0,vv+0.225,gy-0.2,w,0.45,top-gy+0.2,0xd8d3c8);
+      const s=solid(du0-w/2,vv,du0+w/2,vv+0.45,undefined,top);s.step=true;}
+    const landing=solid(du0-w/2,-0.4,du0+w/2,0.5,undefined,y0);landing.step=true;box(outsideG,du0,0.05,gy-0.2,w,0.9,y0-gy+0.2,0xd8d3c8);}
+  // the store's outside: glass front and the orange/green/red stripe fascia over its door
+  {const sg=box(outsideG,doorStore,-0.25,y0+2.5,8.6,0.12,0.6,0xffffff);
+    for(const [c,h] of [[0xf0802a,0],[0x2a9d55,0.2],[0xd8262f,0.4]])box(outsideG,doorStore,-0.33,y0+2.55+h,8.6,0.05,0.18,c,{basic:true});
+    const t=canvasTex(512,96,g=>{g.fillStyle='#ffffff';g.fillRect(0,0,512,96);g.fillStyle='#1e7a46';g.font='900 46px "Baloo 2",Arial';g.textAlign='center';g.fillText('X-STORE 8',256,62);});
+    const s=new THREE.Mesh(new THREE.PlaneGeometry(3.4,0.64),new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}));const [x,z]=W(doorStore,-0.4);s.position.set(x,y0+3.25,z);s.rotation.y=rot;outsideG.add(s);
+    // the store's glass front, and the library's glass entrance with its canopy
+    box(outsideG,doorStore,-0.12,y0,8.6,0.12,2.5,0,{m:new THREE.MeshToonMaterial({color:0x9fd3ee,gradientMap:grad,transparent:true,opacity:0.75})});
+    box(outsideG,doorStore,-0.2,y0,2.0,0.1,2.3,0x2a4a5e);}
+  box(outsideG,doorMain,-0.12,y0,4.0,0.14,3.0,0x2a4a5e);box(outsideG,doorMain,-0.2,y0+0.05,3.4,0.05,2.8,0,{m:new THREE.MeshToonMaterial({color:0x9fd3ee,gradientMap:grad,transparent:true,opacity:0.8})});
+  box(outsideG,doorMain,-1.4,y0+3.2,6,2.8,0.25,0xe8e4dc);
+  {const t=canvasTex(512,96,g=>{g.fillStyle='#13304a';g.fillRect(0,0,512,96);g.fillStyle='#fff8ec';g.font='900 52px "Noto Sans TC",sans-serif';g.textAlign='center';g.fillText('圖書館 Library',256,66);});
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(4.6,0.86),new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}));const [x,z]=W(doorMain,-0.25);m.position.set(x,y0+3.9,z);m.rotation.y=rot;outsideG.add(m);}
+  // ---- floors ----
+  const names=['1F','2F','3F','4F','5F'];
+  // floors: terrazzo tiles in the lobby floor, carpet upstairs (kept mid-tone: pale colours clip to white in the sun)
+  const floorTex=[['#a9a59c','#b4b0a7',1],['#55708e','#5d7997',0],['#4d807c','#558a86',0],['#9a7b58','#a3845f',0],['#7b8087','#838990',0]].map(([a,b,tile])=>{
+    const t=canvasTex(128,128,g=>{g.fillStyle=a;g.fillRect(0,0,128,128);if(tile){g.fillStyle=b;for(let y=0;y<128;y+=32)for(let x=(y/32)%2?0:32;x<128;x+=64)g.fillRect(x,y,32,32);g.fillStyle='rgba(0,0,0,.12)';for(let i=0;i<=128;i+=32){g.fillRect(i,0,1,128);g.fillRect(0,i,128,1);}}
+      else for(let i=0;i<2200;i++){g.fillStyle=Math.random()<.5?b:'rgba(0,0,0,.08)';g.fillRect(Math.random()*128,Math.random()*128,2,2);}});
+    t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1/4,1/4);return t;});
+  const bookCols=[0xc0392b,0x2e86c1,0x27ae60,0xf1c40f,0x8e44ad,0xe67e22,0x16a085,0x34495e,0xd35400,0x7f8c8d];
+  const signTex=(zh,en)=>canvasTex(320,110,g=>{g.fillStyle='#13304a';roundRect(g,4,4,312,102,18);g.fill();g.fillStyle='#fff8ec';g.font='900 40px "Noto Sans TC",sans-serif';g.textAlign='center';g.fillText(zh,160,52);
+    g.fillStyle='#9fc9dd';g.font='700 22px "Baloo 2",sans-serif';g.fillText(en,160,88);});
+  const sign=(grp,u,v,y,zh,en)=>{const s=new THREE.Sprite(new THREE.SpriteMaterial({map:signTex(zh,en)}));s.scale.set(1.5,0.52,1);const [x,z]=W(u,v);s.position.set(x,y-0.3,z);grp.add(s);};
+  const core={u0:U1*0.5-4,u1:U1*0.5+4,v0:V1*0.55,v1:V1*0.55+6};
+  const used=[];const free2=(u0,v0,u1,v1,m=0.5)=>{if(!inside(u0,v0,0.3)||!inside(u1,v0,0.3)||!inside(u0,v1,0.3)||!inside(u1,v1,0.3))return false;
+    if(u1>core.u0-1&&u0<core.u1+1&&v1>core.v0-1&&v0<core.v1+1)return false;return !used.some(r=>u1>r[0]-m&&u0<r[2]+m&&v1>r[1]-m&&v0<r[3]+m);};
+  const take=(u0,v0,u1,v1)=>used.push([u0,v0,u1,v1]);
+  INT.bookTotal=0;
+  for(let k=0;k<NF;k++){const grp=new THREE.Group();grp.visible=false;scene.add(grp);INT.groups.push(grp);used.length=0;const y=yk(k);const books=[];
+    // slab, cut-away walls with a window band
+    const sh=new THREE.Shape(inner.map(([x,z])=>new THREE.Vector2(x,-z)));const sg=new THREE.ShapeGeometry(sh);sg.rotateX(-Math.PI/2);
+    {const uv=sg.attributes.uv,pp=sg.attributes.position;for(let i=0;i<pp.count;i++)uv.setXY(i,pp.getX(i),-pp.getZ(i));}   // world-metre UVs: the tiles stay 1 m
+    const slab=new THREE.Mesh(sg,new THREE.MeshToonMaterial({map:floorTex[k],gradientMap:grad}));slab.position.y=y+0.02;slab.receiveShadow=true;grp.add(slab);
+    const wallTex=canvasTex(64,64,g=>{g.fillStyle='#f1ede4';g.fillRect(0,0,64,64);g.fillStyle='#9fd3ee';g.fillRect(4,18,56,30);g.fillStyle='#d6d0c4';g.fillRect(0,60,64,4);});wallTex.wrapS=THREE.RepeatWrapping;
+    {const pos=[],uv=[],idx=[];let acc=0;
+      for(let i=0;i<=inner.length;i++){const q=inner[i%inner.length];if(i)acc+=Math.hypot(q[0]-inner[i-1][0],q[1]-inner[i-1][1]);const b=pos.length/3;pos.push(q[0],y,q[1],q[0],y+2.7,q[1]);uv.push(acc/3,0,acc/3,1);if(i)idx.push(b-2,b,b-1,b-1,b,b+1);}
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
+      grp.add(new THREE.Mesh(g,new THREE.MeshToonMaterial({map:wallTex,gradientMap:grad,side:THREE.DoubleSide})));}
+    // floor slab you stand on (not a wall)
+    {let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of inner){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
+      const f={kind:'floor',p:inner,top:y,x0,x1,z0,z1};gridAdd(f,x0-1,z0-1,x1+1,z1+1);}
+    // core: elevator (cab you step into), stairs, floor directory
+    const cu=(core.u0+core.u1)/2;box(grp,cu-2,core.v0+3,y,3.4,6,2.7,0xb9c0c6);box(grp,cu-2,core.v0+0.05,y,2.2,0.1,2.3,0x7d8a94);   // lift shaft + door
+    box(grp,cu+2.2,core.v0+3,y,3.6,6,0.9,0xcfc8bb);for(let s=0;s<6;s++)box(grp,cu+1.3,core.v0+0.6+s*0.8,y,1.6,0.8,0.15*(s+1),0xe5ded1);   // stairs
+    solid(core.u0,core.v0+0.4,core.u1,core.v1,y-0.1,y+2.6,{nocam:true});
+    INT.cab={u0:cu-3.2,u1:cu-0.8,v0:core.v0-1.3,v1:core.v0+0.1};
+    box(grp,cu-2,core.v0-0.65,y+0.01,2.4,1.3,0.02,0xf2c230,{basic:true});        // the spot to stand on for the lift
+    const dirT=canvasTex(256,320,g=>{g.fillStyle='#13304a';g.fillRect(0,0,256,320);g.fillStyle='#fff8ec';g.font='900 30px "Noto Sans TC",sans-serif';g.fillText('樓層簡介 Floors',14,40);
+      const L=[['5F','東方語文書區・特藏室'],['4F','西文書區・學位論文・兒童書'],['3F','期刊・夢幻海洋VR・靜音艙'],['2F','借還書・參考區・愛樂廳'],['1F','大廳・AI共創教室・X-STORE']];
+      L.forEach(([f,t],i)=>{const yy=88+i*50;g.fillStyle=f===names[k]?'#f2c230':'#9fc9dd';g.font='900 28px "Baloo 2"';g.fillText(f,14,yy);g.fillStyle='#fff8ec';g.font='700 19px "Noto Sans TC"';g.fillText(t,64,yy);});});
+    {const m=new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.75),new THREE.MeshBasicMaterial({map:dirT}));const [x,z]=W(cu+1.2,core.v0-0.06);m.position.set(x,y+1.7,z);m.rotation.y=rot+Math.PI;grp.add(m);}
+    // ---- furniture kits ----
+    const shelfRow=(u,v0,v1,col=null)=>{if(!free2(u-0.35,v0,u+0.35,v1,0.9))return false;take(u-0.35,v0,u+0.35,v1);const len=v1-v0,vc=(v0+v1)/2;
+      box(grp,u,vc,y,0.7,len,2.1,0x8a6a4a);solid(u-0.35,v0,u+0.35,v1,y,y+2.1,{mat:'wall',nocam:true});
+      for(let lv=0;lv<4;lv++)for(const side of [-1,1])for(let t=v0+0.1;t<v1-0.1;t+=0.13+Math.random()*0.05){if(Math.random()<0.08)continue;
+        books.push([u+side*0.25,t,y+0.25+lv*0.5,0.2,0.1+Math.random()*0.04,0.32+Math.random()*0.1,col||bookCols[(Math.random()*bookCols.length)|0]]);}
+      INT.bookTotal++;return true;};
+    const stacks=(u0,u1,v0,v1,col)=>{for(let u=u0+0.6;u<=u1-0.6;u+=2.0){let a=v0;while(a<v1-1.5){const b=Math.min(v1,a+5);if(shelfRow(u,a,b,col))a=b+1.4;else a+=1;}}};
+    // a chair at (u,v) whose back is on the side `back` (+1: towards +v, -1: towards -v)
+    const chair=(u,v,back)=>{box(grp,u,v,y,0.5,0.5,0.45,0x2f6fb8);box(grp,u,v+back*0.22,y+0.45,0.5,0.08,0.5,0x2f6fb8);};
+    const table=(u,v,seats=6)=>{if(!free2(u-1.6,v-1.1,u+1.6,v+1.1,0.6))return false;take(u-1.6,v-1.1,u+1.6,v+1.1);box(grp,u,v,y+0.72,2.4,1.2,0.05,0xd9b98c);
+      for(const [a,b] of [[-1,-1],[1,-1],[-1,1],[1,1]])box(grp,u+a*1.1,v+b*0.5,y,0.06,0.06,0.72,0x6b5a45);
+      const n=seats/2;for(let i=0;i<n;i++)for(const s of [-1,1])chair(u+(i-(n-1)/2)*0.8,v+s*0.95,s);
+      solid(u-1.2,v-0.6,u+1.2,v+0.6,y,y+0.77,{nocam:true});return true;};
+    const tables=(u0,u1,v0,v1)=>{for(let u=u0+1.8;u<=u1-1.6;u+=3.6)for(let v=v0+1.3;v<=v1-1.2;v+=3.0)table(u,v);};
+    const pc=(u,v)=>{if(!free2(u-0.85,v-0.45,u+0.85,v+0.9,0.2))return;take(u-0.85,v-0.45,u+0.85,v+0.9);box(grp,u,v,y+0.72,1.6,0.7,0.05,0xe8e4dc);box(grp,u,v+0.15,y+0.77,0.6,0.05,0.4,0x23292e);
+      box(grp,u,v+0.12,y+0.79,0.56,0.02,0.34,0x5fa8d8,{basic:true,r:0});chair(u,v-0.75,-1);solid(u-0.8,v-0.35,u+0.8,v+0.35,y,y+0.77,{nocam:true});};
+    const pcs=(u0,u1,v0,v1)=>{for(let v=v0+0.8;v<=v1-0.8;v+=2.0)for(let u=u0+1;u<=u1-0.9;u+=1.8)pc(u,v);};
+    const room=(u0,v0,u1,v1,zh,en,fill)=>{if(!free2(u0,v0,u1,v1,0.4))return;const gl={m:M(0xbfe4f2,{mat:{transparent:true,opacity:0.35}})};
+      const dm=(u0+u1)/2;box(grp,u0+(dm-1-u0)/2,v0,y,dm-1-u0,0.1,2.6,0,gl);box(grp,dm+1+(u1-dm-1)/2,v0,y,u1-dm-1,0.1,2.6,0,gl);
+      box(grp,(u0+u1)/2,v1,y,u1-u0,0.1,2.6,0,gl);box(grp,u0,(v0+v1)/2,y,0.1,v1-v0,2.6,0,gl);box(grp,u1,(v0+v1)/2,y,0.1,v1-v0,2.6,0,gl);
+      for(const [a0,b0,a1,b1] of [[u0,v0-0.1,dm-1,v0+0.1],[dm+1,v0-0.1,u1,v0+0.1],[u0,v1-0.1,u1,v1+0.1],[u0-0.1,v0,u0+0.1,v1],[u1-0.1,v0,u1+0.1,v1]])solid(a0,b0,a1,b1,y,y+2.6,{nocam:true,mat:'glass'});
+      sign(grp,(u0+u1)/2,v0-0.2,y+2.9,zh,en);fill&&fill((u0+u1)/2,(v0+v1)/2,u1-u0,v1-v0);take(u0,v0,u1,v1);};   // furnish first, then reserve
+    const sofa=(u,v,c=0x8a3a3a)=>{box(grp,u,v,y,1.8,0.8,0.42,c);box(grp,u,v+0.32,y+0.42,1.8,0.16,0.45,c);};
+    const area=(u,v,zh,en)=>sign(grp,u,v,y+2.9,zh,en);
+    // ---- the floors, from the library's floor list ----
+    const L=U1,Vd=V1;
+    if(k===0){
+      // X-STORE 8 in the south corner; lobby at the main door
+      INT.store={u0:L-9.2,u1:L-0.6,v0:0.6,v1:7.4};take(L-9.6,0,L,7.8);buildStore(grp,box,solid,y,W,rot,M,L,sign);
+      take(doorMain-5,0,doorMain+5,11);area(doorMain,6,'大廳','Lobby');
+      box(grp,doorMain+3.2,2.2,y,1.0,0.7,1.1,0x4f6b80);area(doorMain+3.2,1.4,'還書箱','Book drop');solid(doorMain+2.7,1.85,doorMain+3.7,2.55,y,y+1.1,{nocam:true});
+      for(let i=0;i<8;i++)box(grp,doorMain+6.5+i*0.62,9.6,y,0.6,0.5,1.9,i%2?0x3a8fb7:0x2f7fb0);area(doorMain+8.6,9,'智取櫃','Smart lockers');take(doorMain+6,9.2,doorMain+11.6,10);
+      room(1.2,2,13,14,'AI共創教室','AI Co-creation',(cu2,cv,w,d)=>{for(let r=0;r<3;r++)for(let c=0;c<3;c++)table(cu2-w/2+2.5+c*3.4,cv-d/2+2.6+r*3.3,4);box(grp,cu2,cv+d/2-0.3,y+0.9,4,0.1,1.8,0x23292e);});
+      room(1.2,Vd-12,12,Vd-1.2,'資訊網路服務組','IT Services',(cu2,cv)=>{for(let i=0;i<3;i++)pc(cu2-3+i*3,cv);});
+      room(L-13,Vd-12,L-1.2,Vd-1.2,'藝文中心','Arts Center',(cu2,cv)=>{for(let i=0;i<3;i++)pc(cu2-3+i*3,cv);});
+      tables(13,doorMain-5,12,Vd-2);tables(doorMain+5,L-14,12,Vd-2);
+    }else if(k===1){
+      area(doorMain,5,'借還書櫃台','Circulation');box(grp,doorMain,6.5,y,7,0.9,1.05,0xd9b98c);solid(doorMain-3.5,6,doorMain+3.5,7,y,y+1.05,{nocam:true});take(doorMain-4,5.5,doorMain+4,7.5);
+      for(let i=0;i<3;i++)box(grp,doorMain-2.4+i*2.4,6.5,y+1.05,0.6,0.05,0.4,0x23292e);
+      for(const du of [-3,3]){box(grp,doorMain+du,10.5,y,2.6,1.2,0.8,0xb08a5c);for(let i=0;i<10;i++)books.push([doorMain+du-1.1+i*0.24,10.5,y+0.8,0.2,0.3,0.05,bookCols[i%10]]);}take(doorMain-5,9.5,doorMain+5,11.5);area(doorMain,10.5,'新書展示','New books');
+      pcs(1.2,13,1.2,9.5);area(7,5,'資訊檢索區','Search terminals');
+      room(L-15,1.5,L-1.2,13,'愛樂廳','Music Hall',(cu2,cv,w,d)=>{for(let r=0;r<2;r++)for(let c=0;c<3;c++)sofa(cu2-4+c*4,cv-1+r*3,0x6b3f8a);box(grp,cu2,cv+d/2-0.8,y,1.6,0.8,1.3,0x23292e);});
+      room(L-13,15,L-1.2,24,'團體視聽室','Group AV Room',(cu2,cv,w,d)=>{box(grp,cu2,cv+d/2-0.3,y+0.9,3.6,0.1,2,0x23292e);for(let r=0;r<2;r++)for(let c=0;c<4;c++)chair(cu2-3+c*2,cv-1.5+r*1.6,-1);});
+      pcs(1.2,13,12,22);area(7,16,'多媒體區','Multimedia');
+      for(let i=0;i<4;i++)room(1.5+i*6.6,Vd-7.5,7.3+i*6.6,Vd-1.2,'討論室 '+(i+1),'Discussion',(cu2,cv)=>table(cu2,cv,4));
+      stacks(L-15,L-1,26,Vd-1);area(L-8,Vd-6,'參考區','Reference');
+      tables(15,doorMain-5,13,Vd-9);tables(doorMain+5,L-16,13,Vd-9);
+    }else if(k===2){
+      for(let u=2;u<15;u+=3)for(let v=2;v<13;v+=3.4){if(!free2(u-0.9,v-0.3,u+0.9,v+0.3,0.8))continue;take(u-0.9,v-0.3,u+0.9,v+0.3);const r=box(grp,u,v,y,1.8,0.5,1.6,0x8a6a4a);
+        for(let i=0;i<5;i++)books.push([u-0.7+i*0.35,v-0.27,y+1.0,0.28,0.02,0.36,bookCols[(i*3+((u*7)|0))%10]]);solid(u-0.9,v-0.25,u+0.9,v+0.25,y,y+1.6,{nocam:true});}
+      area(8,7,'現期期刊','Current periodicals');stacks(1,16,17,Vd-1,0x5a6a7a);area(8,Vd-8,'過期期刊合訂本','Bound periodicals');
+      {const u0=L-15,u1=L-1.5;if(free2(u0,1.5,u1,12)){take(u0,1.5,u1,12);box(grp,(u0+u1)/2,6.7,y+0.01,u1-u0,10,0.03,0x1f6fa8);
+        for(let i=0;i<4;i++){box(grp,u0+2+i*3.2,6,y,0.8,0.8,1.0,0xe8e4dc);box(grp,u0+2+i*3.2,6,y+1.0,0.5,0.3,0.25,0x23292e);}area((u0+u1)/2,4,'夢幻海洋 VR','Dream Ocean VR');}}
+      for(let i=0;i<5;i++){const u=L-14+i*2.6;if(!free2(u-0.8,15,u+0.8,22))continue;take(u-0.8,15,u+0.8,22);box(grp,u,18.5,y,1.4,2.4,2.2,0xf4f2ec);box(grp,u,17.25,y+0.6,1.0,0.05,1.2,0x9fd3ee,{basic:true});
+        solid(u-0.7,17.3,u+0.7,19.7,y,y+2.2,{nocam:true});}area(L-8,15,'靜音艙','Quiet pods');
+      for(let u=17;u<L-2;u+=1.6){if(!free2(u-0.75,Vd-2.4,u+0.75,Vd-1))continue;take(u-0.75,Vd-2.4,u+0.75,Vd-1);box(grp,u,Vd-1.6,y+0.72,1.4,0.7,0.05,0xd9b98c);
+        box(grp,u-0.72,Vd-1.6,y+0.72,0.04,0.75,0.6,0xb7c7d4);chair(u,Vd-2.3,-1);solid(u-0.7,Vd-2,u+0.7,Vd-1.2,y,y+0.77,{nocam:true});}area(30,Vd-3,'個人研究小間','Study carrels');
+      {const u0=17,u1=29;for(let u=u0+1;u<u1;u+=2.4)if(free2(u-0.9,2,u+0.9,2.6)){take(u-0.9,2,u+0.9,2.6);box(grp,u,2.3,y,1.8,0.5,1.0,0xf2a83c);for(let i=0;i<6;i++)books.push([u-0.75+i*0.3,2.1,y+0.6,0.25,0.15,0.35,bookCols[(i+3)%10]]);}
+        for(let i=0;i<5;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(0.5,10,8),M([0xff8a8a,0x8ad0ff,0xffd36a,0x9ae6a0,0xc9a0ff][i]));m.scale.set(1,0.6,1);const [x,z]=W(u0+2+i*2.2,6);m.position.set(x,y+0.3,z);grp.add(m);}
+        area(23,4,'漫畫區','Manga');}
+      tables(17,L-16,9,Vd-6);
+    }else if(k===3){
+      stacks(1,17,1,Vd-1);area(9,Vd/2,'西文書區','Western books');
+      stacks(L-15,L-1,22,Vd-1,0x2b3a55);area(L-8,Vd-5,'學位論文','Theses');
+      {const u0=L-15,u1=L-1.5;if(free2(u0,1.5,u1,11)){take(u0,1.5,u1,11);box(grp,(u0+u1)/2,6,y+0.01,9,7,0.03,0xffc04d);
+        for(let i=0;i<4;i++){box(grp,u0+1.5+i*3.5,2.2,y,2.6,0.5,1.1,[0xff7a7a,0x7ac8ff,0x8ae68a,0xffd36a][i]);for(let j=0;j<8;j++)books.push([u0+0.4+i*3.5+j*0.3,2.0,y+0.7,0.25,0.15,0.35,bookCols[(i+j)%10]]);}
+        for(let i=0;i<4;i++)box(grp,u0+3+i*2.6,7,y,0.5,0.5,0.35,[0xff8a8a,0x8ad0ff,0xffd36a,0x9ae6a0][i]);area((u0+u1)/2,6,'兒童書區','Children’s books');}}
+      room(L-14,12.5,L-1.5,20.5,'數位攝影棚','Digital Studio',(cu2,cv,w,d)=>{box(grp,cu2,cv+d/2-0.3,y,w-1,0.1,2.5,0x3fbf5a);box(grp,cu2,cv-1,y,0.1,0.1,1.6,0x23292e);box(grp,cu2,cv-1,y+1.6,0.5,0.4,0.3,0x23292e);
+        for(const s of [-1,1]){box(grp,cu2+s*3,cv,y,0.08,0.08,2.1,0x8a8f96);box(grp,cu2+s*3,cv,y+2.1,0.7,0.5,0.5,0xf4f2ec);}});
+      tables(19,L-16,2,14);for(let i=0;i<3;i++)sofa(21+i*3.5,17,0x3f7a8a);area(26,8,'學習共享空間','Learning Commons');
+      tables(19,L-16,19,Vd-2);
+    }else{
+      stacks(1,29,1,16);stacks(1,17,18,Vd-1);area(14,8,'東方語文書區','Eastern books');
+      room(L-15,1.5,L-1.5,13,'特藏室','Special Collections',(cu2,cv,w,d)=>{for(let i=0;i<3;i++)for(let j=0;j<2;j++){box(grp,cu2-4+i*4,cv-2+j*4,y,2,1,0.9,0x6b5a45);box(grp,cu2-4+i*4,cv-2+j*4,y+0.9,2,1,0.5,0xbfe4f2,{mat:{transparent:true,opacity:0.4}});}});
+      for(let u=L-14;u<L-2;u+=1.4){if(!free2(u-0.5,16,u+0.5,26))continue;take(u-0.5,16,u+0.5,26);box(grp,u,21,y,0.9,9.6,2.2,0x9aa3ab);solid(u-0.45,16.2,u+0.45,25.8,y,y+2.2,{nocam:true});}
+      area(L-8,21,'視聽資料庫','AV Archive');stacks(L-15,L-1,28,Vd-1,0x7a6a55);area(L-8,Vd-4,'罕用書區','Rarely-used books');
+      tables(19,L-16,18,Vd-2);}
+    // a few people: readers at tables and browsing the shelves
+    let readers=0;for(const r of used.slice(0,40)){if(readers>=6||Math.random()<0.6)continue;const m=makeStudent();scene.remove(m.g);grp.add(m.g);
+      const u=(r[0]+r[2])/2,v=r[1]-0.6;const [x,z]=W(u,v);m.g.position.set(x,y,z);m.g.rotation.y=Math.atan2(vx,vz);readers++;}   // facing into the shelf / table
+    // the books, one instanced mesh per floor
+    if(books.length){const im=new THREE.InstancedMesh(boxG,new THREE.MeshToonMaterial({gradientMap:grad}),books.length);const Mx=new THREE.Matrix4(),Q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rot),S=new THREE.Vector3(),V=new THREE.Vector3(),C=new THREE.Color();
+      books.forEach(([u,v,yy,du,dv,h,c],i)=>{const [x,z]=W(u,v);Mx.compose(V.set(x,yy+h/2,z),Q,S.set(du,h,dv));im.setMatrixAt(i,Mx);im.setColorAt(i,C.setHex(c));});grp.add(im);}
+    sign(grp,core.u0-0.5,core.v0-1.6,y+2.9,names[k],'Library '+names[k]);
+  }
+  if(!spots.some(s=>s.id==='xstore'))spots.push({id:'xstore',no:0,zh:'7-ELEVEN X-STORE 8',en:'Convenience store',zone:'n',x:W(doorStore,3)[0],z:W(doorStore,3)[1],r:5,kind:'s'});
+}
+// X-STORE 8: grab-and-go. Entry gates at the door, gondola shelves, the wall of fridges, a coffee counter, and the
+// LiDAR sensors on rails overhead.
+function buildStore(grp,box,solid,y,W,rot,M,L,sign){
+  const u0=L-9.2,u1=L-0.6,v0=0.6,v1=7.4,uc=(u0+u1)/2;
+  box(grp,uc,(v0+v1)/2,y+0.015,u1-u0,v1-v0,0.02,0xc9c6bf);                              // light tile floor (mid-tone: pale clips to white)
+  // glass partition to the lobby, with an opening
+  const gl={m:new THREE.MeshToonMaterial({color:0xbfe4f2,gradientMap:grad,transparent:true,opacity:0.35})};
+  box(grp,u0,(v0+v1)/2+1.2,y,0.1,v1-v0-2.4,2.6,0,gl);solid(u0-0.1,v0+2.4,u0+0.1,v1,y,y+2.6,{nocam:true,mat:'glass'});
+  box(grp,uc,v1,y,u1-u0,0.1,2.6,0,gl);solid(u0,v1-0.1,u1,v1+0.1,y,y+2.6,{nocam:true,mat:'glass'});
+  // entry gates just inside the door
+  const du=L-4.5;for(const s of [-1,1]){box(grp,du+s*0.75,1.4,y,0.18,0.8,1.0,0x23292e);box(grp,du+s*0.75,1.4,y+1.0,0.2,0.3,0.12,0x5fd18a,{basic:true});solid(du+s*0.75-0.1,1.0,du+s*0.75+0.1,1.8,y,y+1,{nocam:true});}
+  // gondolas with products (colourful little boxes), the fridge wall, coffee counter
+  const prod=[];const pc=[0xd8262f,0xf2c230,0x2fd17a,0x2f7fd1,0xff8a3d,0xffffff,0x9a6fb8,0x23292e];
+  for(const gv of [3.4,5.2]){box(grp,uc-0.6,gv,y,5.2,0.9,1.5,0xe8e4dc);solid(uc-3.2,gv-0.45,uc+2,gv+0.45,y,y+1.5,{nocam:true});
+    for(let lv=0;lv<3;lv++)for(const s of [-1,1])for(let t=uc-3;t<uc+1.8;t+=0.22)prod.push([t,gv+s*0.38,y+0.35+lv*0.42,0.18,0.14,0.24,pc[((t*13+lv*3+s)|0)&7]]);}
+  for(let i=0;i<4;i++){box(grp,u0+0.9+i*1.0,v1-0.45,y,0.95,0.7,2.1,0xdfe6ea);box(grp,u0+0.9+i*1.0,v1-0.81,y+0.1,0.85,0.02,1.9,0xbfe4f2,{mat:{transparent:true,opacity:0.5}});
+    for(let lv=0;lv<5;lv++)for(let j=0;j<4;j++)prod.push([u0+0.6+i*1.0+j*0.2,v1-0.5,y+0.25+lv*0.38,0.12,0.12,0.28,[0x2f7fd1,0xd8262f,0x2fd17a,0xf2c230,0xffffff][(i+lv+j)%5]]);}
+  solid(u0+0.4,v1-0.8,u0+4.4,v1-0.1,y,y+2.1,{nocam:true});
+  box(grp,u1-1.6,v1-0.5,y,2.6,0.7,0.95,0x7a5a3a);box(grp,u1-2.3,v1-0.5,y+0.95,0.5,0.45,0.6,0x23292e);box(grp,u1-1.2,v1-0.5,y+0.95,0.8,0.5,0.4,0xd8d3c8);solid(u1-2.9,v1-0.85,u1-0.3,v1-0.15,y,y+0.95,{nocam:true});
+  // LiDAR sensors on rails overhead
+  for(let r=0;r<3;r++){box(grp,uc,1.8+r*2.1,y+2.55,u1-u0-0.6,0.08,0.06,0x8f979c);for(let s=0;s<4;s++)box(grp,u0+1.3+s*2.1,1.8+r*2.1,y+2.42,0.18,0.18,0.14,0x23292e);}
+  {const im=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshToonMaterial({gradientMap:grad}),prod.length);const Mx=new THREE.Matrix4(),Q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rot),S=new THREE.Vector3(),V=new THREE.Vector3(),C=new THREE.Color();
+    prod.forEach(([u,v,yy,a,b,h,c],i)=>{const [x,z]=W(u,v);Mx.compose(V.set(x,yy+h/2,z),Q,S.set(a,h,b));im.setMatrixAt(i,Mx);im.setColorAt(i,C.setHex(c));});grp.add(im);}
+  sign(grp,uc,4.3,y+2.95,'X-STORE 8','7-ELEVEN · 24h');
+}
+// each frame: are you inside, on which floor; the lift panel; the store's welcome
+function updateInterior(dt){
+  const I=INT.lib;if(!I)return;
+  const inB=pip(I.inner,P.x,P.z)&&P.y>I.y0-0.8&&!DRIVE.v&&!P.onBus;
+  const fl=inB?Math.max(0,Math.min(I.NF-1,Math.round((P.y-I.y0)/FLOOR_H))):-1;
+  if(inB!==INT.inside||fl!==INT.floor){INT.inside=inB;INT.floor=fl;
+    for(const m of INT.shell)m.visible=!inB;INT.groups.forEach((g,i)=>g.visible=i===fl);}
+  // the lift: stand on the yellow square in front of the door
+  const [u,v]=I.toUV(P.x,P.z),c=INT.cab,inCab=inB&&c&&u>c.u0&&u<c.u1&&v>c.v0&&v<c.v1;
+  const lp=$('#lift');if(lp){if(lp.hidden===inCab){lp.hidden=!inCab;if(inCab)[...lp.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.f===fl)));}}
+  // the store
+  const s=INT.store,inS=inB&&fl===0&&s&&u>s.u0&&u<s.u1&&v>s.v0&&v<s.v1;
+  if(inS&&!INT.inStore){const [x,z]=I.W(I.U1-4.5,1.4);INT.talk.x=x;INT.talk.z=z;say(INT.talk,'歡迎光臨！',2.2);chime();}
+  INT.inStore=inS;if(INT.talk.bubble){const [x,z]=I.W(I.U1-4.5,1.4);tickBubble(INT.talk,dt,x,I.y0+2.2,z);}
+}
+function liftTo(f){const I=INT.lib;if(!I)return;P.y=I.y0+f*FLOOR_H;P.vy=0;player.root.position.y=P.y;blip(880,880,0.25,0.06);blip(660,660,0.3,0.05,0,'sine',0.22);}
 
 /* ---------- characters ---------- */
 function makeChar(gender){
@@ -2699,6 +2942,7 @@ let R=0.5;
 let LASTSOLID=null;   // what the most recent hitsSolid() hit (impact sounds read it)
 function hitsSolid(x,z,y){
   for(const o of cell(x,z)){
+    if(o.kind==='floor'||(o.bot!==undefined&&y<o.bot-0.3))continue;   // slabs you stand on; things on a floor above you
     if(y>=o.top-0.05)continue;
     if(o.step&&y>=o.top-0.5)continue;
     if(o.kind==='poly'){if(x<o.x0-R||x>o.x1+R||z<o.z0-R||z>o.z1+R)continue;if(pip(o.p,x,z)||polyEdgeDist(o.p,x,z)<R)return LASTSOLID=o;}
@@ -2723,11 +2967,12 @@ function unstick(){
 // stand on bollards, step solids and vehicle roofs
 function floorAt(x,z,y){let floor=ground(x,z);
   for(const o of cell(x,z)){if(o.kind==='circle'&&o.top-floor<1.2&&y>=o.top-0.1&&Math.hypot(o.x-x,o.z-z)<o.r)floor=Math.max(floor,o.top);
-    else if(o.step&&y>=o.top-0.5&&pip(o.p,x,z))floor=Math.max(floor,o.top);}
+    else if(o.step&&y>=o.top-0.5&&pip(o.p,x,z))floor=Math.max(floor,o.top);
+    else if(o.kind==='floor'&&y>=o.top-0.6&&pip(o.p,x,z))floor=Math.max(floor,o.top);}
   return Math.max(floor,vehicleRoof(x,z,y));}
 function camHit(x,y,z){
   if(y<ground(x,z)+0.4)return true;
-  for(const o of cell(x,z))if(o.kind==='poly'&&y<o.top+0.3&&x>o.x0&&x<o.x1&&z>o.z0&&z<o.z1&&pip(o.p,x,z))return true;return false;}
+  for(const o of cell(x,z))if(o.kind==='poly'&&!o.nocam&&!(o.bot!==undefined&&y<o.bot)&&y<o.top+0.3&&x>o.x0&&x<o.x1&&z>o.z0&&z<o.z1&&pip(o.p,x,z))return true;return false;}
 
 /* ---------- bicycle ---------- */
 const BK={speed:0,heading:0,steer:0,crank:0,lastDrag:0,px:0,pz:0,prot:0,kx:0,kz:0,bump:0};
@@ -2824,10 +3069,11 @@ function updatePlay(dt){
   if(DRIVE.v&&!drag&&Math.abs(DRIVE.speed)>2&&performance.now()-BK.lastDrag>1200){
     let d=(DRIVE.heading+Math.PI)-yaw;d=Math.atan2(Math.sin(d),Math.cos(d));yaw+=d*Math.min(1,dt*2);}
   const ox=Math.sin(yaw)*Math.cos(pitch),oy=Math.sin(pitch),oz=Math.cos(yaw)*Math.cos(pitch);
-  const want=sp?Math.max(dist,sp.cam):P.riding?dist+2:dist;
+  let want=sp?Math.max(dist,sp.cam):P.riding?dist+2:dist;if(INT.inside)want=Math.min(want,6);   // indoors: a closer, dollhouse view
   let d=want;for(let s=0.8;s<=want;s+=0.4){if(camHit(tx+ox*s,ty+oy*s,tz+oz*s)){d=Math.max(1.4,s-0.5);break;}}
   const cxp=tx+ox*d,czp=tz+oz*d;
   camera.position.set(cxp,Math.max(ground(cxp,czp)+0.5,ty+oy*d,0.6),czp);camera.lookAt(tx,ty,tz);
+  updateInterior(dt);
   tAcc+=dt;if(tAcc>0.25){tAcc=0;checkSpots();updateZone();}
   refreshBikeUI();refreshDriveUI();
   drawMini();
@@ -4000,6 +4246,7 @@ function vehKind(o){return o.type==='bus'||o.type==='truck'?'bus':o.type==='scoo
 // the first tap or key anywhere starts the audio (and the title toggle / menus can too)
 for(const ev of ['pointerdown','keydown','touchend'])addEventListener(ev,()=>{if(soundOn())audioInit();},{passive:true});
 function refreshSoundBtn(){const b=$('#tSound');if(!b)return;const on=soundOn();b.setAttribute('aria-pressed',String(on));b.innerHTML=on?'<b>聲音 開</b><span>Sound on</span>':'<b>聲音 關</b><span>Sound off</span>';}
+document.querySelectorAll('#lift .btn').forEach(b=>b.addEventListener('click',()=>{liftTo(+b.dataset.f);[...document.querySelectorAll('#lift .btn')].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));cv.focus();}));
 $('#tSound').addEventListener('click',()=>{SET.sound=soundOn()?'off':'on';saveSettings();applySettings();if(soundOn())audioInit();});
 
 /* ---------- loop ---------- */
