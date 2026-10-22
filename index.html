@@ -243,7 +243,7 @@ body.touch #toast b{font-size:1rem}
 </div>
 
 <div id="doorFade" aria-hidden="true"></div>
-<div id="racePrompt" class="panel" hidden><b>自行車競速 <span>Bike Race</span></b><p>第一餐廳 → 電資暨綜合教學大樓 · 6 人</p><small id="rpBest"></small><button class="btn" id="rpStart" type="button">開始比賽 Start</button></div>
+<div id="racePrompt" class="panel" hidden><b>自行車競速 <span>Bike Race</span></b><p>第一餐廳 → 海空大樓 · 6 人</p><small id="rpBest"></small><button class="btn" id="rpStart" type="button">開始比賽 Start</button></div>
 <div id="raceHud" class="panel" hidden><span>名次 <b id="rhPos">1 / 6</b></span><span>時間 <b id="rhTime">0:00.0</b></span><span>剩 <b id="rhLeft">0 m</b></span><button class="btn sm" id="raceQuit" type="button">退出 Quit</button></div>
 <div id="raceCount" hidden>3</div>
 <div id="raceResult" class="panel" hidden><b id="rrPlace"></b><p id="rrTime"></p><div class="rrow"><button class="btn" id="rrAgain" type="button">再比一次 Again</button><button class="btn" id="rrClose" type="button">關閉 Close</button></div></div>
@@ -2676,15 +2676,16 @@ function updateInterior(dt){
 function liftTo(f){const I=INT.lib;if(!I||INT.space!=='lib')return;const fw=I.floorW(INT.floor),u=P.x-fw(0,0)[0],v=P.z-fw(0,0)[1],[x,z]=I.floorW(f)(u,v);
   INT.floor=f;INT.groups.forEach((g,i)=>g.visible=i===f);moveTo(x,IN_Y,z,P.rot);blip(880,880,0.25,0.06);blip(660,660,0.3,0.05,0,'sine',0.22);}
 
-/* ---------- bike race: 第一餐廳 → 電資暨綜合教學大樓 (user request). Six riders — you and five students — on the
+/* ---------- bike race: 第一餐廳 → 海空大樓 (user request; a route that stays on campus — 電資暨綜合教學大樓 sat across
+   北寧路, which took the race out of the gate and over the road). Six riders — you and five students — on the
    campus paths (the walking graph's shortest route, smoothed). Step into the start arch for the 開始比賽 panel; a 3-2-1
    countdown; checkpoint arrows along the route and the route on the minimap; position / time / distance on the HUD.
    Traffic is thinned and cleared off the route while it runs. It ends when you cross the finish line (others are
    ranked by how far they got); you can quit at any time (button or pause menu). Racers pass through each other. ---------- */
-const RACE={route:null,active:false,phase:'',racers:[],marks:[],t0:0,count:0,prog:0,promptShown:false,best:null,bike:null,savedMax:0,from:'第一餐廳',to:'電資暨綜合教學大樓'};
-try{RACE.best=+localStorage.getItem('ntou-walk-race-best')||null;}catch(e){}
+const RACE={route:null,active:false,phase:'',racers:[],marks:[],t0:0,count:0,prog:0,promptShown:false,best:null,bike:null,savedMax:0,from:'第一餐廳',to:'海空大樓',arches:[],ring:null};
+try{RACE.best=+localStorage.getItem('ntou-walk-race-best-v2')||null;}catch(e){}
 function buildRace(){
-  const A=D.b.find(b=>b.no===30),B=D.b.find(b=>b.no===68);if(!A||!B||!PG.comp.length)return;
+  const A=D.b.find(b=>b.no===30),B=D.b.find(b=>b.no===17);if(!A||!B||!PG.comp.length)return;
   const near=(x,z)=>{let best=-1,bd=1e9;for(const id of PG.comp){const d=Math.hypot(PG.nx[id]-x,PG.nz[id]-z);if(d<bd){bd=d;best=id;}}return best;};
   const [ax,az]=centroid(A.p),[bx,bz]=centroid(B.p),na=near(ax,az),nb=near(bx,bz),path=astar(na,nb);if(!path||path.length<3)return;
   // smooth the node chain (Chaikin twice) and resample every 2 m
@@ -2714,9 +2715,15 @@ function buildRace(){
     const t=canvasTex(512,96,c=>{c.fillStyle=col;c.fillRect(0,0,512,96);c.fillStyle='#fff';c.font='900 46px "Noto Sans TC",sans-serif';c.textAlign='center';c.fillText(zh+'  '+en,256,64);
       c.fillStyle='rgba(255,255,255,.9)';for(let x=0;x<512;x+=32){c.fillRect(x,0,16,8);c.fillRect(x+16,88,16,8);}});
     for(const r of [0,Math.PI]){const ban=new THREE.Mesh(new THREE.PlaneGeometry(7,1.3),new THREE.MeshBasicMaterial({map:t}));ban.position.y=4.2;ban.rotation.y=r;g.add(ban);}   // back to back: readable from both sides
-    scene.add(g);
-    for(const k of [-1,1]){const o={kind:'circle',x:p.x+p.tz*k*3.4,z:p.z-p.tx*k*3.4,r:0.2,top:99,mat:'pole'};gridAdd(o,o.x-1,o.z-1,o.x+1,o.z+1);}return p;};
+    g.visible=false;scene.add(g);RACE.arches.push(g);return p;};   // only shown during a race
   RACE.startP=arch(14,'自行車競速','START','#d8463c');RACE.finishP=arch(RT.L-2,'終點','FINISH','#13304a');
+  // outside a race the start is just a glowing circle on the ground
+  {const p=RACE.startP,g=new THREE.Group(),y=ground(p.x,p.z)+0.13;   // above the road surface and its paint
+    const ring=new THREE.Mesh(new THREE.RingGeometry(2.3,2.65,48),new THREE.MeshBasicMaterial({color:0xff8a3d,transparent:true,opacity:0.9,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-16}));ring.rotation.x=-Math.PI/2;g.add(ring);
+    const fill=new THREE.Mesh(new THREE.CircleGeometry(2.3,48),new THREE.MeshBasicMaterial({color:0xff8a3d,transparent:true,opacity:0.22,side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-16}));fill.rotation.x=-Math.PI/2;g.add(fill);
+    const t=canvasTex(128,128,c=>{c.strokeStyle='#fff';c.lineWidth=9;c.beginPath();c.arc(36,84,20,0,TAU);c.arc(92,84,20,0,TAU);c.stroke();c.beginPath();c.moveTo(36,84);c.lineTo(58,52);c.lineTo(84,52);c.lineTo(92,84);c.moveTo(58,52);c.lineTo(66,84);c.lineTo(36,84);c.stroke();});
+    const icon=new THREE.Mesh(new THREE.PlaneGeometry(1.9,1.9),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-18}));icon.rotation.x=-Math.PI/2;icon.position.y=0.02;g.add(icon);
+    g.position.set(p.x,y,p.z);scene.add(g);RACE.ring=g;}
   if(!spots.some(s=>s.id==='race'))spots.push({id:'race',no:0,zh:'自行車競速起點',en:'Bike race start',zone:'x',x:RACE.startP.x,z:RACE.startP.z,r:6,kind:'s'});
 }
 function routeAtR(s){const R=RACE.route;s=Math.max(0,Math.min(R.L,s));let lo=0,hi=R.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(R.cum[m]<=s)lo=m;else hi=m;}
@@ -2749,9 +2756,11 @@ function startRace(){
     cone.rotation.x=Math.PI/2;const g=new THREE.Group();g.add(cone);g.position.set(p.x,ground(p.x,p.z)+3,p.z);g.rotation.y=Math.atan2(p.tx,p.tz);scene.add(g);RACE.marks.push(g);}
   // quiet roads: fewer cars, none near the route
   RACE.savedMax=VEH.max;VEH.max=4;for(const v of VEH.list.slice()){const p=v.g.position;if(R.pts.some(q=>Math.abs(q[0]-p.x)<25&&Math.abs(q[1]-p.z)<25))removeVehicle(v);}
+  for(const a of RACE.arches)a.visible=true;RACE.ring.visible=false;
   RACE.active=true;RACE.phase='count';RACE.count=3.6;RACE.prog=me.s;RACE.lastBeep=4;$('#raceHud').hidden=false;$('#raceQuit').hidden=false;show('#mQuitRace',true);
 }
 function endRace(quit){
+  for(const a of RACE.arches)a.visible=false;if(RACE.ring)RACE.ring.visible=true;
   RACE.active=false;RACE.phase='';$('#raceHud').hidden=true;$('#raceCount').hidden=true;show('#mQuitRace',false);
   for(const r of RACE.racers){scene.remove(r.b.g);}RACE.racers=[];for(const m of RACE.marks)scene.remove(m);RACE.marks=[];
   VEH.max=RACE.savedMax||VEH.base;
@@ -2761,14 +2770,15 @@ function finishRace(){
   const t=RACE.time;
   const field=[{me:true,fin:t,s:RACE.route.L}].concat(RACE.racers.map(r=>({me:false,fin:r.finish,s:r.s,name:r.name})));
   field.sort((a,b)=>(a.fin!=null&&b.fin!=null)?a.fin-b.fin:(a.fin!=null?-1:b.fin!=null?1:b.s-a.s));
-  const place=field.findIndex(f=>f.me)+1,best=!RACE.best||t<RACE.best;if(best){RACE.best=t;try{localStorage.setItem('ntou-walk-race-best',String(t));}catch(e){}}
+  const place=field.findIndex(f=>f.me)+1,best=!RACE.best||t<RACE.best;if(best){RACE.best=t;try{localStorage.setItem('ntou-walk-race-best-v2',String(t));}catch(e){}}
   $('#rrPlace').textContent=['','冠軍！','第 2 名','第 3 名','第 4 名','第 5 名','第 6 名'][place]+'  '+place+' / 6';$('#rrTime').textContent=fmtRace(t)+(best?'  · 新紀錄 New best!':'  · 最佳 '+fmtRace(RACE.best));
   $('#raceResult').hidden=false;chime();if(place===1)setTimeout(chime,450);
   endRace(false);
 }
 function updateRace(dt){
   const R=RACE.route;if(!R)return;
-  if(!RACE.active){const near=Math.hypot(P.x-RACE.startP.x,P.z-RACE.startP.z)<7&&!INT.inside&&!DRIVE.v&&!P.onBus;racePrompt(near&&$('#raceResult').hidden);return;}
+  if(!RACE.active){const near=Math.hypot(P.x-RACE.startP.x,P.z-RACE.startP.z)<2.8&&!INT.inside&&!DRIVE.v&&!P.onBus;racePrompt(near&&$('#raceResult').hidden);
+    if(RACE.ring){const k=1+Math.sin(performance.now()/450)*0.04;RACE.ring.scale.set(k,1,k);}return;}
   const now=performance.now();
   if(RACE.phase==='count'){RACE.count-=dt;BK.speed=0;const n=Math.ceil(RACE.count);const el=$('#raceCount');el.hidden=false;
     if(n!==RACE.lastBeep&&n>=0){RACE.lastBeep=n;if(n>0)blip(660,660,0.18,0.08);else blip(990,990,0.4,0.09);}

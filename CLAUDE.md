@@ -261,19 +261,20 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 
 ## Bike race (`RACE`, `buildRace`, `startRace`, `updateRace`, `finishRace`, `endRace`; user request)
 
-- 第一餐廳FRB → 電資暨綜合教學大樓, ~720 m. Route = the walking graph's shortest path (`astar`), Chaikin-smoothed,
+- 第一餐廳FRB → 海空大樓, ~600 m, all on campus (the first finish, 電資暨綜合教學大樓, is across 北寧路: the race left
+  through the gate and crossed the road; user asked to fix). Route = the walking graph's shortest path (`astar`), Chaikin-smoothed,
   resampled every 2 m; along main roads it moves off the sidewalk onto the road edge (1.8 m in from the kerb), then
   any point with a solid within 0.9 m is nudged sideways (≤ 10 m) to clear space (the sidewalk is full of palms,
-  lamps, scooter rows and walls a bike can't pass). Start and finish arches (banners back to back) are permanent;
-  the start is a discoverable place.
-- Stand within 7 m of the start arch → 開始比賽 panel (best time shown). Start: you get a race bike if you aren't
+  lamps, scooter rows and walls a bike can't pass). Start and finish arches (banners back to back) only show during a
+  race; otherwise the start is a glowing orange circle with a bike icon on the road (a discoverable place).
+- Stand in the start circle → 開始比賽 panel (best time shown). Start: you get a race bike if you aren't
   riding (it later returns to the grid by the 60 s rule), six on a 2×3 grid, 3-2-1-GO with beeps (you can't move
   during it), yellow arrows every 30 m, route + racers + finish on the minimap, HUD 名次 / 時間 / 剩 m + 退出. Traffic
   max drops to 4 and vehicles near the route are removed; restored after.
 - Five student racers ride the route (ghosts: no collisions) at 9.5–11.7 m/s × skill, slower through bends, a sprint
   for the last 120 m, catch-up (ahead > 35 m: −10 %; behind 25/60 m: +15/+30 %). Measured: cruising ≈ 5th in 1:15,
   sprinting (Shift) wins. Your progress is the route position near your last one (no skipping). The race ends when
-  you cross the line: results (place, game-time clock, best time in localStorage `ntou-walk-race-best`), 再比一次.
+  you cross the line: results (place, game-time clock, best time in localStorage `ntou-walk-race-best-v2`), 再比一次.
   Quit anytime (HUD button or 放棄比賽 in the pause menu).
 
 ## Sound (`SND`, `audioInit`, `updateAudio`)
