@@ -1571,6 +1571,7 @@ const DRIVE={v:null,speed:0,heading:0,steer:0,hand:false,t:0};
 // top speed m/s, acceleration m/s², wheelbase, max steer (rad), camera distance and height
 const VSPEC={car:{vmax:25,acc:4.2,wb:2.6,steer:0.55,cam:8.5,ch:1.6,zh:'轎車',en:'Car'},taxi:{vmax:25,acc:4.2,wb:2.6,steer:0.55,cam:8.5,ch:1.6,zh:'計程車',en:'Taxi'},
   scooter:{vmax:19,acc:5,wb:1.3,steer:0.7,cam:6,ch:1.4,zh:'機車',en:'Scooter'},bus:{vmax:17,acc:1.8,wb:6.2,steer:0.5,cam:16,ch:3.4,zh:'公車',en:'Bus'},
+  police:{vmax:28,acc:4.6,wb:2.7,steer:0.55,cam:8.5,ch:1.7,zh:'警車',en:'Police car'},ambulance:{vmax:25,acc:3.2,wb:3.8,steer:0.5,cam:11,ch:2.6,zh:'救護車',en:'Ambulance'},
   truck:{vmax:20,acc:2.4,wb:4.2,steer:0.5,cam:12,ch:2.8,zh:'貨車',en:'Truck'}};
 function placeFree(v,x,z,h){
   v.x=x;v.z=z;v.heading=h;v.hx=Math.sin(h);v.hz=Math.cos(h);
@@ -1743,7 +1744,7 @@ function placeParkedVehicles(){
 
 /* ---------- crashes: momentum is shared along the line of impact; whatever is lighter gets shoved and slides to a stop.
    Everything stays on the ground: scooters hit hard tip onto their side, people hit hard fall over and get up again. ---------- */
-const MASS={scooter:200,car:1400,taxi:1400,truck:4000,bus:12000,person:70};
+const MASS={scooter:200,car:1400,taxi:1400,police:1500,ambulance:3200,truck:4000,bus:12000,person:70};
 const KNOCK=[];
 function velOf(o,isStu){
   const k=KNOCK.find(q=>q.o===o);if(k)return [k.vx,k.vz];
@@ -1837,6 +1838,7 @@ function updateRecover(dt){
 }
 // four amber corner lamps, made on first use
 function toggleHazard(v){
+  if(v.type==='police'||v.type==='ambulance'){v.siren=!v.siren;refreshDriveUI(true);return;}   // yours: G is the siren
   if(!v.hz4){v.hz4=[];const m=new THREE.MeshBasicMaterial({color:0xffa31a});const y=v.type==='scooter'?0.95:v.type==='bus'?1.1:0.78;
     for(const sx of [-1,1])for(const sz of [-1,1]){const b=new THREE.Mesh(new THREE.BoxGeometry(v.type==='scooter'?0.12:0.22,0.13,0.08),m);
       b.position.set(sx*(v.wid/2-(v.type==='scooter'?0.12:0.08)),y,sz*(v.len/2+0.01));b.visible=false;v.g.add(b);v.hz4.push(b);}}
@@ -3729,6 +3731,8 @@ function drawMini(){if((miniT=(miniT+1)%3))return;
   mini.fillStyle='#2f9fd3';mini.fillRect(0,0,W,H);
   mini.drawImage(mapBase,px-W/2/k,pz-H/2/k,W/k,H/k,0,0,W,H);
   for(const b of BIKES){if(P.riding&&b===bike)continue;const bx=(b.px-G.x0-px)*k+W/2,bz=(b.pz-G.z0-pz)*k+H/2;if(bx<0||bz<0||bx>W||bz>H)continue;mini.fillStyle='#7fd1c4';mini.strokeStyle='#0b1c2c';mini.lineWidth=1.5;mini.beginPath();mini.arc(bx,bz,4,0,TAU);mini.fill();mini.stroke();}
+  {const ph=Math.floor(performance.now()/250)%2;for(const v of VEH.list){if(!v.siren)continue;const x=(v.x-G.x0-px)*k+W/2,y=(v.z-G.z0-pz)*k+H/2;if(x<0||y<0||x>W||y>H)continue;
+    mini.fillStyle=v.type==='ambulance'?(ph?'#ff2a2a':'#ffffff'):(ph?'#ff2a2a':'#2a6bff');mini.strokeStyle='#0b1c2c';mini.lineWidth=1.5;mini.beginPath();mini.arc(x,y,4.5,0,TAU);mini.fill();mini.stroke();}}
   drawRaceOnMini(px,pz,k,W,H);drawMissionOnMini(px,pz,k,W,H);
   drawArrow(mini,W/2,H/2,P.rot,10);}
 const mapC=$('#mapC'),mapG=mapC.getContext('2d');
@@ -4024,8 +4028,103 @@ function updateVehLights(){
     const brake=mine&&((DRIVE.speed>0.3&&(keys.KeyS||keys.ArrowDown))||keys.Space||DRIVE.hand)?1:0;
     setVehLights(v,active?night:0,brake);}
 }
+/* ---------- police and ambulances (user request). Police cars patrol with the traffic and watch the road ahead for
+   speeding (over 55 km/h) and running a red light, the player included (driving, or riding through a red). Then the
+   siren and light bar come on, they chase, traffic moves over to the kerb and slows, and once they catch up the driver
+   pulls over and gets a ticket. Some ambulances are on a call: siren, up to 90 km/h, through red lights. ---------- */
+const COP={fines:0,redT:-99,lastX:null,chasingMe:null,tix:0};
+try{COP.fines=+localStorage.getItem('ntou-walk-fines')||0;}catch(e){}
+const LIMIT=15.3;                                        // 55 km/h: 50 on the signs, a little leeway
+const nowS=()=>performance.now()/1000;
+const liveryTex=(key,band,txt)=>tileTex('livery'+key,256,64,(g,w,h)=>{g.fillStyle='#f6f6f2';g.fillRect(0,0,w,h);g.fillStyle=band;g.fillRect(0,26,w,16);
+  g.fillStyle='#ffffff';g.font='900 13px "Noto Sans TC",sans-serif';g.textAlign='center';g.fillText(txt,w/2,39);
+  if(key==='police'){g.fillStyle=band;g.fillRect(0,46,w,4);}else{g.fillStyle='#f2c230';g.fillRect(0,46,w,4);}});
+// the bar on the roof: two lenses that flash when the siren is on (with a glow you can see in daylight too)
+function lightBar(g,y,z,w,cols){const base=new THREE.Mesh(new THREE.BoxGeometry(w,0.1,0.32),toon(0x2b2f36));base.position.set(0,y,z);g.add(base);const lens=[];
+  cols.forEach((c,i)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w/2-0.06,0.16,0.28),new THREE.MeshBasicMaterial({color:c}));m.position.set((i?1:-1)*w/4,y+0.12,z);g.add(m);
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:LAMP.glow,color:c,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:0.9}));gl.scale.set(1.6,1.6,1);gl.visible=false;m.add(gl);
+    m.userData={on:new THREE.Color(c),off:new THREE.Color(c).multiplyScalar(0.35),gl};m.material.color.copy(m.userData.off);lens.push(m);});
+  return lens;}
+function setSirenLights(v,t){if(!v.bar)return;const on=!!v.siren,ph=Math.floor(t*5)%2;
+  v.bar.forEach((m,i)=>{const lit=on&&(i===ph||(v.type==='ambulance'&&Math.floor(t*9)%3===i));m.material.color.copy(lit?m.userData.on:m.userData.off);m.userData.gl.visible=lit;});}
+// the drivers' side: who saw what, and the stop
+function startChase(p,target,why){p.mode='chase';p.target=target;p.why=why;p.siren=true;p.chaseT=0;p.lostT=0;p.vmax=22;p.acc=3.8;p.T=0.6;
+  say(p,target==='me'?'前方駕駛請靠邊停車！':'前面的車，靠邊停！',2.4);
+  if(target==='me'){COP.chasingMe=p;toast('','警察在追你！',(why==='red'?'闖紅燈 Ran a red light':'超速 Speeding')+' · 靠邊停車 Pull over',3800,true);}
+  else target.chasedBy=p;}
+function endChase(p,msg){if(p.target&&p.target!=='me'){p.target.pulled=false;p.target.chasedBy=null;}if(p.target==='me')COP.chasingMe=null;
+  p.mode='patrol';p.target=null;p.siren=false;p.halt=false;p.vmax=p.vmax0;p.acc=2.2;p.T=1.2;p.cool=25;if(msg)say(p,msg,2.4);}
+function ticketMe(p){const fine=p.why==='red'?2700:1800;COP.fines+=fine;COP.tix++;try{localStorage.setItem('ntou-walk-fines',String(COP.fines));}catch(e){}
+  toast('罰單','罰單：'+(p.why==='red'?'闖紅燈':'超速')+' NT$'+fine.toLocaleString(),`Ticket · ${p.why==='red'?'Red light':'Speeding'} · total NT$${COP.fines.toLocaleString()}`,4800,true);blip(660,660,0.12,0.05);}
+function playerSpeed(){return DRIVE.v?Math.abs(DRIVE.speed):P.riding?Math.abs(BK.speed):0;}
+// running a red yourself: crossing the stop zone of a signal that is red for your direction
+function watchMyLights(){const mv=(DRIVE.v&&DRIVE.v.type!=='bus')||P.riding;if(!mv||playerSpeed()<2.5)return;
+  const h=DRIVE.v?DRIVE.heading:BK.heading,hx=Math.sin(h),hz=Math.cos(h);
+  for(const x of xingSpots){if(!x.sig||!x.state||x.state.main!=='R')continue;const dx=P.x-x.x,dz=P.z-x.z;if(Math.abs(dx)>20||Math.abs(dz)>20)continue;
+    const al=dx*x.tx+dz*x.tz,ac=-dx*x.tz+dz*x.tx;if(Math.abs(al)>2.2||Math.abs(ac)>x.w/2+1)continue;
+    const dot=x.inDir?hx*x.inDir[0]+hz*x.inDir[1]:Math.abs(hx*x.tx+hz*x.tz);if(dot<0.6)continue;
+    if(COP.lastX!==x||nowS()-COP.redT>6){COP.redT=nowS();COP.lastX=x;}}}
+function updatePolice(dt){
+  const t=nowS();watchMyLights();
+  for(const v of VEH.list.concat(PARKED))if(v.bar)setSirenLights(v,t);
+  for(const p of VEH.list){if(p.type!=='police')continue;p.cool=Math.max(0,(p.cool||0)-dt);
+    if(p.vmax0===undefined)p.vmax0=p.vmax;
+    if(p.mode!=='chase'&&p.mode!=='stop'){
+      if(p.cool>0||(p.scan=(p.scan||0)-dt)>0)continue;p.scan=0.4;
+      // the road ahead, same direction: speeders and red-light runners
+      for(const q of p.lane.veh){if(q===p||q.type==='police'||q.type==='ambulance'||q.type==='bus'||q.chasedBy)continue;const d=prog(q)-prog(p);if(d<0||d>70)continue;
+        if(q.v>LIMIT){startChase(p,q,'speed');break;}if(q.redT&&t-q.redT<4){startChase(p,q,'red');break;}}
+      if(p.mode==='chase')continue;
+      for(const l of p.c.lanes){if(l===p.lane||l.dir!==p.lane.dir)continue;for(const q of l.veh){if(q.type==='police'||q.type==='ambulance'||q.type==='bus'||q.chasedBy)continue;const d=prog(q)-prog(p);if(d<0||d>60)continue;
+        if(q.v>LIMIT){startChase(p,q,'speed');break;}if(q.redT&&t-q.redT<4){startChase(p,q,'red');break;}}if(p.mode==='chase')break;}
+      if(p.mode==='chase'||COP.chasingMe)continue;
+      // you: within sight, either way
+      const dm=Math.hypot(P.x-p.x,P.z-p.z);
+      if(dm<55&&!P.onBus){if(DRIVE.v&&DRIVE.v.type!=='police'&&DRIVE.v.type!=='ambulance'&&Math.abs(DRIVE.speed)>LIMIT)startChase(p,'me','speed');
+        else if(t-COP.redT<4&&dm<70)startChase(p,'me','red');}
+      continue;}
+    p.chaseT+=dt;
+    if(p.mode==='chase'){
+      if(p.target==='me'){const dm=Math.hypot(P.x-p.x,P.z-p.z),sp=playerSpeed(),still=sp<1.5||(!DRIVE.v&&!P.riding);
+        if(dm<22&&still){p.stillT=(p.stillT||0)+dt;if(p.stillT>1.2){p.mode='stop';p.stopT=0;p.halt=true;}}else p.stillT=0;
+        if(dm>170)p.lostT+=dt;else p.lostT=0;
+        if(p.lostT>8||p.chaseT>90){endChase(p,'算了…');toast('','警察放棄追你了','The police gave up',2600,true);continue;}
+        if((p.callT=(p.callT||0)-dt)<=0&&dm<60){p.callT=6;say(p,pick(['前方駕駛請靠邊停車！','靠邊停！','請立即停車！']),2);}}
+      else{const q=p.target;if(!VEH.list.includes(q)){endChase(p);continue;}
+        // into the target's lane when it's in another one going the same way
+        if(q.c===p.c&&q.lane!==p.lane&&q.lane.dir===p.lane.dir&&!p.shift&&(p.lcT||0)<=0){p.lane.veh.splice(p.lane.veh.indexOf(p),1);q.lane.veh.push(p);p.shift=(p.shift||0)+p.lane.off-q.lane.off;p.lane=q.lane;p.lcT=3;}
+        const d=q.c===p.c?prog(q)-prog(p)-(q.len+p.len)/2:Math.hypot(q.x-p.x,q.z-p.z);
+        if(d<10&&d>-2){q.pulled=true;p.mode='stop';p.stopT=0;}
+        if(d<-4||Math.hypot(q.x-p.x,q.z-p.z)>200||p.chaseT>60){endChase(p,'跟丟了…');continue;}
+        if((p.callT=(p.callT||0)-dt)<=0&&d<40){p.callT=5;say(p,pick(['前面的車，靠邊停！','靠右停車！']),2);}}
+      continue;}
+    // the stop: a word with the driver, a ticket, and everyone goes on their way
+    p.stopT+=dt;
+    if(p.target==='me'){
+      if(p.stopT>1&&!p.said1){p.said1=true;say(p,'駕照、行照請拿出來。',2.8);}
+      if(p.stopT>4.5&&!p.said2){p.said2=true;say(p,p.why==='red'?'剛剛紅燈喔，開單。':'剛剛超速了，開單。',2.8);ticketMe(p);}
+      if(p.stopT>8){p.said1=p.said2=false;endChase(p,'開車小心。');}}
+    else{const q=p.target;if(!VEH.list.includes(q)){endChase(p);continue;}
+      if(p.stopT>1.5&&!p.said1){p.said1=true;say(p,'駕照、行照請拿出來。',2.8);}
+      if(p.stopT>5&&!p.said2){p.said2=true;say(q,pick(['對不起…','我在趕時間啦','下次不會了']),2.4);}
+      if(p.stopT>10){p.said1=p.said2=false;q.fast=false;q.runRed=false;q.vmax=Math.min(q.vmax,13.5);q.acc=2.2;q.T=1.2;endChase(p,'下次注意。');}}
+  }
+}
+// sirens: two soft voices for the nearest two (a triangle wave swept by an LFO, panned)
+function sirenVoice(){const c=SND.ctx,o=c.createOscillator(),lfo=c.createOscillator(),lg=c.createGain(),f=c.createBiquadFilter(),g=c.createGain();
+  o.type='triangle';o.frequency.value=900;lfo.frequency.value=0.3;lg.gain.value=0;lfo.connect(lg);lg.connect(o.frequency);f.type='lowpass';f.frequency.value=2600;g.gain.value=0;
+  o.connect(f);f.connect(g);let out=SND.master;let p=null;if(c.createStereoPanner){p=c.createStereoPanner();p.connect(SND.master);out=p;}g.connect(out);o.start();lfo.start();return {o,lfo,lg,g,p,v:null};}
+function updateSirens(){const c=SND.ctx;if(!c)return;
+  const S=VEH.list.concat(PARKED).filter(v=>v.siren&&v.g).map(v=>({v,d:Math.hypot(v.x-camera.position.x,v.z-camera.position.z)})).filter(s=>s.d<260).sort((a,b)=>a.d-b.d).slice(0,2);
+  if(!S.length&&!SND.sir)return;if(!SND.sir)SND.sir=[sirenVoice(),sirenVoice()];
+  for(const vo of SND.sir)if(vo.v&&!S.some(s=>s.v===vo.v))vo.v=null;
+  for(const s of S)if(!SND.sir.some(vo=>vo.v===s.v)){const fr=SND.sir.find(vo=>!vo.v);if(fr)fr.v=s.v;}
+  for(const vo of SND.sir){const s=S.find(q=>q.v===vo.v);if(!s){ramp(vo.g.gain,0,0.3);continue;}
+    const amb=s.v.type==='ambulance';ramp(vo.o.frequency,amb?960:1080,0.1);ramp(vo.lfo.frequency,amb?0.32:2.6,0.1);ramp(vo.lg.gain,amb?330:300,0.1);
+    ramp(vo.g.gain,0.12/(1+(s.d/30)**2)*(INT.inside?0.35:1),0.2);if(vo.p)ramp(vo.p.pan,panOf(s.v.x,s.v.z)*0.8,0.12);}}
+
 function makeVehicle(type){
-  const g=new THREE.Group();const wheels=[];let len,wid,hgt,low=0,cabin=null,rider=null,route=null,lights=[];
+  const g=new THREE.Group();const wheels=[];let len,wid,hgt,low=0,cabin=null,rider=null,route=null,lights=[],bar=null;
   const lamp=(x,y,z,c)=>{const rear=c===0xd8262f;const m=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.14,0.06),new THREE.MeshBasicMaterial({color:rear?LAMP.rearOff:LAMP.frontOff}));
     m.position.set(x,y,z);g.add(m);m.userData.rear=rear;
     const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:LAMP.glow,color:rear?0xff2a2a:0xfff1c8,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:0}));
@@ -4038,6 +4137,22 @@ function makeVehicle(type){
     if(type==='taxi'){const sign=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.2,0.25),toon(0xffffff));sign.position.set(0,1.7,-0.2);g.add(sign);}
     for(const sx of [-0.85,0.85])for(const sz of [-1.35,1.35])vehWheel(g,wheels,sx,sz,0.33,0.24);
     lamp(-0.6,0.72,2.16,0xfff4c8);lamp(0.6,0.72,2.16,0xfff4c8);lamp(-0.6,0.75,-2.16,0xd8262f);lamp(0.6,0.75,-2.16,0xd8262f);
+  }else if(type==='police'){
+    len=4.5;wid=1.82;hgt=1.75;low=1.05;cabin=[-1.4,0.95];const wht=toon(0xf6f6f2),gl=toon(0x3d5568);
+    const side=new THREE.MeshToonMaterial({map:liveryTex('police','#1d4f9e','警察  POLICE  110'),gradientMap:grad});
+    const body=shade(new THREE.Mesh(new THREE.BoxGeometry(1.82,0.72,4.5),[side,side,wht,wht,wht,wht]),true,false);body.position.y=0.66;g.add(body);
+    const cab=shade(new THREE.Mesh(new THREE.BoxGeometry(1.62,0.58,2.3),[gl,gl,wht,wht,gl,gl]),true,false);cab.position.set(0,1.3,-0.2);g.add(cab);
+    bar=lightBar(g,1.64,-0.15,1.2,[0xff2a2a,0x2a6bff]);
+    for(const sx of [-0.86,0.86])for(const sz of [-1.4,1.4])vehWheel(g,wheels,sx,sz,0.33,0.24);
+    lamp(-0.6,0.72,2.26,0xfff4c8);lamp(0.6,0.72,2.26,0xfff4c8);lamp(-0.6,0.75,-2.26,0xd8262f);lamp(0.6,0.75,-2.26,0xd8262f);
+  }else if(type==='ambulance'){
+    len=5.6;wid=2.0;hgt=2.75;const wht=toon(0xf6f6f2);
+    const side=new THREE.MeshToonMaterial({map:liveryTex('amb','#d8262f','救護車  AMBULANCE  119'),gradientMap:grad});
+    const box=shade(new THREE.Mesh(new THREE.BoxGeometry(2.0,1.95,3.9),[side,side,wht,wht,wht,wht]),true,false);box.position.set(0,1.45,-0.8);g.add(box);
+    const cab=shade(new THREE.Mesh(new THREE.BoxGeometry(1.95,1.5,1.75),[wht,wht,wht,wht,toon(0x3d5568),wht]),true,false);cab.position.set(0,1.22,1.9);g.add(cab);
+    bar=lightBar(g,2.47,1.05,1.5,[0xff2a2a,0xffffff]);
+    for(const sx of [-0.92,0.92])for(const sz of [-1.9,1.9])vehWheel(g,wheels,sx,sz,0.38,0.26);
+    lamp(-0.7,0.8,2.79,0xfff4c8);lamp(0.7,0.8,2.79,0xfff4c8);lamp(-0.75,0.9,-2.76,0xd8262f);lamp(0.75,0.9,-2.76,0xd8262f);
   }else if(type==='scooter'){
     len=1.9;wid=0.7;hgt=1.45;const col=pick([0xf4f4f2,0x2b2f36,0xd8463c,0x8fb3c8,0xf2c230,0x7fd1c4]);
     const body=shade(new THREE.Mesh(new THREE.BoxGeometry(0.5,0.45,1.3),toon(col)),true,false);body.position.y=0.55;g.add(body);
@@ -4070,21 +4185,26 @@ function makeVehicle(type){
   const bw=type==='scooter'?1.8:type==='bus'?3.4:3;const beam=new THREE.Mesh(LAMP.beamGeo,new THREE.MeshBasicMaterial({map:LAMP.beam,color:0xffe9b0,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:0,polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-14}));
   beam.scale.set(bw,type==='scooter'?6:9,1);beam.position.set(0,0.07,len/2+(type==='scooter'?3:4.5));beam.visible=false;g.add(beam);
   scene.add(g);
-  return {g,wheels,len,wid,hgt,low,cabin,rider,route,type,lights,beam};
+  return {g,wheels,len,wid,hgt,low,cabin,rider,route,type,lights,beam,bar};
 }
 function spawnVehicle(c,lane,s){
   let type;const r=Math.random();
   if(c.bus&&lane.outer&&r<(MS.act==='harbour'&&MS.step===0?0.35:0.08))type='bus';   // more buses while a mission waits for one
   else if(r<0.5)type='scooter';else if(r<0.62)type='taxi';else if(r<0.93)type='car';else type='truck';
   if(type==='scooter'&&!lane.outer&&Math.random()<0.6)type='car';   // scooters keep to the outer lane mostly
+  if(type!=='bus'){const e=Math.random();   // now and then a police car (two at most) or an ambulance (one)
+    if(e<0.03&&VEH.list.filter(q=>q.type==='police').length<2)type='police';
+    else if(e>0.975&&!VEH.list.some(q=>q.type==='ambulance'))type='ambulance';}
   const m=makeVehicle(type);
   // not everyone keeps to the limit: some speed (more of them on scooters), a few dawdle; it shows in how hard they
   // accelerate and how close they follow too
-  const q=Math.random(),fast=type!=='bus'&&q<(type==='scooter'?0.26:type==='truck'?0.05:0.17),slow=!fast&&q>0.9;
+  const q=Math.random(),fast=type!=='bus'&&type!=='police'&&type!=='ambulance'&&q<(type==='scooter'?0.26:type==='truck'?0.05:0.17),slow=!fast&&q>0.9;
   const base=(type==='scooter'?11:type==='bus'?10:type==='truck'?11:13.5)*(0.9+Math.random()*0.2);
   const v={...m,c,lane,s,v:type==='bus'?7:9,vmax:Math.min(21,base*(fast?1.3+Math.random()*0.35:slow?0.75+Math.random()*0.1:1)),fast,slow,
     acc:fast?3.4:slow?1.5:2.2,T:fast?0.6:slow?1.7:1.2,served:new Set(),dwell:0,honk:0,lat:type==='scooter'?(lane.dir*0.7):0};
   if(fast)v.v=Math.min(v.vmax,13);
+  v.lat0=v.lat;v.runRed=fast&&Math.random()<0.4;                      // some speeders don't stop for a red either
+  if(type==='ambulance'&&Math.random()<0.5){v.siren=true;v.vmax=25;v.acc=3.6;v.T=0.7;v.v=14;}   // on a call: 90 km/h, lights and siren
   lane.veh.push(v);VEH.list.push(v);placeVehicle(v);return v;
 }
 function removeVehicle(v){scene.remove(v.g);v.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});if(v.bubble)scene.remove(v.bubble);
@@ -4130,22 +4250,24 @@ function updateVehicles(dt){
     if(l.veh.some(v=>prog(v)<16))continue;
     spawnVehicle(c,l,l.dir>0?0.5:c.L-0.5);
   }
-  const laneChanges=[];
+  const laneChanges=[],SIRENS=VEH.list.filter(q=>q.siren);
   for(const c of VEH.chains)for(const l of c.lanes){
     l.veh.sort((a,b)=>prog(b)-prog(a));
     for(let i=0;i<l.veh.length;i++){
       const v=l.veh[i],p=prog(v);
       if(v.scripted)continue;                       // the intro moves this one itself
       let gap=1e9,lv=v.vmax;
-      if(i>0){const ld=l.veh[i-1];gap=prog(ld)-p-(ld.len+v.len)/2;lv=ld.v;}
+      {let j=i-1;if(v.siren)while(j>=0&&l.veh[j].yield&&l.veh[j]!==v.target)j--;   // with the siren on, cars that moved over don't count
+        if(j>=0){const ld=l.veh[j];gap=prog(ld)-p-(ld.len+v.len)/2;lv=ld.v;}}
       // signals and crossings ahead
       for(const st of c.stops){
         if(st.x.inDir){const a=chainAt(c,st.s);if(a.tx*l.dir*st.x.inDir[0]+a.tz*l.dir*st.x.inDir[1]<0)continue;}   // leaving the junction: not your light
         const sp=(l.dir>0?st.s:c.L-st.s)-(st.x.gap??5.6)-v.len/2;const d=sp-p;
         if(d<-1||d>70)continue;
         const x=st.x;let stop=false;
-        if(x.state&&x.sig){
-          if(x.state.main==='R')stop=true;
+        if(x.state&&x.sig&&v.siren){if(x.state.main!=='G')v.cap=Math.min(v.cap??99,11);}   // lights and siren: through the red, a little slower
+        else if(x.state&&x.sig){
+          if(x.state.main==='R'){if(v.runRed&&v.v>6&&d<v.v*1.6+3){if(d<1.5)v.redT=nowS();}else stop=true;}
           else if(x.state.main==='Y'&&d>v.v*v.v/7+1)stop=true;
           else if(x.state.main==='FY'||x.state.main==='FR'){v.cap=Math.min(v.cap??99,7);if(pedsOnCrossing(x))stop=true;}
         }else if(pedsOnCrossing(x))stop=true;
@@ -4179,7 +4301,7 @@ function updateVehicles(dt){
       // something stuck in this lane ahead (a crash, a parked or recovering vehicle), or the queue in front is stuck behind one:
       // move over to the next lane going the same way if there is a safe gap
       const ld=i>0?l.veh[i-1]:null;
-      v.obsAhead=obs<30||(!!ld&&(ld.obsAhead||ld.atStop)&&ld.v<2&&prog(ld)-p<25);
+      v.obsAhead=obs<30||(!!ld&&(ld.obsAhead||ld.atStop||ld.halt||ld.pulled)&&ld.v<2&&prog(ld)-p<25);
       v.lcT=(v.lcT||0)-dt;
       if(v.obsAhead&&v.lcT<=0&&!v.shift){v.lcT=1.5;
         for(const l2 of c.lanes){if(l2===l||l2.dir!==l.dir||Math.abs(l2.off-l.off)>4.6)continue;
@@ -4188,6 +4310,13 @@ function updateVehicles(dt){
               const latV=-dx*v.hz+dz*v.hx;return Math.abs(latV-l.dir*(l2.off-l.off))<o.wid/2+v.wid/2+0.4;});
           if(safe){laneChanges.push([v,l,l2]);break;}}}
       for(const s of STU.list)if(s.onRoad&&Math.abs(s.x-v.x)<22&&Math.abs(s.z-v.z)<22)checkPerson(s.x,s.z);
+      // a siren behind you in your lane: move over to the kerb and slow down; pulled over: come to a stop there
+      v.yield=false;if(!v.siren)for(const e of SIRENS){if(e===v||e.c!==c||e.lane.dir!==l.dir)continue;const dd=p-prog(e);if(dd>-2&&dd<50){v.yield=true;break;}}
+      if(v.yield)v.cap=Math.min(v.cap??99,4);
+      if(v.pulled||v.halt){gap=Math.min(gap,Math.max(0.4,v.v*v.v/6));lv=0;}
+      {const base=v.lat0??0;let goal=base;if(v.yield||v.pulled)goal=base+l.dir*1.3;
+        else if(v.siren&&l.veh.slice(Math.max(0,i-3),i).some(q=>q.yield&&prog(q)-p<16))goal=base-l.dir*1.0;   // squeeze past on the inside
+        const dl=goal-(v.lat||0);v.lat=(v.lat||0)+Math.sign(dl)*Math.min(Math.abs(dl),1.4*dt);}
       // intelligent-driver style following
       const vmax=Math.min(v.vmax,v.cap??99)*(night?0.95:1);v.cap=undefined;const A=v.acc||2.2,T=v.T||1.2;
       const sStar=2.2+v.v*T+v.v*(v.v-lv)/(2*Math.sqrt(A*3.5));
@@ -4786,6 +4915,7 @@ function updateAudio(dt){
   if(INT.inside)roll=0;
   ramp(SND.roll.gain,Math.min(0.32,roll*0.16),0.35);
   ramp(SND.tyre.gain,Math.min(0.12,roll*0.05),0.35);           // the low rumble under it
+  updateSirens();
 }
 // petrol engines: revs climb through the gears with speed (and jump when accelerating); cars and taxis are 4-cylinder
 // (firing = rpm/30), buses and trucks a deeper rougher 6-cylinder diesel-ish note, petrol scooters a buzzy single cylinder
@@ -4887,7 +5017,7 @@ function frame(now){
   else if(mode==='play')updatePlay(dt);
   if(mode!=='pause'){                                    // the menu pauses the whole world
   if(CLOCK.fast)CLOCK.acc+=dt*59;
-  updateSky();updateSignals();updateVehicles(dt);updateStudents(dt);updateSports(dt);updateKnock(dt);updateRecover(dt);flexPosts(dt);updateHazards(dt);updateAbandoned(dt);updateVehLights();
+  updateSky();updateSignals();updateVehicles(dt);updatePolice(dt);updateStudents(dt);updateSports(dt);updateKnock(dt);updateRecover(dt);flexPosts(dt);updateHazards(dt);updateAbandoned(dt);updateVehLights();
   }
   tickBubble(playerTalk,dt,P.x,P.y+2.75,P.z);
   hudT-=dt;if(hudT<=0){hudT=0.5;const h=gameHour();$('#clockT').textContent=fmtClock();$('#clockP').textContent=periodLabel(h)+' · '+weatherLabel()+(CLOCK.offset||CLOCK.fast?'':' · 現在');}

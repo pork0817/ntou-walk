@@ -404,3 +404,35 @@ The driven vehicle keeps its jump physics on the bare terrain. `wheelGround` add
 4. It stays stopped while you stand within 12 m in front, then drives on.
 
 Crossing students still get the normal anticipatory stop.
+
+## Police and ambulances (`COP`, `updatePolice`, `updateSirens`, user request)
+
+**Spawning.** `spawnVehicle` turns about 3% of non-bus spawns into `police` (two at most). About 2.5% become an
+`ambulance` (one at most), and half of those are on a call: `v.siren`, `vmax` 25 m/s (90 km/h), harder acceleration.
+
+**Look.** `makeVehicle` builds both with livery textures (`liveryTex`) and a roof `lightBar`. The lenses flash in
+`setSirenLights` while `v.siren` is on.
+
+**Sirens on the road.**
+- Vehicles in the same lane up to 50 m ahead of a siren set `v.yield`: they slow to 4 m/s and ease toward the kerb
+  (`v.lat`, kerb side is `+lane.dir`).
+- The siren vehicle skips yielding leaders when it picks who it follows, and squeezes past on the inside.
+- A siren vehicle runs red lights, slowing to 11 m/s through them.
+
+**Police patrol.** Every 0.4 s a police car scans its own direction up to 70 m ahead for:
+- speeders over `LIMIT` (15.3 m/s, 55 km/h);
+- vehicles that ran a red in the last 4 s (`v.redT`). Some speeders run reds now (`v.runRed`).
+
+It also watches the player within 55 m: driving over `LIMIT`, or crossing a red stop zone while driving or riding
+(`watchMyLights`, which sets `COP.redT`).
+
+**The chase.**
+1. `startChase` puts on the siren, raises `vmax` to 22, and moves the police car into the target's lane.
+2. An NPC target within 10 m sets `q.pulled`: it stops at the kerb, gets a short talk, and is then made a normal driver.
+3. The player is stopped once they stay still within 22 m for 1.2 s. `ticketMe` charges NT$1,800 for speeding or
+   NT$2,700 for a red light, with the total in localStorage `ntou-walk-fines`.
+4. The police give up after 90 s, or after 8 s more than 170 m away.
+
+**Audio and controls.** `updateSirens` runs two triangle-wave voices swept by an LFO: a fast yelp for police and a
+slow wail for ambulances. Siren vehicles flash on the minimap. If the player drives a police car or ambulance, G
+toggles its siren.
