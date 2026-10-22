@@ -174,8 +174,10 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   come on through dusk (from `nightLevel`) for traffic, the player's vehicle and recovering vehicles; parked ones stay dark.
   Tail lights brighten as brake lights day or night (traffic slowing or stopped; the player braking or on the handbrake).
 - Intro (`INTRO`, `startIntro`, `updateIntro`, `endIntro`, `setupArrival`, `introBus`; mode 'intro'): after 開始探索 in a new
-  game, ~24 s letterboxed film, narrated (browser speechSynthesis, zh-TW voice if present) with subtitles: aerial welcome
-  (歡迎來到國立臺灣海洋大學) → a scripted bus brakes evenly into 海大(濱海校門) on the gate (south) side of 北寧路, watched from
+  game, ~24 s letterboxed film with subtitles. Only the bus announcement is spoken (browser speechSynthesis, zh-TW voice;
+  the user found more narration excessive). Safari blocks speech not first started in a tap, and the announcement comes
+  7 s after 開始探索, so that tap speaks a silent utterance first (`primeSpeech`). Shots: aerial welcome
+  → a scripted bus brakes evenly into 海大(濱海校門) on the gate (south) side of 北寧路, watched from
   the gutter (下一站，海大，濱海校門) → you step out of its rear door onto the kerb edge (door chime) in an over-the-shoulder
   shot → the camera pulls back into the play camera and the bus pulls away. Play starts exactly there, facing the gate.
   `setupArrival` (after `buildChains`) sets START (+ `rot`, `yaw`) in road terms (along the bus chain / lateral from the
