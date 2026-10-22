@@ -61,6 +61,9 @@ body.touch #raceHud{top:calc(env(safe-area-inset-top,0px) + 142px);gap:8px;paddi
 #raceCount{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);font:900 6rem/1 var(--display);color:var(--signal);text-shadow:0 6px 0 var(--ink);z-index:6;pointer-events:none}
 #raceResult{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);padding:18px 22px;text-align:center;z-index:8;pointer-events:auto;display:flex;flex-direction:column;gap:8px}
 #raceResult b{font:900 1.8rem/1.2 var(--body)}#raceResult p{margin:0;font:700 1rem var(--display)}#raceResult .rrow{display:flex;gap:8px;justify-content:center}
+#mission{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));top:calc(12px + env(safe-area-inset-top,0px) + 112px);padding:8px 12px;display:flex;flex-direction:column;gap:2px;max-width:260px;z-index:4;pointer-events:none;border-color:var(--signal)}
+#mission small{font:800 .7rem/1.2 var(--display);color:var(--signal);letter-spacing:.04em}#mission b{font:900 1rem/1.3 var(--body)}#mission span#msEn{font:600 .72rem/1.3 var(--display);color:var(--muted)}#mission i{font:800 .8rem/1 var(--display);font-style:normal;color:var(--paper)}
+body.touch #mission{top:calc(10px + env(safe-area-inset-top,0px) + 74px);max-width:200px;padding:6px 9px}body.touch #mission b{font-size:.88rem}
 #doorFade{position:fixed;inset:0;background:#0b1c2c;opacity:0;pointer-events:none;z-index:7}
 #lift{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);padding:10px;display:flex;flex-direction:column;gap:8px;z-index:6;pointer-events:auto}
 #lift b{font:900 1rem/1 var(--body)}#lift b span{font:700 .7rem var(--display);color:var(--muted)}
@@ -243,6 +246,7 @@ body.touch #toast b{font-size:1rem}
 </div>
 
 <div id="doorFade" aria-hidden="true"></div>
+<div id="mission" class="panel" hidden><small>任務 新生報到 · <span id="msStep">1 / 4</span></small><b id="msTask"></b><span id="msEn"></span><i id="msDist"></i></div>
 <div id="racePrompt" class="panel" hidden><b>自行車競速 <span>Bike Race</span></b><p>第一餐廳 → 海空大樓 · 6 人</p><small id="rpBest"></small><button class="btn" id="rpStart" type="button">開始比賽 Start</button></div>
 <div id="raceHud" class="panel" hidden><span>名次 <b id="rhPos">1 / 6</b></span><span>時間 <b id="rhTime">0:00.0</b></span><span>剩 <b id="rhLeft">0 m</b></span><button class="btn sm" id="raceQuit" type="button">退出 Quit</button></div>
 <div id="raceCount" hidden>3</div>
@@ -2392,7 +2396,7 @@ function buildWorld(){
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
-  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();setupSeason();buildRain();pickWeather(true);
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();buildMission();setupSeason();buildRain();pickWeather(true);
 }
 
 /* ---------- interiors: the library (圖書館, 圖書一館) and the 7-ELEVEN X-STORE 8 in its south corner.
@@ -2816,6 +2820,71 @@ function drawRaceOnMini(px,pz,k,W,H){if(!RACE.active||!RACE.route)return;const R
   for(const r of RACE.racers){const p=routeAtR(r.s),x=(p.x-G.x0-px)*k+W/2,y=(p.z-G.z0-pz)*k+H/2;mini.fillStyle='#ff8a3d';mini.beginPath();mini.arc(x,y,3,0,TAU);mini.fill();}
   const f=RACE.finishP,fx=(f.x-G.x0-px)*k+W/2,fy=(f.z-G.z0-pz)*k+H/2;mini.fillStyle='#ffffff';mini.strokeStyle='#0b1c2c';mini.lineWidth=2;mini.beginPath();mini.arc(fx,fy,5,0,TAU);mini.fill();mini.stroke();}
 
+/* ---------- first mission: 新生報到 (freshman check-in). 學姐 waits at the bus stop beside your bike; she sends you
+   to 行政大樓 for your student card, then to the library's 2F circulation desk to borrow your first book. One objective
+   at a time (card under the location panel, a beacon at the target, a minimap marker); progress is saved. ---------- */
+const MIS={step:-1,npc:null,clerk:null,beacon:null,door:null,done:false,talkT:0};
+const MIS_KEY='ntou-walk-mission1';
+const MIS_STEPS=[
+  {zh:'和學姐打招呼',en:'Say hi to 學姐'},
+  {zh:'騎上腳踏車',en:'Get on your bike'},
+  {zh:'騎到行政大樓領學生證',en:'Ride to 行政大樓 for your student card'},
+  {zh:'到圖書館 2F 借第一本書',en:'Borrow your first book at the library, 2F'}];
+function buildMission(){
+  try{const v=localStorage.getItem(MIS_KEY);MIS.done=v==='done';MIS.step=MIS.done?-1:(v!=null?+v:0);}catch(e){MIS.step=0;}
+  // 學姐, on the sidewalk by your bike
+  const near=ARR.ok&&ARR.bike?ARR.bike:[START.x+2,START.z,0];const m=makeStudent();
+  const fx=Math.sin(START.rot||0),fz=Math.cos(START.rot||0);   // the way you face when you step off
+  const nx=near[0]+fx*1.6,nz=near[1]+fz*1.6;m.g.position.set(nx,ground(nx,nz)+0.12,nz);m.g.rotation.y=Math.atan2(START.x-nx,START.z-nz);
+  MIS.npc=Object.assign(m,{x:nx,z:nz,bubbleT:0});const o={kind:'circle',x:nx,z:nz,r:0.35,top:ground(nx,nz)+1.8};gridAdd(o,nx-1,nz-1,nx+1,nz+1);
+  // the clerk at 行政大樓's door (the façade nearest the bus stop)
+  const B=D.b.find(b=>b.no===1);if(B){const [cx,cz]=centroid(B.p);let best=null,bd=1e9;
+    for(let i=0;i<B.p.length;i++){const a=B.p[i],b=B.p[(i+1)%B.p.length];for(let t=0;t<=1;t+=0.05){const x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t,d=Math.hypot(x-START.x,z-START.z);if(d<bd){bd=d;best=[x,z];}}}
+    const ox=best[0]-cx,oz=best[1]-cz,ol=Math.hypot(ox,oz)||1,dx=best[0]+ox/ol*2.2,dz=best[1]+oz/ol*2.2;
+    MIS.door=[dx,dz];const c=makeStudent();c.g.position.set(dx,ground(dx,dz)+0.12,dz);c.g.rotation.y=Math.atan2(ox,oz);MIS.clerk=Object.assign(c,{x:dx,z:dz,bubbleT:0});
+    const o2={kind:'circle',x:dx,z:dz,r:0.35,top:ground(dx,dz)+1.8};gridAdd(o2,dx-1,dz-1,dx+1,dz+1);}
+  // the beacon: a soft column of light with a bobbing arrow
+  const g=new THREE.Group();const col=new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,30,20,1,true),new THREE.MeshBasicMaterial({color:0xf2c230,transparent:true,opacity:0.22,side:THREE.DoubleSide,depthWrite:false}));col.position.y=15;g.add(col);
+  const arr=new THREE.Mesh(new THREE.ConeGeometry(0.6,1.2,4),new THREE.MeshBasicMaterial({color:0xf2c230}));arr.rotation.x=Math.PI;arr.position.y=3.4;g.add(arr);g.visible=false;scene.add(g);MIS.beacon=g;MIS.arrow=arr;
+  refreshMission();
+}
+function setMissionStep(n){MIS.step=n;try{localStorage.setItem(MIS_KEY,n<0?'done':String(n));}catch(e){}MIS.done=n<0;refreshMission();}
+function refreshMission(){const el=$('#mission');if(!el)return;const on=!MIS.done&&MIS.step>=0&&mode==='play';el.hidden=!on;if(!on)return;
+  const s=MIS_STEPS[MIS.step];$('#msStep').textContent=(MIS.step+1)+' / '+MIS_STEPS.length;$('#msTask').textContent=s.zh;$('#msEn').textContent=s.en;}
+// where the objective is right now (world point, or inside the library)
+function missionTarget(){
+  if(MIS.step===0)return MIS.npc?{x:MIS.npc.x,z:MIS.npc.z,y:ground(MIS.npc.x,MIS.npc.z)}:null;
+  if(MIS.step===1){let b=null,bd=1e9;for(const k of BIKES){const d=Math.hypot(k.px-P.x,k.pz-P.z);if(d<bd){bd=d;b=k;}}return b?{x:b.px,z:b.pz,y:ground(b.px,b.pz)}:null;}
+  if(MIS.step===2&&MIS.door)return {x:MIS.door[0],z:MIS.door[1],y:ground(MIS.door[0],MIS.door[1])};
+  if(MIS.step===3&&INT.lib){const I=INT.lib;
+    if(!INT.inside){const [x,z]=I.Ww(I.doorMain,-1.4);return {x,z,y:I.y0};}
+    if(INT.space==='lib'&&INT.floor!==1){const c=INT.cab,[x,z]=I.floorW(INT.floor)((c.u0+c.u1)/2,(c.v0+c.v1)/2);return {x,z,y:IN_Y,inside:true};}
+    if(INT.space==='lib'){const [x,z]=I.floorW(1)(I.doorMain,5.4);return {x,z,y:IN_Y,inside:true};}}
+  return null;}
+function updateMission(dt){
+  if(MIS.npc)tickBubble(MIS.npc,dt,MIS.npc.x,ground(MIS.npc.x,MIS.npc.z)+2.6,MIS.npc.z);
+  if(MIS.clerk)tickBubble(MIS.clerk,dt,MIS.clerk.x,ground(MIS.clerk.x,MIS.clerk.z)+2.6,MIS.clerk.z);
+  const el=$('#mission');if(el&&el.hidden!==(MIS.done||MIS.step<0||mode!=='play'))refreshMission();
+  if(MIS.done||MIS.step<0){if(MIS.beacon)MIS.beacon.visible=false;
+    // after it's done 學姐 still says hello now and then
+    if(MIS.npc&&!INT.inside&&Math.hypot(P.x-MIS.npc.x,P.z-MIS.npc.z)<4&&(MIS.talkT-=dt)<=0){say(MIS.npc,pick(['學弟妹加油！','要去圖書館嗎？','記得帶傘喔，基隆常下雨']),2.4);MIS.talkT=20;}
+    return;}
+  const t=missionTarget();
+  // beacon over the target, and how far it is
+  if(t&&MIS.beacon){const show=!!t.inside===INT.inside;MIS.beacon.visible=show;MIS.beacon.position.set(t.x,t.y,t.z);MIS.arrow.position.y=3.4+Math.sin(performance.now()/300)*0.3;
+    $('#msDist').textContent=show?Math.round(Math.hypot(t.x-P.x,t.z-P.z))+' m':'';}
+  const d=t?Math.hypot(t.x-P.x,t.z-P.z):1e9;
+  if(MIS.step===0&&d<4.5&&!INT.inside){say(MIS.npc,'歡迎來到海大！先騎腳踏車去行政大樓領學生證吧！',4.2);chime();setMissionStep(P.riding?2:1);}
+  else if(MIS.step===1&&P.riding){blip(880,880,0.12,0.05);setMissionStep(2);}
+  else if(MIS.step===2&&d<4){say(MIS.clerk,'新同學嗎？這是你的學生證，歡迎入學！',4);chime();toast('Student card','領到學生證','You got your student card',3200);setMissionStep(3);}
+  else if(MIS.step===3&&t&&t.inside&&INT.space==='lib'&&INT.floor===1&&d<3){chime();setTimeout(chime,380);
+    toast('Mission complete','任務完成：新生報到','You borrowed your first book — welcome to NTOU!',5200);setMissionStep(-1);}
+}
+function drawMissionOnMini(px,pz,k,W,H){if(MIS.done||MIS.step<0||INT.inside)return;const t=missionTarget();if(!t)return;
+  let x=(t.x-G.x0-px)*k+W/2,y=(t.z-G.z0-pz)*k+H/2;const cx=W/2,cy=H/2;const m=8;
+  if(x<m||y<m||x>W-m||y>H-m){const dx=x-cx,dy=y-cy,s=Math.min((W/2-m)/Math.abs(dx||1e-6),(H/2-m)/Math.abs(dy||1e-6));x=cx+dx*s;y=cy+dy*s;}   // pinned to the edge when off the map
+  mini.fillStyle='#f2c230';mini.strokeStyle='#0b1c2c';mini.lineWidth=2;mini.beginPath();mini.arc(x,y,6,0,TAU);mini.fill();mini.stroke();}
+
 /* ---------- characters ---------- */
 function makeChar(gender){
   const root=new THREE.Group();const parts=[];
@@ -3015,7 +3084,7 @@ function narrate(text){
     const vs=speechSynthesis.getVoices();u.voice=vs.find(v=>/zh[-_]TW/i.test(v.lang))||vs.find(v=>/^zh/i.test(v.lang))||null;speechSynthesis.speak(u);}catch(e){}
 }
 function startIntro(){
-  mode='intro';IN.t=0;IN.i=-1;IN.total=INTRO.reduce((a,s)=>a+s.dur,0);
+  mode='intro';refreshMission();IN.t=0;IN.i=-1;IN.total=INTRO.reduce((a,s)=>a+s.dur,0);
   IN.bus=introBus();player.root.visible=false;
   $('#icDots').innerHTML=INTRO.map(()=>'<i></i>').join('');$('#icKeys').innerHTML='';
   show('#hud',false);show('#touch',false);show('#intro',true);$('#introFade').style.opacity=1;$('#introSkip').focus();
@@ -3073,11 +3142,11 @@ function endIntro(){
   const B=IN.bus;if(B){B.scripted=false;B.served.add(ARR.bs);B.atStop=null;if(skipped&&B.v<1){B.s=ARR.stopS;placeVehicle(B);}}IN.bus=null;
   P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=START.rot||0;P.vy=0;player.root.visible=true;
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
-  mode='play';yaw=START.yaw??(START.rot||0)+Math.PI;pitch=0.38;dist=isTouch?11:9;$('#hud').hidden=false;$('#touch').hidden=!isTouch;
+  mode='play';refreshMission();yaw=START.yaw??(START.rot||0)+Math.PI;pitch=0.38;dist=isTouch?11:9;$('#hud').hidden=false;$('#touch').hidden=!isTouch;
   cv.focus();
 }
 $('#introSkip').addEventListener('click',endIntro);
-function toTitle(){mode='title';show('#title',true);show('#pick',false);($('#tCont').hidden?$('#tNew'):$('#tCont')).focus();}
+function toTitle(){mode='title';refreshMission();show('#title',true);show('#pick',false);($('#tCont').hidden?$('#tNew'):$('#tCont')).focus();}
 function toPick(){mode='pick';show('#title',false);show('#pick',true);$('#go').focus();}
 function phoneFullscreen(){if(!isTouch)return;const de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
   if(req&&!(document.fullscreenElement||document.webkitFullscreenElement)){try{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{});}catch(e){}}}
@@ -3088,7 +3157,7 @@ $('#cfYes').addEventListener('click',()=>{show('#confirm',false);toPick();});
 $('#pickBack').addEventListener('click',toTitle);
 $('#go').addEventListener('click',()=>{phoneFullscreen();primeSpeech();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
-  found.clear();show('#pick',false);startNewDay();startPlay();startIntro();});
+  found.clear();try{localStorage.removeItem(MIS_KEY);}catch(e){}MIS.done=false;MIS.step=0;show('#pick',false);startNewDay();startPlay();startIntro();});
 // a new game always begins at 09:00, then the clock runs on from there
 function startNewDay(){resetClock();WX.key='clear';WX.target={cloud:0,rain:0,fog:0,thunder:0};Object.assign(WX.mix,WX.target);WX.wet=0;WX.next=performance.now()/1000+300;const base=realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
 // settings
@@ -3139,7 +3208,7 @@ function startPlay(){
   P.riding=false;P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=START.rot||0;yaw=START.yaw??P.rot+Math.PI;pitch=0.38;
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
   show('#title',false);show('#pick',false);$('#hud').hidden=false;$('#touch').hidden=!isTouch;
-  updateFound();cv.focus();
+  updateFound();cv.focus();refreshMission();
 }
 
 /* ---------- movement ---------- */
@@ -3280,7 +3349,7 @@ function updatePlay(dt){
   if(INT.inside&&oy>0.01)d=Math.max(1.4,Math.min(d,(INT.ceil-0.5-ty)/oy));   // stay under the ceiling
   const cxp=tx+ox*d,czp=tz+oz*d;
   camera.position.set(cxp,Math.max(ground(cxp,czp)+0.5,ty+oy*d,0.6),czp);camera.lookAt(tx,ty,tz);
-  updateInterior(dt);updateRace(dt);
+  updateInterior(dt);updateRace(dt);updateMission(dt);
   tAcc+=dt;if(tAcc>0.25){tAcc=0;checkSpots();updateZone();}
   refreshBikeUI();refreshDriveUI();
   drawMini();
@@ -3436,7 +3505,7 @@ function drawMini(){if((miniT=(miniT+1)%3))return;
   mini.fillStyle='#2f9fd3';mini.fillRect(0,0,W,H);
   mini.drawImage(mapBase,px-W/2/k,pz-H/2/k,W/k,H/k,0,0,W,H);
   for(const b of BIKES){if(P.riding&&b===bike)continue;const bx=(b.px-G.x0-px)*k+W/2,bz=(b.pz-G.z0-pz)*k+H/2;if(bx<0||bz<0||bx>W||bz>H)continue;mini.fillStyle='#7fd1c4';mini.strokeStyle='#0b1c2c';mini.lineWidth=1.5;mini.beginPath();mini.arc(bx,bz,4,0,TAU);mini.fill();mini.stroke();}
-  drawRaceOnMini(px,pz,k,W,H);
+  drawRaceOnMini(px,pz,k,W,H);drawMissionOnMini(px,pz,k,W,H);
   drawArrow(mini,W/2,H/2,P.rot,10);}
 const mapC=$('#mapC'),mapG=mapC.getContext('2d');
 function drawBigMap(){

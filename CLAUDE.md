@@ -336,3 +336,13 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 6. Street View screenshots (user decision, 2026-10-20): used only as a visual reference for key features (stairs, slopes,
    railings, gates, walls, rough heights and colours, window patterns), rebuilt by hand in the toon style. Never as textures,
    never traced or measured off the image, never put in the repo or the built game. Own photos and OSM remain the primary sources.
+
+## First mission (新生報到)
+
+`MIS` / `buildMission` / `updateMission` / `missionTarget` / `drawMissionOnMini`. 學姐 (a static `makeStudent`) stands
+beside the arrival bike and greets the player within 4.5 m. The steps are: say hi, get on a bike, ride to 行政大樓
+(a clerk stands 2.2 m outside the façade point nearest `START`), then reach the library 2F circulation desk
+(`INT.floor===1`, within 3 m of `floorW(1)(doorMain,5.4)`). The objective card `#mission` sits under the zone panel
+and shows only in `mode==='play'`. A yellow beacon column marks the target (the lift while on another library floor),
+and a yellow dot marks it on the minimap, pinned to the edge when it is off the map. Progress is kept in localStorage
+`ntou-walk-mission1` (a step index, or 'done'); New Game clears it.
