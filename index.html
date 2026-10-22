@@ -52,6 +52,15 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 .trow{display:flex;gap:4px}
 .btn.sm{padding:6px 6px;font-size:.75rem;flex:1}
 #tFast[aria-pressed="true"]{background:var(--signal)}
+#racePrompt{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(120px + env(safe-area-inset-bottom,0px));padding:12px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:6;pointer-events:auto;text-align:center}
+#racePrompt b{font:900 1.15rem/1.2 var(--body)}#racePrompt b span,#raceHud span{font:700 .75rem var(--display);color:var(--muted)}#racePrompt p{margin:0;font:600 .85rem/1.3 var(--body)}#racePrompt small{font:700 .75rem var(--display);color:var(--signal)}
+#rpStart{background:var(--signal);font-size:1rem;padding:9px 18px}
+#raceHud{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));display:flex;gap:14px;align-items:center;padding:8px 12px;z-index:6;pointer-events:auto}
+#raceHud b{font:900 1.15rem/1 var(--display);color:var(--paper);margin-left:4px;font-variant-numeric:tabular-nums}
+body.touch #raceHud{top:calc(env(safe-area-inset-top,0px) + 142px);gap:8px;padding:6px 8px}body.touch #raceHud b{font-size:.95rem}
+#raceCount{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);font:900 6rem/1 var(--display);color:var(--signal);text-shadow:0 6px 0 var(--ink);z-index:6;pointer-events:none}
+#raceResult{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);padding:18px 22px;text-align:center;z-index:8;pointer-events:auto;display:flex;flex-direction:column;gap:8px}
+#raceResult b{font:900 1.8rem/1.2 var(--body)}#raceResult p{margin:0;font:700 1rem var(--display)}#raceResult .rrow{display:flex;gap:8px;justify-content:center}
 #doorFade{position:fixed;inset:0;background:#0b1c2c;opacity:0;pointer-events:none;z-index:7}
 #lift{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);padding:10px;display:flex;flex-direction:column;gap:8px;z-index:6;pointer-events:auto}
 #lift b{font:900 1rem/1 var(--body)}#lift b span{font:700 .7rem var(--display);color:var(--muted)}
@@ -234,6 +243,10 @@ body.touch #toast b{font-size:1rem}
 </div>
 
 <div id="doorFade" aria-hidden="true"></div>
+<div id="racePrompt" class="panel" hidden><b>自行車競速 <span>Bike Race</span></b><p>第一餐廳 → 電資暨綜合教學大樓 · 6 人</p><small id="rpBest"></small><button class="btn" id="rpStart" type="button">開始比賽 Start</button></div>
+<div id="raceHud" class="panel" hidden><span>名次 <b id="rhPos">1 / 6</b></span><span>時間 <b id="rhTime">0:00.0</b></span><span>剩 <b id="rhLeft">0 m</b></span><button class="btn sm" id="raceQuit" type="button">退出 Quit</button></div>
+<div id="raceCount" hidden>3</div>
+<div id="raceResult" class="panel" hidden><b id="rrPlace"></b><p id="rrTime"></p><div class="rrow"><button class="btn" id="rrAgain" type="button">再比一次 Again</button><button class="btn" id="rrClose" type="button">關閉 Close</button></div></div>
 <div id="emoteBar" class="panel" hidden></div>
 <div id="lift" class="panel" hidden><b>電梯 <span>Lift</span></b><div class="lrow"><button class="btn" type="button" data-f="4">5F</button><button class="btn" type="button" data-f="3">4F</button><button class="btn" type="button" data-f="2">3F</button><button class="btn" type="button" data-f="1">2F</button><button class="btn" type="button" data-f="0">1F</button></div></div>
 <div id="touch" hidden>
@@ -295,6 +308,7 @@ body.touch #toast b{font-size:1rem}
     <h2 id="menuH">暫停 <span>Paused</span></h2>
     <div class="tMenu">
       <button class="btn mBtn primary" id="mResume" type="button"><b>繼續遊戲</b><span>Resume · Esc</span></button>
+      <button class="btn mBtn" id="mQuitRace" type="button" hidden><b>放棄比賽</b><span>Quit the race</span></button>
       <button class="btn mBtn" id="mSet" type="button"><b>設定</b><span>Settings</span></button>
       <div class="mTime"><span>時間 <small>Time</small></span><button class="btn sm" id="mtMinus" type="button">−1h</button><button class="btn sm" id="mtFast" type="button" aria-pressed="false">×60</button><button class="btn sm" id="mtPlus" type="button">+1h</button><button class="btn sm" id="mtNow" type="button">現在</button></div>
       <button class="btn mBtn" id="mFull" type="button" hidden><b>全螢幕</b><span>Fullscreen</span></button>
@@ -2378,7 +2392,7 @@ function buildWorld(){
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
-  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();setupSeason();buildRain();pickWeather(true);
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();setupSeason();buildRain();pickWeather(true);
 }
 
 /* ---------- interiors: the library (圖書館, 圖書一館) and the 7-ELEVEN X-STORE 8 in its south corner.
@@ -2661,6 +2675,136 @@ function updateInterior(dt){
 }
 function liftTo(f){const I=INT.lib;if(!I||INT.space!=='lib')return;const fw=I.floorW(INT.floor),u=P.x-fw(0,0)[0],v=P.z-fw(0,0)[1],[x,z]=I.floorW(f)(u,v);
   INT.floor=f;INT.groups.forEach((g,i)=>g.visible=i===f);moveTo(x,IN_Y,z,P.rot);blip(880,880,0.25,0.06);blip(660,660,0.3,0.05,0,'sine',0.22);}
+
+/* ---------- bike race: 第一餐廳 → 電資暨綜合教學大樓 (user request). Six riders — you and five students — on the
+   campus paths (the walking graph's shortest route, smoothed). Step into the start arch for the 開始比賽 panel; a 3-2-1
+   countdown; checkpoint arrows along the route and the route on the minimap; position / time / distance on the HUD.
+   Traffic is thinned and cleared off the route while it runs. It ends when you cross the finish line (others are
+   ranked by how far they got); you can quit at any time (button or pause menu). Racers pass through each other. ---------- */
+const RACE={route:null,active:false,phase:'',racers:[],marks:[],t0:0,count:0,prog:0,promptShown:false,best:null,bike:null,savedMax:0,from:'第一餐廳',to:'電資暨綜合教學大樓'};
+try{RACE.best=+localStorage.getItem('ntou-walk-race-best')||null;}catch(e){}
+function buildRace(){
+  const A=D.b.find(b=>b.no===30),B=D.b.find(b=>b.no===68);if(!A||!B||!PG.comp.length)return;
+  const near=(x,z)=>{let best=-1,bd=1e9;for(const id of PG.comp){const d=Math.hypot(PG.nx[id]-x,PG.nz[id]-z);if(d<bd){bd=d;best=id;}}return best;};
+  const [ax,az]=centroid(A.p),[bx,bz]=centroid(B.p),na=near(ax,az),nb=near(bx,bz),path=astar(na,nb);if(!path||path.length<3)return;
+  // smooth the node chain (Chaikin twice) and resample every 2 m
+  let pts=path.map(id=>[PG.nx[id],PG.nz[id]]);
+  for(let it=0;it<2;it++){const o=[pts[0]];for(let i=0;i<pts.length-1;i++){const [x1,z1]=pts[i],[x2,z2]=pts[i+1];o.push([x1*0.75+x2*0.25,z1*0.75+z2*0.25],[x1*0.25+x2*0.75,z1*0.25+z2*0.75]);}o.push(pts[pts.length-1]);pts=o;}
+  pts=resample(pts,2);
+  // along a main road the walking graph uses the sidewalk (palms, lamps, scooter rows, walls): ride the road's edge
+  // instead, 1.8 m in from the kerb, like a cyclist on the shoulder (traffic is thinned for the race anyway)
+  {const samp=[];for(const E of RN.edges){if(E.rk<3)continue;for(let t=0;t<=E.L;t+=2){const e=edgeAt(E,t);if(e.st.sw>0)samp.push(e);}}
+    pts=pts.map(([x,z])=>{let best=null,bd=1e9;for(const e of samp){const d=Math.hypot(e.x-x,e.z-z);if(d<bd){bd=d;best=e;}}
+      if(!best||bd>best.w+best.st.sw+1)return [x,z];const lat=(x-best.x)*-best.tz+(z-best.z)*best.tx;if(Math.abs(lat)<best.w-1.2)return [x,z];
+      const o=Math.sign(lat)*(best.w-1.8);return [best.x-best.tz*o,best.z+best.tx*o];});
+    for(let it=0;it<2;it++)pts=pts.map((q,i)=>i===0||i===pts.length-1?q:[(pts[i-1][0]+q[0]*2+pts[i+1][0])/4,(pts[i-1][1]+q[1]*2+pts[i+1][1])/4]);}
+  // the walking graph runs along sidewalks through lamp posts, palms and scooter rows (pedestrians pass through them,
+  // a bike can't): nudge every blocked point sideways to the nearest clear spot, then smooth the line again
+  {const r0=R;R=0.9;const clear=(x,z)=>!hitsSolid(x,z,ground(x,z)+0.3);
+    for(let pass=0;pass<3;pass++){for(let i=1;i<pts.length-1;i++){const [x,z]=pts[i];if(clear(x,z))continue;
+      let tx=pts[i+1][0]-pts[i-1][0],tz=pts[i+1][1]-pts[i-1][1];const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
+      for(let k=1;k<=26;k++){const o=(k%2?1:-1)*Math.ceil(k/2)*0.8,nx=x-tz*o,nz=z+tx*o;if(clear(nx,nz)&&ground(nx,nz)>0.8){pts[i]=[nx,nz];break;}}}   // up to ~10 m: onto the road if the sidewalk is full
+      pts=pts.map((q,i)=>i===0||i===pts.length-1?q:[(pts[i-1][0]+q[0]*2+pts[i+1][0])/4,(pts[i-1][1]+q[1]*2+pts[i+1][1])/4]);}
+    R=r0;}
+  pts=resample(pts,2);const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+  const RT=RACE.route={pts,cum,L:cum[cum.length-1]};
+  // start and finish arches (built once, always there)
+  const arch=(s,zh,en,col)=>{const p=routeAtR(s),g=new THREE.Group(),y=ground(p.x,p.z);g.position.set(p.x,y,p.z);g.rotation.y=Math.atan2(p.tx,p.tz);
+    for(const k of [-1,1]){const post=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,4.4,10),toon(0xf4f2ec)));post.position.set(k*3.4,2.2,0);g.add(post);}
+    const t=canvasTex(512,96,c=>{c.fillStyle=col;c.fillRect(0,0,512,96);c.fillStyle='#fff';c.font='900 46px "Noto Sans TC",sans-serif';c.textAlign='center';c.fillText(zh+'  '+en,256,64);
+      c.fillStyle='rgba(255,255,255,.9)';for(let x=0;x<512;x+=32){c.fillRect(x,0,16,8);c.fillRect(x+16,88,16,8);}});
+    for(const r of [0,Math.PI]){const ban=new THREE.Mesh(new THREE.PlaneGeometry(7,1.3),new THREE.MeshBasicMaterial({map:t}));ban.position.y=4.2;ban.rotation.y=r;g.add(ban);}   // back to back: readable from both sides
+    scene.add(g);
+    for(const k of [-1,1]){const o={kind:'circle',x:p.x+p.tz*k*3.4,z:p.z-p.tx*k*3.4,r:0.2,top:99,mat:'pole'};gridAdd(o,o.x-1,o.z-1,o.x+1,o.z+1);}return p;};
+  RACE.startP=arch(14,'自行車競速','START','#d8463c');RACE.finishP=arch(RT.L-2,'終點','FINISH','#13304a');
+  if(!spots.some(s=>s.id==='race'))spots.push({id:'race',no:0,zh:'自行車競速起點',en:'Bike race start',zone:'x',x:RACE.startP.x,z:RACE.startP.z,r:6,kind:'s'});
+}
+function routeAtR(s){const R=RACE.route;s=Math.max(0,Math.min(R.L,s));let lo=0,hi=R.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(R.cum[m]<=s)lo=m;else hi=m;}
+  const f=(s-R.cum[lo])/((R.cum[hi]-R.cum[lo])||1),a=R.pts[lo],b=R.pts[hi],p0=R.pts[Math.max(0,lo-2)],p1=R.pts[Math.min(R.pts.length-1,hi+2)];let tx=p1[0]-p0[0],tz=p1[1]-p0[1];const tl=Math.hypot(tx,tz)||1;
+  return {x:a[0]+(b[0]-a[0])*f,z:a[1]+(b[1]-a[1])*f,tx:tx/tl,tz:tz/tl};}
+// how far along the route a point is (searching near the last known progress so shortcuts can't skip ahead)
+function routeProgress(x,z,from){const R=RACE.route;let best=from,bd=1e9;
+  for(let s=Math.max(0,from-8);s<=Math.min(R.L,from+45);s+=1){const p=routeAtR(s),d=Math.hypot(p.x-x,p.z-z);if(d<bd){bd=d;best=s;}}
+  return bd<16?Math.max(from,best):from;}
+function makeRacer(i){
+  const b=makeBike([0xd8463c,0x2f7fd1,0xf2c230,0x4f9a72,0x9a6fb8][i%5]);scene.add(b.g);b.stand.visible=false;b.fork.rotation.y=0;
+  const m=makeStudent();scene.remove(m.g);b.g.add(m.g);m.g.position.set(0,0.12,-0.3);m.g.scale.multiplyScalar(0.95);m.body.rotation.x=0.35;
+  for(const a of m.arms)a.rotation.x=-1.2;
+  return {b,m,s:0,lat:(i%3-1)*1.1,latT:0,speed:9.5+Math.random()*2.2,skill:0.92+Math.random()*0.16,finish:null,name:pick(['阿明','小芸','志豪','佳穎','冠廷','怡君','家豪','雅婷']),ph:Math.random()*6};
+}
+function racePrompt(show){const el=$('#racePrompt');if(!el)return;if(show===!el.hidden)return;el.hidden=!show;
+  if(show)$('#rpBest').textContent=RACE.best?'最佳 Best '+fmtRace(RACE.best):'';}
+function fmtRace(t){const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1);}
+function startRace(){
+  const R=RACE.route;if(!R||RACE.active)return;racePrompt(false);
+  if(DRIVE.v){DRIVE.speed=0;exitVehicle();}if(P.onBus)leaveBus(true);
+  // the grid: two by three behind the start line; you are front left
+  const slot=i=>{const row=Math.floor(i/2),col=i%2,s=8-row*3.2,p=routeAtR(s),off=col?1.4:-1.4;return {x:p.x-p.tz*off,z:p.z+p.tx*off,h:Math.atan2(p.tx,p.tz),s};};
+  const me=slot(0);
+  if(!P.riding){const b=Object.assign(makeBike(0x13304a),{px:0,pz:0,prot:0,home:{x:me.x,z:me.z,rot:me.h,label:'race'}});scene.add(b.g);BIKES.push(b);RACE.bike=b;placeBike(b,me.x,me.z,me.h);P.x=me.x;P.z=me.z;mount();}
+  P.x=me.x;P.z=me.z;P.y=ground(me.x,me.z);BK.heading=me.h;BK.speed=0;P.rot=me.h;yaw=me.h+Math.PI;
+  RACE.racers=[];for(let i=1;i<6;i++){const r=makeRacer(i),sl=slot(i);r.s=sl.s;r.lat=(i%2?1.4:-1.4);RACE.racers.push(r);}
+  // checkpoint arrows every 30 m
+  for(let s=40;s<R.L-10;s+=30){const p=routeAtR(s),cone=new THREE.Mesh(new THREE.ConeGeometry(0.5,1.2,4),new THREE.MeshBasicMaterial({color:0xf2c230}));
+    cone.rotation.x=Math.PI/2;const g=new THREE.Group();g.add(cone);g.position.set(p.x,ground(p.x,p.z)+3,p.z);g.rotation.y=Math.atan2(p.tx,p.tz);scene.add(g);RACE.marks.push(g);}
+  // quiet roads: fewer cars, none near the route
+  RACE.savedMax=VEH.max;VEH.max=4;for(const v of VEH.list.slice()){const p=v.g.position;if(R.pts.some(q=>Math.abs(q[0]-p.x)<25&&Math.abs(q[1]-p.z)<25))removeVehicle(v);}
+  RACE.active=true;RACE.phase='count';RACE.count=3.6;RACE.prog=me.s;RACE.lastBeep=4;$('#raceHud').hidden=false;$('#raceQuit').hidden=false;show('#mQuitRace',true);
+}
+function endRace(quit){
+  RACE.active=false;RACE.phase='';$('#raceHud').hidden=true;$('#raceCount').hidden=true;show('#mQuitRace',false);
+  for(const r of RACE.racers){scene.remove(r.b.g);}RACE.racers=[];for(const m of RACE.marks)scene.remove(m);RACE.marks=[];
+  VEH.max=RACE.savedMax||VEH.base;
+  if(quit)toast('','比賽結束','Race abandoned',2200);
+}
+function finishRace(){
+  const t=RACE.time;
+  const field=[{me:true,fin:t,s:RACE.route.L}].concat(RACE.racers.map(r=>({me:false,fin:r.finish,s:r.s,name:r.name})));
+  field.sort((a,b)=>(a.fin!=null&&b.fin!=null)?a.fin-b.fin:(a.fin!=null?-1:b.fin!=null?1:b.s-a.s));
+  const place=field.findIndex(f=>f.me)+1,best=!RACE.best||t<RACE.best;if(best){RACE.best=t;try{localStorage.setItem('ntou-walk-race-best',String(t));}catch(e){}}
+  $('#rrPlace').textContent=['','冠軍！','第 2 名','第 3 名','第 4 名','第 5 名','第 6 名'][place]+'  '+place+' / 6';$('#rrTime').textContent=fmtRace(t)+(best?'  · 新紀錄 New best!':'  · 最佳 '+fmtRace(RACE.best));
+  $('#raceResult').hidden=false;chime();if(place===1)setTimeout(chime,450);
+  endRace(false);
+}
+function updateRace(dt){
+  const R=RACE.route;if(!R)return;
+  if(!RACE.active){const near=Math.hypot(P.x-RACE.startP.x,P.z-RACE.startP.z)<7&&!INT.inside&&!DRIVE.v&&!P.onBus;racePrompt(near&&$('#raceResult').hidden);return;}
+  const now=performance.now();
+  if(RACE.phase==='count'){RACE.count-=dt;BK.speed=0;const n=Math.ceil(RACE.count);const el=$('#raceCount');el.hidden=false;
+    if(n!==RACE.lastBeep&&n>=0){RACE.lastBeep=n;if(n>0)blip(660,660,0.18,0.08);else blip(990,990,0.4,0.09);}
+    el.textContent=RACE.count>0.6?String(Math.ceil(RACE.count-0.6)):'GO!';
+    if(RACE.count<=0.6&&RACE.phase==='count'){RACE.phase='go';RACE.time=0;}
+  }else if(RACE.count>-0.6){RACE.count-=dt;if(RACE.count<=-0.6)$('#raceCount').hidden=true;}
+  const going=RACE.phase==='go';if(going)RACE.time+=dt;   // race clock runs on game time (stops in the pause menu)
+  RACE.prog=routeProgress(P.x,P.z,RACE.prog);
+  // racers: race pace, slower through bends, a little catch-up so it stays a race
+  for(const r of RACE.racers){
+    if(going&&r.finish==null){
+      const p0=routeAtR(r.s),p1=routeAtR(r.s+8),bend=1-Math.max(0,p0.tx*p1.tx+p0.tz*p1.tz);
+      let v=r.speed*r.skill*(1-Math.min(0.45,bend*6));
+      const gap=r.s-RACE.prog;if(gap>35)v*=0.9;else if(gap<-60)v*=1.3;else if(gap<-25)v*=1.15;
+      if(R.L-r.s<120)v*=1.08;   // a sprint for the line
+      r.v=(r.v||0)+(v-(r.v||0))*Math.min(1,dt*1.5);r.s+=r.v*dt;
+      if(r.s>=R.L-2){r.finish=RACE.time;}
+      r.latT-=dt;if(r.latT<=0){r.latT=2+Math.random()*3;r.latGoal=(Math.random()*2-1)*1.3;}
+      r.lat+=((r.latGoal??r.lat)-r.lat)*Math.min(1,dt*0.8);}
+    else if(r.finish!=null){r.v=Math.max(0,(r.v||0)-dt*3);r.s=Math.min(R.L+10,r.s+r.v*dt);}
+    const p=routeAtR(r.s),x=p.x-p.tz*r.lat,z=p.z+p.tx*r.lat;r.b.g.position.set(x,ground(x,z),z);r.b.g.rotation.set(0,Math.atan2(p.tx,p.tz),0);
+    const sp=r.v||0;r.ph+=sp*dt*1.6;r.b.crank.rotation.x=-r.ph;r.b.wF.rotation.x-=sp*dt/0.33;r.b.wR.rotation.x-=sp*dt/0.33;
+    r.m.legs[0].rotation.x=-1.0+Math.sin(r.ph)*0.6;r.m.legs[1].rotation.x=-1.0-Math.sin(r.ph)*0.6;r.m.body.position.y=0;
+    tickBubble(r,dt,x,ground(x,z)+2.6,z);}
+  if(going&&!RACE.cheered){RACE.cheered=true;const r=RACE.racers[(Math.random()*5)|0];r.x=0;say(r,pick(['衝啊！','加油！','誰最後誰請客！']),1.8);}
+  // HUD: position, time, distance
+  if(RACE.phase==='go'||RACE.phase==='count'){
+    const t=RACE.phase==='go'?RACE.time:0,ahead=RACE.racers.filter(r=>r.finish!=null||r.s>RACE.prog).length;
+    $('#rhPos').textContent=(ahead+1)+' / 6';$('#rhTime').textContent=fmtRace(t);$('#rhLeft').textContent=Math.max(0,Math.round(R.L-RACE.prog))+' m';}
+  for(const m of RACE.marks){m.position.y+=Math.sin(now/300+m.position.x)*0.004;m.rotation.z=0;}
+  if(going&&RACE.prog>=R.L-3.5)finishRace();
+}
+function drawRaceOnMini(px,pz,k,W,H){if(!RACE.active||!RACE.route)return;const R=RACE.route;mini.strokeStyle='#f2c230';mini.lineWidth=3;mini.beginPath();
+  R.pts.forEach((q,i)=>{const x=(q[0]-G.x0-px)*k+W/2,y=(q[1]-G.z0-pz)*k+H/2;i?mini.lineTo(x,y):mini.moveTo(x,y);});mini.stroke();
+  for(const r of RACE.racers){const p=routeAtR(r.s),x=(p.x-G.x0-px)*k+W/2,y=(p.z-G.z0-pz)*k+H/2;mini.fillStyle='#ff8a3d';mini.beginPath();mini.arc(x,y,3,0,TAU);mini.fill();}
+  const f=RACE.finishP,fx=(f.x-G.x0-px)*k+W/2,fy=(f.z-G.z0-pz)*k+H/2;mini.fillStyle='#ffffff';mini.strokeStyle='#0b1c2c';mini.lineWidth=2;mini.beginPath();mini.arc(fx,fy,5,0,TAU);mini.fill();mini.stroke();}
 
 /* ---------- characters ---------- */
 function makeChar(gender){
@@ -3126,7 +3270,7 @@ function updatePlay(dt){
   if(INT.inside&&oy>0.01)d=Math.max(1.4,Math.min(d,(INT.ceil-0.5-ty)/oy));   // stay under the ceiling
   const cxp=tx+ox*d,czp=tz+oz*d;
   camera.position.set(cxp,Math.max(ground(cxp,czp)+0.5,ty+oy*d,0.6),czp);camera.lookAt(tx,ty,tz);
-  updateInterior(dt);
+  updateInterior(dt);updateRace(dt);
   tAcc+=dt;if(tAcc>0.25){tAcc=0;checkSpots();updateZone();}
   refreshBikeUI();refreshDriveUI();
   drawMini();
@@ -3282,6 +3426,7 @@ function drawMini(){if((miniT=(miniT+1)%3))return;
   mini.fillStyle='#2f9fd3';mini.fillRect(0,0,W,H);
   mini.drawImage(mapBase,px-W/2/k,pz-H/2/k,W/k,H/k,0,0,W,H);
   for(const b of BIKES){if(P.riding&&b===bike)continue;const bx=(b.px-G.x0-px)*k+W/2,bz=(b.pz-G.z0-pz)*k+H/2;if(bx<0||bz<0||bx>W||bz>H)continue;mini.fillStyle='#7fd1c4';mini.strokeStyle='#0b1c2c';mini.lineWidth=1.5;mini.beginPath();mini.arc(bx,bz,4,0,TAU);mini.fill();mini.stroke();}
+  drawRaceOnMini(px,pz,k,W,H);
   drawArrow(mini,W/2,H/2,P.rot,10);}
 const mapC=$('#mapC'),mapG=mapC.getContext('2d');
 function drawBigMap(){
@@ -4383,6 +4528,11 @@ function vehKind(o){return o.type==='bus'||o.type==='truck'?'bus':o.type==='scoo
 for(const ev of ['pointerdown','keydown','touchend'])addEventListener(ev,()=>{if(soundOn())audioInit();},{passive:true});
 function refreshSoundBtn(){const b=$('#tSound');if(!b)return;const on=soundOn();b.setAttribute('aria-pressed',String(on));b.innerHTML=on?'<b>聲音 開</b><span>Sound on</span>':'<b>聲音 關</b><span>Sound off</span>';}
 document.querySelectorAll('#lift .btn').forEach(b=>b.addEventListener('click',()=>{liftTo(+b.dataset.f);[...document.querySelectorAll('#lift .btn')].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));cv.focus();}));
+$('#rpStart').addEventListener('click',()=>{startRace();cv.focus();});
+$('#raceQuit').addEventListener('click',()=>{endRace(true);cv.focus();});
+$('#mQuitRace').addEventListener('click',()=>{endRace(true);closeMenu();});
+$('#rrClose').addEventListener('click',()=>{$('#raceResult').hidden=true;cv.focus();});
+$('#rrAgain').addEventListener('click',()=>{$('#raceResult').hidden=true;const p=RACE.startP;P.x=p.x-p.tx*4;P.z=p.z-p.tz*4;P.y=ground(P.x,P.z);startRace();cv.focus();});
 $('#tSound').addEventListener('click',()=>{SET.sound=soundOn()?'off':'on';saveSettings();applySettings();if(soundOn())audioInit();});
 
 /* ---------- loop ---------- */
