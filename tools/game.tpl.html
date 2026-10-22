@@ -2423,8 +2423,11 @@ function introBus(){
   for(const o of ARR.lane.veh.slice()){const d=(o.s-ARR.stopS)*ARR.dir;if(d>-90&&d<40)removeVehicle(o);}
   ARR.lane.veh.push(v);VEH.list.push(v);placeVehicle(v);return v;
 }
+// Safari (iPhone/iPad) only lets a page speak if speech was first started during a tap. The bus announcement comes
+// seconds after 開始探索, so that tap starts a silent utterance to unlock speech for the rest of the session.
+function primeSpeech(){try{if(!window.speechSynthesis||!soundOn())return;const u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='zh-TW';speechSynthesis.speak(u);speechSynthesis.getVoices();}catch(e){}}
 function narrate(text){
-  try{if(!window.speechSynthesis||!text||!soundOn())return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=0.95;
+  try{if(!window.speechSynthesis||!text||!soundOn())return;if(speechSynthesis.paused)speechSynthesis.resume();const u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=0.95;
     const vs=speechSynthesis.getVoices();u.voice=vs.find(v=>/zh[-_]TW/i.test(v.lang))||vs.find(v=>/^zh/i.test(v.lang))||null;speechSynthesis.speak(u);}catch(e){}
 }
 function startIntro(){
@@ -2499,7 +2502,7 @@ $('#tNew').addEventListener('click',()=>{if(readSave()){modalBack=$('#tNew');sho
 $('#cfNo').addEventListener('click',()=>{show('#confirm',false);modalBack&&modalBack.focus();});
 $('#cfYes').addEventListener('click',()=>{show('#confirm',false);toPick();});
 $('#pickBack').addEventListener('click',toTitle);
-$('#go').addEventListener('click',()=>{phoneFullscreen();
+$('#go').addEventListener('click',()=>{phoneFullscreen();primeSpeech();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
   found.clear();show('#pick',false);startNewDay();startPlay();startIntro();});
 // a new game always begins at 09:00, then the clock runs on from there
