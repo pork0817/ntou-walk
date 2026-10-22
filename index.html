@@ -2211,6 +2211,144 @@ function coastProps(){
     for(const d of dirs){M.compose(new THREE.Vector3(),new THREE.Quaternion().setFromUnitVectors(up,d),one);im.setMatrixAt(k++,Gm.clone().multiply(M));}}
   im.count=k;scene.add(im);
 }
+/* ---------- the coast: a rock revetment and soft surf all along the shore; boats sailing in and out of the harbours
+   (八斗子 fishing boats to the east, the 和平島 channel to the west, the 基隆嶼 ferry on the horizon) with navigation lights
+   at night; the research ship docking at the campus wharf; channel buoys, the harbour light on the breakwater, gulls,
+   people fishing on the seawall, 基隆嶼 on the horizon and squid-jigging boats lit up offshore at night ---------- */
+const COAST={boats:[],gulls:[],blink:[],night:[],squid:[],foamTex:null};
+const coastDark=()=>{const h=gameHour();return h<5.8||h>=18.4;};
+function buildCoast(){
+  const rockTex=canvasTex(128,128,g=>{g.fillStyle='#8f8a80';g.fillRect(0,0,128,128);
+    for(let i=0;i<70;i++){const c=['#a7a196','#7d786f','#bdb7ab','#6f6a62'][i%4];g.fillStyle=c;g.beginPath();g.ellipse(Math.random()*128,Math.random()*128,5+Math.random()*9,4+Math.random()*6,Math.random()*3,0,TAU);g.fill();}});
+  rockTex.wrapS=rockTex.wrapT=THREE.RepeatWrapping;
+  COAST.foamTex=canvasTex(128,64,g=>{g.clearRect(0,0,128,64);g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=3;
+    for(let k=0;k<3;k++){g.beginPath();for(let x=0;x<=128;x+=4){const y=10+k*18+Math.sin(x/128*TAU*2+k)*4;x?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();}});
+  COAST.foamTex.wrapS=COAST.foamTex.wrapT=THREE.RepeatWrapping;
+  const rock={pos:[],uv:[],idx:[]},foam={pos:[],uv:[],idx:[]};
+  const inMap=(x,z)=>x>G.x0+2&&x<G.x0+GW-2&&z>G.z0+2&&z<G.z0+GH-2;
+  for(const c of D.coast){const pts=resample(c,3);let run=[];
+    const flush=()=>{if(run.length>1){rnQuadStrip(rock,run.map(r=>r.rock));rnQuadStrip(foam,run.map(r=>r.foam));}run=[];};
+    for(let i=0;i<pts.length;i++){const p=pts[i],q0=pts[Math.max(0,i-1)],q1=pts[Math.min(pts.length-1,i+1)];let tx=q1[0]-q0[0],tz=q1[1]-q0[1];const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
+      let nx=-tz,nz=tx;if(ground(p[0]+nx*6,p[1]+nz*6)>ground(p[0]-nx*6,p[1]-nz*6)){nx=-nx;nz=-nz;}   // n points out to sea
+      const a=[p[0]-nx*2,p[1]-nz*2],b=[p[0]+nx*5,p[1]+nz*5],f0=[p[0]+nx*4,p[1]+nz*4],f1=[p[0]+nx*8,p[1]+nz*8];
+      if(!inMap(...a)||!inMap(...b)||ground(...b)>-0.3||ground(...a)<0.3){flush();continue;}
+      const s=i*3;
+      run.push({rock:[[a[0],ground(...a)+0.15,a[1],0,s/4],[b[0],-1.6,b[1],1.6,s/4]],foam:[[f0[0],0.06,f0[1],s/14,0],[f1[0],0.06,f1[1],s/14,1]]});}
+    flush();}
+  rnMesh(rock,new THREE.MeshToonMaterial({map:rockTex,gradientMap:grad,side:THREE.DoubleSide}));
+  const fm=rnMesh(foam,new THREE.MeshBasicMaterial({map:COAST.foamTex,transparent:true,opacity:0.75,depthWrite:false,side:THREE.DoubleSide}),false);
+  // the boats
+  const W=(x,z)=>ground(x,z)<-1.5;
+  const dockNear=(x,z)=>{for(let r=6;r<50;r+=2)for(let a=0;a<TAU;a+=0.3){const px=x+Math.cos(a)*r,pz=z+Math.sin(a)*r;if(W(px,pz)&&W(px+4,pz)&&W(px-4,pz)&&W(px,pz+4)&&W(px,pz-4))return [px,pz];}return null;};
+  const wharf=D.pier.find(p=>p.p.every(q=>q[0]>150&&q[0]<300&&q[1]<-150));
+  const dock=wharf?dockNear((wharf.p[0][0]+wharf.p[1][0])/2,(wharf.p[0][1]+wharf.p[1][1])/2):null;
+  const routes=[];
+  if(dock)routes.push({type:'research',pts:[dock,[dock[0]-10,dock[1]-60],[160,-380],[120,-620],[60,-1000]],speed:5,dockT:120,awayT:70,offset:0});
+  for(let k=0;k<3;k++)routes.push({type:k===1?'tug':'fish',pts:[[960,330],[880,210],[835,20],[790,-160],[620,-360],[380,-600],[150,-1000]],speed:6.5+k*0.8,dockT:40,awayT:60,offset:k*55,lat:(k-1)*14});
+  for(let k=0;k<2;k++)routes.push({type:'fish',pts:[[-175,-290],[-160,-400],[-90,-560],[60,-760],[200,-1050]],speed:6+k,dockT:50,awayT:70,offset:30+k*70,lat:(k-0.5)*12,color:k?0xd8463c:0x2f7fd1});
+  routes.push({type:'ferry',pts:[[-1100,-560],[-300,-580],[500,-560],[1400,-520]],speed:9,dockT:60,awayT:60,offset:20,oneWay:true});
+  for(const R of routes){R.cum=[0];for(let i=1;i<R.pts.length;i++)R.cum.push(R.cum[i-1]+Math.hypot(R.pts[i][0]-R.pts[i-1][0],R.pts[i][1]-R.pts[i-1][1]));R.L=R.cum[R.cum.length-1];
+    const b=makeCoastBoat(R.type,R.color);scene.add(b.g);COAST.boats.push({R,...b,t:0});}
+  ship.visible=false;   // the old sliding ship is replaced by the research ship's schedule
+  // channel buoys at the cove entrance and the harbour light on the breakwater tip
+  const buoy=(x,z,col)=>{const g=new THREE.Group();const body=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.8,1.6,10),toon(col)));body.position.y=0.5;g.add(body);
+    const top=shade(new THREE.Mesh(new THREE.ConeGeometry(0.45,0.9,8),toon(col)));top.position.y=1.7;g.add(top);
+    const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.22,8,6),new THREE.MeshBasicMaterial({color:col,fog:false}));lamp.position.y=2.3;g.add(lamp);g.position.set(x,0,z);scene.add(g);
+    COAST.blink.push({m:lamp,per:col===0xd8463c?4:3,ph:Math.random()*3});anim.boats.push(g);};
+  for(const [x,z,c] of [[90,-330,0x2fd17a],[230,-330,0xd8463c],[-140,-330,0x2fd17a],[-200,-330,0xd8463c]])if(W(x,z))buoy(x,z,c);
+  const bw=D.pier.filter(p=>!p.c&&p.p.length>4).sort((a,b)=>b.p.length-a.p.length)[0];
+  if(bw){let tip=null;for(const q of bw.p)if(inMap(q[0],q[1])&&ground(q[0],q[1])>-0.5&&(!tip||q[1]<tip[1]))tip=q;
+    if(tip){const y=Math.max(0.5,ground(tip[0],tip[1])),g=new THREE.Group();
+      const tw=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.9,1.2,7,12),toon(0xf4f2ec)));tw.position.y=3.5;g.add(tw);
+      for(const yy of [2,4.5]){const band=new THREE.Mesh(new THREE.CylinderGeometry(1.0,1.1,0.8,12),toon(0xd8463c));band.position.y=yy;g.add(band);}
+      const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.45,10,8),new THREE.MeshBasicMaterial({color:0xff4a3a,fog:false}));lamp.position.y=7.6;g.add(lamp);
+      g.position.set(tip[0],y,tip[1]);scene.add(g);COAST.blink.push({m:lamp,per:5,ph:0});
+      const o={kind:'circle',x:tip[0],z:tip[1],r:1.2,top:99,mat:'wall'};gridAdd(o,tip[0]-2,tip[1]-2,tip[0]+2,tip[1]+2);}}
+  // gulls circling over the cove and the channel mouths (by day)
+  const wingG=new THREE.BufferGeometry();wingG.setAttribute('position',new THREE.Float32BufferAttribute([0,0,-0.12, 0.95,0,-0.2, 0.3,0,0.22],3));wingG.computeVertexNormals();
+  const gm=new THREE.MeshBasicMaterial({color:0xf8f8f4,side:THREE.DoubleSide});
+  for(const [cx,cz,n] of [[170,-280,6],[-150,-330,4],[700,-150,5]])for(let i=0;i<n;i++){const g=new THREE.Group();
+    const R=new THREE.Mesh(wingG,gm),L=new THREE.Mesh(wingG,gm);L.scale.x=-1;g.add(R,L);
+    const body=new THREE.Mesh(new THREE.SphereGeometry(0.16,6,4),gm);body.scale.set(1,0.8,2.2);g.add(body);scene.add(g);
+    COAST.gulls.push({g,L,R,cx,cz,r:25+Math.random()*45,h:12+Math.random()*12,sp:0.12+Math.random()*0.1,ph:Math.random()*TAU,dir:Math.random()<0.5?1:-1});}
+  // people fishing from the seawall
+  let anglers=0;
+  for(const c of D.coast){if(anglers>=5)break;const pts=resample(c,23);
+    for(const p of pts){if(anglers>=5)break;let best=null;
+      for(let a=0;a<TAU;a+=0.5){const sx=p[0]+Math.cos(a)*7,sz=p[1]+Math.sin(a)*7;if(W(sx,sz)){best=[Math.cos(a),Math.sin(a)];break;}}
+      if(!best)continue;const x=p[0]-best[0]*2.2,z=p[1]-best[1]*2.2;if(!inMap(x,z)||ground(x,z)<0.8||!free(x,z,0.8)||onRoadArea(x,z))continue;
+      if(Math.random()<0.55)continue;
+      const m=makeStudent();m.g.position.set(x,ground(x,z)+0.12,z);m.g.rotation.y=Math.atan2(best[0],best[1]);
+      const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.035,3.2,5),toon(0x2b2f36));rod.position.set(0.3,1.9,1.1);rod.rotation.x=1.0;m.g.add(rod);
+      m.arms[1].rotation.x=-1.1;m.arms[0].rotation.x=-0.9;anglers++;   // static: not in anim.boats (that list bobs at sea level)
+      const o={kind:'circle',x,z,r:0.35,top:ground(x,z)+1.8};gridAdd(o,x-1,z-1,x+1,z+1);}}
+  // 基隆嶼 on the horizon (no fog: it stays a soft silhouette), squid-jigging boats offshore at night
+  const isl=new THREE.Mesh(new THREE.SphereGeometry(1,24,14),new THREE.MeshBasicMaterial({color:0x7f9aa8,fog:false}));isl.scale.set(520,170,330);isl.position.set(1300,-40,-3900);scene.add(isl);
+  const isl2=new THREE.Mesh(new THREE.SphereGeometry(1,16,10),isl.material);isl2.scale.set(260,70,200);isl2.position.set(1650,-20,-3820);scene.add(isl2);
+  const lampM=new THREE.MeshBasicMaterial({color:0xfff3c4,fog:false});
+  for(let i=0;i<6;i++){const g=new THREE.Group();const hull=new THREE.Mesh(new THREE.BoxGeometry(5,1.4,16),new THREE.MeshBasicMaterial({color:0x2a3138,fog:false}));g.add(hull);
+    for(let k=0;k<7;k++)for(const s of [-1,1]){const l=new THREE.Mesh(new THREE.SphereGeometry(0.55,6,4),lampM);l.position.set(s*1.9,3.2,-6+k*2);g.add(l);}
+    const wire=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,14),lampM);wire.position.y=3.4;g.add(wire);
+    // the lamps light up a halo of sea and sky around the boat: that glow is what you see from the shore
+    const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),color:0xfff0b8,transparent:true,opacity:0.85,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));
+    glow.scale.set(70,34,1);glow.position.y=5;g.add(glow);
+    g.position.set(-500+i*260+Math.random()*80,0,-900-Math.random()*300);g.rotation.y=Math.random()*TAU;g.visible=false;scene.add(g);COAST.squid.push(g);}
+}
+let _glow=null;
+function glowTex(){if(_glow)return _glow;_glow=canvasTex(128,128,g=>{const gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.25,'rgba(255,245,200,.55)');gr.addColorStop(1,'rgba(255,240,180,0)');g.fillStyle=gr;g.fillRect(0,0,128,128);});return _glow;}
+// boat models: fishing boat, tug, research ship, 基隆嶼 ferry. Local +z is forward. Port (left, -x) red light, starboard green, white masthead.
+function makeCoastBoat(type,color){
+  const g=new THREE.Group(),inner=new THREE.Group();g.add(inner);const lights=[];
+  const box=(w,h,d,c,x,y,z)=>{const m=shade(new THREE.Mesh(new THREE.BoxGeometry(w,h,d),toon(c)));m.position.set(x,y,z);inner.add(m);return m;};
+  const light=(c,x,y,z,s=0.25)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(s,8,6),new THREE.MeshBasicMaterial({color:c,fog:false}));m.position.set(x,y,z);m.visible=false;inner.add(m);lights.push(m);};
+  let len;
+  if(type==='research'){len=34;box(8,3,30,0x1f4e8c,0,0.6,0);const bow=shade(new THREE.Mesh(new THREE.ConeGeometry(4,7,4),toon(0x1f4e8c)));bow.rotation.x=Math.PI/2;bow.rotation.y=Math.PI/4;bow.position.set(0,0.6,18.5);inner.add(bow);
+    box(6.4,3,14,0xffffff,0,3.6,-3);box(5.6,2.4,7,0xffffff,0,6.3,-1);const fun=shade(new THREE.Mesh(new THREE.CylinderGeometry(1,1.1,3.4,10),toon(0xff8a3d)));fun.position.set(0,6.6,-8);inner.add(fun);
+    box(0.3,6,0.3,0xdddddd,0,9,2);light(0xd8262f,-3.3,7.6,0);light(0x2fd17a,3.3,7.6,0);light(0xffffff,0,12,2,0.35);}
+  else if(type==='ferry'){len=28;box(7,2.4,26,0xffffff,0,0.4,0);box(7.2,0.5,26.2,0x1f6fa8,0,1.2,0);box(6.4,2.4,16,0xf6f6f2,0,2.9,-1);box(5.4,2,9,0xffffff,0,5.1,0);
+    for(let i=-6;i<=6;i+=2)box(0.1,1,1.4,0x9fd3ee,3.21,3,i);for(let i=-6;i<=6;i+=2)box(0.1,1,1.4,0x9fd3ee,-3.21,3,i);
+    light(0xd8262f,-3.6,4,6);light(0x2fd17a,3.6,4,6);light(0xffffff,0,7.4,2,0.35);}
+  else if(type==='tug'){len=12;box(4.4,1.6,11,0xd8463c,0,0.3,0);box(4.6,0.3,11.2,0x2b2f36,0,1.2,0);box(3,2.2,4,0xf4f2ec,0,2.4,0.5);box(2.6,1.2,2.6,0xf4f2ec,0,4.1,0.5);
+    const st=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.45,2,8),toon(0x2b2f36)));st.position.set(0,4.4,-1.5);inner.add(st);
+    light(0xd8262f,-2.3,3.4,1);light(0x2fd17a,2.3,3.4,1);light(0xffffff,0,5.6,0.5);}
+  else{len=13;const c=color||0xffffff;box(3.6,1.4,12,c,0,0.3,0);box(3.7,0.35,12.1,0x1f6fa8,0,1.05,0);
+    const bow=shade(new THREE.Mesh(new THREE.ConeGeometry(1.8,3,4),toon(c)));bow.rotation.x=Math.PI/2;bow.rotation.y=Math.PI/4;bow.position.set(0,0.3,7.4);inner.add(bow);
+    box(2.4,2,3,0xf4f2ec,0,2,-2.5);box(2.6,0.25,3.3,0x2f7fd1,0,3.1,-2.5);box(0.15,5,0.15,0xdddddd,0,4,1.5);box(4,0.1,0.1,0xdddddd,0,5.6,1.5);
+    for(const s of [-1,1]){const fl=box(0.4,0.4,0.6,0xff8a3d,s*2,1.2,3);}
+    light(0xd8262f,-1.9,2.6,-1);light(0x2fd17a,1.9,2.6,-1);light(0xffffff,0,6.6,1.5);}
+  // a white wake behind it
+  const wakeTex=COAST.foamTex;const wk=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:wakeTex,transparent:true,opacity:0.6,depthWrite:false,side:THREE.DoubleSide}));
+  wk.rotation.x=-Math.PI/2;wk.position.set(0,0.08,-len*0.9);wk.scale.set(len*0.5,len*1.2,1);g.add(wk);
+  return {g,inner,lights,wake:wk,len};
+}
+// schedule: out along the route, a while away (beyond the fog), back in, a while in harbour (docked if the harbour is
+// in view). One-way routes (the ferry) just cross and come round again.
+function routeAt(R,s){s=Math.max(0,Math.min(R.L,s));let i=1;while(i<R.cum.length-1&&R.cum[i]<s)i++;const f=(s-R.cum[i-1])/((R.cum[i]-R.cum[i-1])||1);
+  return [R.pts[i-1][0]+(R.pts[i][0]-R.pts[i-1][0])*f,R.pts[i-1][1]+(R.pts[i][1]-R.pts[i-1][1])*f];}
+function updateCoast(dt){
+  const t=performance.now()/1000,dark=coastDark();
+  for(const B of COAST.boats){const R=B.R,trip=R.L/R.speed,cyc=R.oneWay?trip+R.awayT:2*trip+R.dockT+R.awayT;
+    let u=((t+R.offset*7)%cyc),s,dir=1,moving=true;
+    if(R.oneWay){if(u<trip)s=u*R.speed;else{s=R.L;moving=false;}}
+    else if(u<R.dockT){s=0;moving=false;}
+    else if((u-=R.dockT)<trip){s=Math.min(R.L,u*R.speed*(Math.min(1,u/8)));}           // eases away from the quay
+    else if((u-=trip)<R.awayT){s=R.L;moving=false;}
+    else{u-=R.awayT;s=Math.max(0,R.L-u*R.speed);dir=-1;}
+    const p=routeAt(R,s),q=routeAt(R,s+dir*8);let hx=q[0]-p[0],hz=q[1]-p[1];const hl=Math.hypot(hx,hz);
+    const lat=R.lat||0;let x=p[0],z=p[1];if(hl>0.01){hx/=hl;hz/=hl;x+=-hz*lat*dir;z+=hx*lat*dir;B.head=Math.atan2(hx,hz);}
+    B.g.position.set(x,0,z);if(B.head!==undefined)B.g.rotation.y+=Math.atan2(Math.sin(B.head-B.g.rotation.y),Math.cos(B.head-B.g.rotation.y))*Math.min(1,dt*1.5);
+    B.inner.position.y=Math.sin(t*0.9+R.offset)*0.18;B.inner.rotation.z=Math.sin(t*0.7+R.offset)*0.035;B.inner.rotation.x=Math.sin(t*0.5+R.offset)*0.015;
+    B.g.visible=!(s>=R.L-1&&!moving&&!R.oneWay)||Math.hypot(x-P.x,z-P.z)<600;
+    B.wake.visible=moving&&s>2;B.wake.material.opacity=moving?0.55:0;
+    for(const l of B.lights)l.visible=dark;}
+  COAST.foamTex.offset.y=(Math.sin(t*0.5)+1)*0.12;COAST.foamTex.offset.x=t*0.01;
+  for(const b of COAST.blink)b.m.visible=!dark||((t+b.ph)%b.per)<0.7;   // by night the lamps flash
+  for(const s of COAST.squid)s.visible=dark;
+  for(const G of COAST.gulls){G.g.visible=!dark;if(dark)continue;const a=G.ph+t*G.sp*G.dir;
+    G.g.position.set(G.cx+Math.cos(a)*G.r,G.h+Math.sin(t*0.6+G.ph)*1.5,G.cz+Math.sin(a)*G.r);
+    G.g.rotation.y=Math.atan2(-Math.sin(a)*G.dir,Math.cos(a)*G.dir);G.g.rotation.z=-0.25*G.dir;   // banking into the circle
+    const flap=Math.sin(t*6+G.ph*3)*0.5*(0.4+0.6*Math.max(0,Math.sin(t*0.4+G.ph)));G.R.rotation.z=flap;G.L.rotation.z=-flap;}
+}
 let ship;
 function makeShip(){
   ship=new THREE.Group();
@@ -2228,7 +2366,7 @@ function buildWorld(){
   buildStreets();
   buildPitches();
   D.bus.forEach(busStop);
-  trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();
+  trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
   buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();
 }
 
@@ -3876,6 +4014,7 @@ function frame(now){
   anim.boats.forEach((b,i)=>{b.position.y=0.1+Math.sin(t*1.3+i)*0.15;b.rotation.z=Math.sin(t+i)*0.05;});
   anim.jets.forEach((j,i)=>j.scale.set(1,0.8+Math.sin(t*3+i)*0.25,1));
   for(const r of LM.turbines)r.rotation.z=-t*0.9;
+  updateCoast(dt);
   if(mode==='title'||mode==='bye'){
     // slow aerial circle over the 濱海 gate and 北寧路
     const a=t*0.035,cx=-40,cz=-110,R=150;camera.position.set(cx+Math.cos(a)*R,70,cz+Math.sin(a)*R);camera.lookAt(cx,8,cz);

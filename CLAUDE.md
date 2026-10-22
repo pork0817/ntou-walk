@@ -202,6 +202,19 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
 - `.gitignore` keeps out `.claude/` (local preview config and test hook), `docs/school-map.jpg` (the school's artwork) and
   any Street View screenshots (reference only, never published).
 
+## Coast (`COAST`, `buildCoast`, `updateCoast`, user request)
+
+- Shore: along every `D.coast` line a sloped rock revetment (boulder texture, land edge → −1.6 m) and a soft surf
+  ribbon on the water (animated foam texture); it also hides the 4 m stair-steps of the terrain shoreline.
+- Boats on scheduled routes (`routeAt`; out → away beyond the fog → back → in harbour), local +z forward, bobbing and a
+  wake, red/green/white navigation lights at night (`coastDark`: before 05:48 / after 18:24): the research ship docks
+  at the campus wharf in the cove (replaces the old sliding ship), 3 boats (fishing + tug) to/from 八斗子 off the east
+  edge, 2 fishing boats out of the 和平島 channel (west), and the 基隆嶼 ferry crossing the horizon one way.
+- Channel buoys (red/green, lamps flash at night), the harbour light on the breakwater tip (flashing red), gulls
+  circling over the cove and channel mouths by day (two flapping wings, banking), 5 people fishing from the seawall,
+  基隆嶼 as a fog-free silhouette on the NE horizon, and squid-jigging boats with lamp rows and a big additive glow
+  sprite on the night horizon (Keelung's famous night view).
+
 ## Sound (`SND`, `audioInit`, `updateAudio`)
 
 - Relaxing game: everything synthesised with Web Audio, no files. Output: master → DynamicsCompressor (−20 dB, 4:1) →
