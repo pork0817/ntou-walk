@@ -337,12 +337,36 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
    railings, gates, walls, rough heights and colours, window patterns), rebuilt by hand in the toon style. Never as textures,
    never traced or measured off the image, never put in the repo or the built game. Own photos and OSM remain the primary sources.
 
-## First mission (新生報到)
+## Missions
 
-`MIS` / `buildMission` / `updateMission` / `missionTarget` / `drawMissionOnMini`. 學姐 (a static `makeStudent`) stands
-beside the arrival bike and greets the player within 4.5 m. The steps are: say hi, get on a bike, ride to 行政大樓
-(a clerk stands 2.2 m outside the façade point nearest `START`), then reach the library 2F circulation desk
-(`INT.floor===1`, within 3 m of `floorW(1)(doorMain,5.4)`). The objective card `#mission` sits under the zone panel
-and shows only in `mode==='play'`. A yellow beacon column marks the target (the lift while on another library floor),
-and a yellow dot marks it on the minimap, pinned to the edge when it is off the map. Progress is kept in localStorage
-`ntou-walk-mission1` (a step index, or 'done'); New Game clears it.
+`MS` holds the state, and `MS.list` holds one definition per mission, built in `buildMission`. Each definition has:
+- `giver`, an NPC made by `msNpc`;
+- an optional `when()` condition with a `whenZh` label;
+- `greet`, `start`, `tick`, `end`, `clean` and idle lines;
+- `steps`, where each step has `zh`/`en` (strings or functions of `M`), `t(M)` (the target `{x,z,y,inside}`),
+  `ok(M,d,dt,t)` (done?), and optional `then` and `note`.
+
+Setting `M.back=n` sends the mission back to step `n` (used when a race is quit or the car is left).
+
+1. 新生報到 is active from the start. The other nine unlock after it. Walk within 3.2 m of a giver with a ! and that
+   mission starts. Only one mission runs at a time.
+2. While indoors, a target that is outside or in another space points first to the exit or the lift (`msExit`).
+3. Missions and their givers, in order:
+
+| Mission | Giver | When | What you do |
+|---|---|---|---|
+| 早餐跑腿 | 阿哲 at 第二宿舍 | any time | 7-11 counter, then back to him; 10-minute soft timer |
+| 搭公車去海邊 | 學姐 | 06–23 | board at 濱海校門, get off at 體育館, watch the sea for 15 s at `G.shore` |
+| 雨天送傘 | 小雨 at 海空大樓 | raining | the umbrella prop is on library 2F; you carry it back |
+| 校園巡禮 | guide at 山海迴廊 | any time | 夢泉, 勇泉, 創校紀念公園, 運動場 and 小艇碼頭, in any order |
+| 找回腳踏車 | 小安 at the 第四宿舍 park | any time | a pink bike at a random other park |
+| 夜釣之約 | 阿海 at 第二餐廳 | 19–04 | three friends with rods at `G.pier`; stay 30 s |
+| 球場補一咖 | 阿凱 at the court | 07–22 | stand on the court for 45 s; `C.mis` keeps 5 players there |
+| 第一場比賽 | 學長 at the race start | any time | start and finish a race; `finishRace` sets `RACE.lastPlace` |
+| 代駕學長 | 阿德 at 郵局 | any time | get a car or scooter, pick him up, drop him at `G.drop` near 海空大樓; `missionCrash` counts bumps |
+
+4. Saving: progress is in localStorage `ntou-walk-missions-v1` as `{done,act,step}`. The old `ntou-walk-mission1`
+   key is migrated. A mission other than 新生報到 restarts at step 1 after a reload. New Game calls `msReset`.
+5. UI: the card is `#mission` and is hidden during races. The pause menu lists missions in `#missions`, built by
+   `openMissions`, and can drop the current one. Mission toasts pass `pri` so a newly discovered place doesn't cover
+   them. Mission targets and available givers appear on the minimap and the big map (`drawMissionOnMini`).

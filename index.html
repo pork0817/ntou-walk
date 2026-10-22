@@ -115,6 +115,14 @@ body.touch #lift{right:auto;left:calc(12px + env(safe-area-inset-left,0px));top:
 .modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(11,28,44,.55);z-index:30;padding:16px}
 .mCard{background:var(--navy);width:min(440px,100%);padding:20px 22px 22px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
 .mCard .mBtn{min-width:0}
+#missions .mCard{width:min(560px,100%)}
+.msList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.msList li{display:grid;grid-template-columns:1.6em 1fr auto;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(255,248,236,.06)}
+.msList li>i{font:900 1rem/1 var(--display);font-style:normal;color:var(--muted);text-align:center}
+.msList b{display:block;font:900 1rem/1.25 var(--body)}.msList span{font:700 .72rem/1.2 var(--display);color:var(--muted);margin-right:6px}.msList small{font:600 .72rem/1.2 var(--body);color:var(--muted)}
+.msList em{font:800 .75rem/1.2 var(--body);font-style:normal;padding:4px 8px;border-radius:8px;background:rgba(255,248,236,.12);white-space:nowrap}
+.msList li.done em{background:#2fa36b;color:#fff}.msList li.on em{background:var(--signal);color:var(--ink)}.msList li.open em{background:rgba(242,194,48,.25)}
+.msList li.lock,.msList li.wait{opacity:.7}
 .sRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,248,236,.12)}
 .sRow label{font:800 .95rem/1.2 var(--body)}
 .sRow label span{font:700 .72rem/1 var(--display);color:var(--muted);margin-left:4px}
@@ -246,7 +254,7 @@ body.touch #toast b{font-size:1rem}
 </div>
 
 <div id="doorFade" aria-hidden="true"></div>
-<div id="mission" class="panel" hidden><small>任務 新生報到 · <span id="msStep">1 / 4</span></small><b id="msTask"></b><span id="msEn"></span><i id="msDist"></i></div>
+<div id="mission" class="panel" hidden><small>任務 <span id="msName">新生報到</span><span id="msStep"></span></small><b id="msTask"></b><span id="msEn"></span><i id="msDist"></i></div>
 <div id="racePrompt" class="panel" hidden><b>自行車競速 <span>Bike Race</span></b><p>第一餐廳 → 海空大樓 · 6 人</p><small id="rpBest"></small><button class="btn" id="rpStart" type="button">開始比賽 Start</button></div>
 <div id="raceHud" class="panel" hidden><span>名次 <b id="rhPos">1 / 6</b></span><span>時間 <b id="rhTime">0:00.0</b></span><span>剩 <b id="rhLeft">0 m</b></span><button class="btn sm" id="raceQuit" type="button">退出 Quit</button></div>
 <div id="raceCount" hidden>3</div>
@@ -312,6 +320,7 @@ body.touch #toast b{font-size:1rem}
     <h2 id="menuH">暫停 <span>Paused</span></h2>
     <div class="tMenu">
       <button class="btn mBtn primary" id="mResume" type="button"><b>繼續遊戲</b><span>Resume · Esc</span></button>
+      <button class="btn mBtn" id="mMis" type="button"><b>任務</b><span>Missions · <span id="mMisN">0 / 10</span></span></button>
       <button class="btn mBtn" id="mQuitRace" type="button" hidden><b>放棄比賽</b><span>Quit the race</span></button>
       <button class="btn mBtn" id="mSet" type="button"><b>設定</b><span>Settings</span></button>
       <div class="mTime"><span>時間 <small>Time</small></span><button class="btn sm" id="mtMinus" type="button">−1h</button><button class="btn sm" id="mtFast" type="button" aria-pressed="false">×60</button><button class="btn sm" id="mtPlus" type="button">+1h</button><button class="btn sm" id="mtNow" type="button">現在</button></div>
@@ -337,6 +346,14 @@ body.touch #toast b{font-size:1rem}
 </div>
 
 <!-- confirm (new game over an existing save) -->
+<div id="missions" class="modal" hidden>
+  <div class="mCard panel" role="dialog" aria-labelledby="msH">
+    <h2 id="msH">任務 <span>Missions</span></h2>
+    <ol id="msList" class="msList"></ol>
+    <div class="startRow"><button class="btn" id="msDrop" type="button" hidden>放棄目前任務 Drop current</button><button class="btn mDone" id="msDone" type="button">完成 Done</button></div>
+  </div>
+</div>
+
 <div id="confirm" class="modal" hidden>
   <div class="mCard panel" role="alertdialog" aria-labelledby="cfH">
     <h2 id="cfH">開始新遊戲？ <span>Start a new game?</span></h2>
@@ -1709,6 +1726,7 @@ function crash(A,o,isStu){
   const closing=(vAx-vBx)*nx+(vAz-vBz)*nz;
   if(closing<0.3)return false;                                  // just touching: treat as an obstacle
   if(closing>1)impactSound(isStu?'person':vehKind(o),closing,(A.x+o.x)/2,(A.z+o.z)/2);
+  missionCrash(closing);
   const J=1.15*closing/(1/mA+1/mB);                             // restitution 0.15: a crash, not a bounce
   const dA=J/mA,dB=J/mB;
   DRIVE.speed=(vAx-dA*nx)*hx+(vAz-dA*nz)*hz;
@@ -2774,7 +2792,7 @@ function finishRace(){
   const t=RACE.time;
   const field=[{me:true,fin:t,s:RACE.route.L}].concat(RACE.racers.map(r=>({me:false,fin:r.finish,s:r.s,name:r.name})));
   field.sort((a,b)=>(a.fin!=null&&b.fin!=null)?a.fin-b.fin:(a.fin!=null?-1:b.fin!=null?1:b.s-a.s));
-  const place=field.findIndex(f=>f.me)+1,best=!RACE.best||t<RACE.best;if(best){RACE.best=t;try{localStorage.setItem('ntou-walk-race-best-v2',String(t));}catch(e){}}
+  const place=RACE.lastPlace=field.findIndex(f=>f.me)+1,best=!RACE.best||t<RACE.best;if(best){RACE.best=t;try{localStorage.setItem('ntou-walk-race-best-v2',String(t));}catch(e){}}
   $('#rrPlace').textContent=['','冠軍！','第 2 名','第 3 名','第 4 名','第 5 名','第 6 名'][place]+'  '+place+' / 6';$('#rrTime').textContent=fmtRace(t)+(best?'  · 新紀錄 New best!':'  · 最佳 '+fmtRace(RACE.best));
   $('#raceResult').hidden=false;chime();if(place===1)setTimeout(chime,450);
   endRace(false);
@@ -2820,70 +2838,240 @@ function drawRaceOnMini(px,pz,k,W,H){if(!RACE.active||!RACE.route)return;const R
   for(const r of RACE.racers){const p=routeAtR(r.s),x=(p.x-G.x0-px)*k+W/2,y=(p.z-G.z0-pz)*k+H/2;mini.fillStyle='#ff8a3d';mini.beginPath();mini.arc(x,y,3,0,TAU);mini.fill();}
   const f=RACE.finishP,fx=(f.x-G.x0-px)*k+W/2,fy=(f.z-G.z0-pz)*k+H/2;mini.fillStyle='#ffffff';mini.strokeStyle='#0b1c2c';mini.lineWidth=2;mini.beginPath();mini.arc(fx,fy,5,0,TAU);mini.fill();mini.stroke();}
 
-/* ---------- first mission: 新生報到 (freshman check-in). 學姐 waits at the bus stop beside your bike; she sends you
-   to 行政大樓 for your student card, then to the library's 2F circulation desk to borrow your first book. One objective
-   at a time (card under the location panel, a beacon at the target, a minimap marker); progress is saved. ---------- */
-const MIS={step:-1,npc:null,clerk:null,beacon:null,door:null,done:false,talkT:0};
-const MIS_KEY='ntou-walk-mission1';
-const MIS_STEPS=[
-  {zh:'和學姐打招呼',en:'Say hi to 學姐'},
-  {zh:'騎上腳踏車',en:'Get on your bike'},
-  {zh:'騎到行政大樓領學生證',en:'Ride to 行政大樓 for your student card'},
-  {zh:'到圖書館 2F 借第一本書',en:'Borrow your first book at the library, 2F'}];
+/* ---------- missions. 新生報到 comes first (學姐 at the bus stop, beside your bike). After it, nine more, each given by
+   someone standing somewhere on campus with a ! over their head: walk up to them and it starts. One at a time; the
+   objective card sits under the location panel, a beacon marks the target and a dot marks it on the minimap (and on
+   the big map). Some only happen in the rain, at night or while the courts are open. Progress is saved; anything
+   left half-way restarts from its first step after a reload. The pause menu lists them and can drop the current one. ---------- */
+const MS={act:null,step:0,done:new Set(),M:{},beacon:null,arrow:null,npcs:[],temp:[],talkT:0,G:{},list:[]};
+const MS_KEY='ntou-walk-missions-v1';
+function msSave(){try{localStorage.setItem(MS_KEY,JSON.stringify({done:[...MS.done],act:MS.act,step:MS.step}));}catch(e){}}
+function msDef(id){return MS.list.find(m=>m.id===id);}
+function mmss(t){t=Math.max(0,Math.ceil(t));return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');}
+// a free patch of ground near (x,z), off the carriageway
+function msStand(x,z,r0=0){for(let r=r0;r<16;r+=0.7)for(let a=0;a<TAU;a+=0.45){const px=x+Math.cos(a)*r,pz=z+Math.sin(a)*r;
+  if(ground(px,pz)>0.3&&free(px,pz,0.8)&&!onRoadArea(px,pz))return [px,pz];if(!r)break;}return [x,z];}
+// just outside a building, on the side facing (tx,tz)
+function msFacade(no,tx,tz,out=2.2){const B=D.b.find(b=>b.no===no);if(!B)return msStand(tx,tz);const [cx,cz]=centroid(B.p);let best=null,bd=1e9;
+  for(let i=0;i<B.p.length;i++){const a=B.p[i],b=B.p[(i+1)%B.p.length];for(let t=0;t<=1;t+=0.05){const x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t,d=Math.hypot(x-tx,z-tz);if(d<bd){bd=d;best=[x,z];}}}
+  const ox=best[0]-cx,oz=best[1]-cz,ol=Math.hypot(ox,oz)||1;return msStand(best[0]+ox/ol*out,best[1]+oz/ol*out);}
+// the last dry ground between (x,z) and the nearest sea
+function msShore(x,z,back=2.5){const w=nearestWater(x,z);if(!w)return msStand(x,z);const dx=w[0]-x,dz=w[1]-z,L=Math.hypot(dx,dz)||1;let lx=x,lz=z;
+  for(let s=0;s<L;s+=0.5){const px=x+dx/L*s,pz=z+dz/L*s;if(ground(px,pz)<0.6)break;lx=px;lz=pz;}
+  return msStand(lx-dx/L*back,lz-dz/L*back);}
+function msRoadPt(x,z){const nr=nearestRoad(x,z,1);if(!nr)return [x,z];const [ax,az]=nr.r.p[nr.i],[bx,bz]=nr.r.p[nr.i+1],L=Math.hypot(bx-ax,bz-az)||1,tx=(bx-ax)/L,tz=(bz-az)/L;
+  const t=Math.max(0,Math.min(L,(x-ax)*tx+(z-az)*tz));return [ax+tx*t,az+tz*t];}
+let _bang=null;
+function bangTex(){return _bang||(_bang=canvasTex(64,64,g=>{g.fillStyle='#f2c230';g.strokeStyle='#0b1c2c';g.lineWidth=5;g.beginPath();g.arc(32,32,26,0,TAU);g.fill();g.stroke();
+  g.fillStyle='#0b1c2c';g.font='900 40px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('!',32,35);}));}
+function msNpc(x,z,fx,fz,solid=true){const m=makeStudent();const y=ground(x,z)+0.12;m.g.position.set(x,y,z);m.g.rotation.y=Math.atan2(fx-x,fz-z);
+  const n=Object.assign(m,{x,z,bubbleT:0});if(solid){const o={kind:'circle',x,z,r:0.35,top:y+1.7};gridAdd(o,x-1,z-1,x+1,z+1);}MS.npcs.push(n);return n;}
+function msPlace(n,x,z,fx,fz){n.x=x;n.z=z;n.g.position.set(x,ground(x,z)+0.12,z);n.g.rotation.y=Math.atan2(fx-x,fz-z);n.g.visible=true;}
+function msBang(n){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:bangTex(),depthWrite:false}));s.scale.set(0.75,0.75,0.75);s.visible=false;scene.add(s);n.bang=s;return s;}
+function msRemoveNpc(n){scene.remove(n.g);const i=MS.npcs.indexOf(n);if(i>=0)MS.npcs.splice(i,1);}
+const npcT=n=>n?{x:n.x,z:n.z,y:ground(n.x,n.z)}:null;
+const spotT=id=>{const s=spots.find(q=>q.id===id);return s?{x:s.x,z:s.z,y:ground(s.x,s.z),id,zh:s.zh}:null;};
+// targets that may be indoors: while you are in the other space, the beacon leads to its exit (or the lift) first
+function msExit(){const I=INT.lib;if(INT.space==='store'){const [x,z]=INT.store.W(I.doorStore,0.8);return {x,z,y:IN_Y,inside:true};}
+  if(INT.floor>0){const c=INT.cab,[x,z]=I.floorW(INT.floor)((c.u0+c.u1)/2,(c.v0+c.v1)/2);return {x,z,y:IN_Y,inside:true};}
+  const [x,z]=I.floorW(0)(I.doorMain,0.9);return {x,z,y:IN_Y,inside:true};}
+function msLibTarget(f,u,v){const I=INT.lib;if(!I)return null;
+  if(!INT.inside){const [x,z]=I.Ww(I.doorMain,-1.4);return {x,z,y:I.y0};}
+  if(INT.space!=='lib')return msExit();
+  if(INT.floor!==f){const c=INT.cab,[x,z]=I.floorW(INT.floor)((c.u0+c.u1)/2,(c.v0+c.v1)/2);return {x,z,y:IN_Y,inside:true,via:true};}
+  const [x,z]=I.floorW(f)(u,v);return {x,z,y:IN_Y,inside:true};}
+function msStoreTarget(){const I=INT.lib,s=INT.store;if(!I||!s)return null;
+  if(!INT.inside){const [x,z]=I.Ww(I.doorStore,-1.4);return {x,z,y:I.y0};}
+  if(INT.space!=='store')return msExit();
+  const [x,z]=s.W(s.u1-1.6,s.v1-1.6);return {x,z,y:IN_Y,inside:true};}
+function closedUmbrella(col){const g=new THREE.Group();const sh=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.95,5),toon(0x2b2f36));sh.position.y=0.47;g.add(sh);
+  const c=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.72,8),toon(col));c.position.y=0.62;c.rotation.x=Math.PI;g.add(c);
+  const h=new THREE.Mesh(new THREE.TorusGeometry(0.06,0.015,5,10,Math.PI),toon(0x2b2f36));h.position.y=0.02;g.add(h);return g;}
+function inCourt(C,pad=0.3){const dx=P.x-C.x,dz=P.z-C.z,a=dx*C.lx+dz*C.lz,b=-dx*C.lz+dz*C.lx;return Math.abs(a)<C.half+pad&&Math.abs(b)<C.wid+pad;}
+function nearestBikeAny(){let b=null,bd=1e9;for(const k of BIKES){const d=Math.hypot(k.px-P.x,k.pz-P.z);if(d<bd){bd=d;b=k;}}return b;}
+const isRainy=()=>['drizzle','rain','storm'].includes(WX.key)||WX.mix.rain>0.25;
+
 function buildMission(){
-  try{const v=localStorage.getItem(MIS_KEY);MIS.done=v==='done';MIS.step=MIS.done?-1:(v!=null?+v:0);}catch(e){MIS.step=0;}
-  // 學姐, on the sidewalk by your bike
-  const near=ARR.ok&&ARR.bike?ARR.bike:[START.x+2,START.z,0];const m=makeStudent();
-  const fx=Math.sin(START.rot||0),fz=Math.cos(START.rot||0);   // the way you face when you step off
-  const nx=near[0]+fx*1.6,nz=near[1]+fz*1.6;m.g.position.set(nx,ground(nx,nz)+0.12,nz);m.g.rotation.y=Math.atan2(START.x-nx,START.z-nz);
-  MIS.npc=Object.assign(m,{x:nx,z:nz,bubbleT:0});const o={kind:'circle',x:nx,z:nz,r:0.35,top:ground(nx,nz)+1.8};gridAdd(o,nx-1,nz-1,nx+1,nz+1);
-  // the clerk at 行政大樓's door (the façade nearest the bus stop)
-  const B=D.b.find(b=>b.no===1);if(B){const [cx,cz]=centroid(B.p);let best=null,bd=1e9;
-    for(let i=0;i<B.p.length;i++){const a=B.p[i],b=B.p[(i+1)%B.p.length];for(let t=0;t<=1;t+=0.05){const x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t,d=Math.hypot(x-START.x,z-START.z);if(d<bd){bd=d;best=[x,z];}}}
-    const ox=best[0]-cx,oz=best[1]-cz,ol=Math.hypot(ox,oz)||1,dx=best[0]+ox/ol*2.2,dz=best[1]+oz/ol*2.2;
-    MIS.door=[dx,dz];const c=makeStudent();c.g.position.set(dx,ground(dx,dz)+0.12,dz);c.g.rotation.y=Math.atan2(ox,oz);MIS.clerk=Object.assign(c,{x:dx,z:dz,bubbleT:0});
-    const o2={kind:'circle',x:dx,z:dz,r:0.35,top:ground(dx,dz)+1.8};gridAdd(o2,dx-1,dz-1,dx+1,dz+1);}
+  const G=MS.G;
+  // ---- the people ----
+  {const near=ARR.ok&&ARR.bike?ARR.bike:[START.x+2,START.z,0];const fx=Math.sin(START.rot||0),fz=Math.cos(START.rot||0);
+    const nx=near[0]+fx*1.6,nz=near[1]+fz*1.6;G.senpai=msNpc(nx,nz,START.x,START.z);}
+  {const p=msFacade(1,START.x,START.z);G.clerk=msNpc(p[0],p[1],START.x,START.z);G.door=p;}
+  {const p=msFacade(28,-163,-8);G.zhe=msNpc(p[0],p[1],-163,-8);}
+  {const p=msFacade(17,150,40);G.yu=msNpc(p[0],p[1],150,40);}
+  {const s=spots.find(q=>q.id==='m35')||{x:-153,z:3};const p=msStand(s.x+3,s.z,1);G.guide=msNpc(p[0],p[1],s.x,s.z);
+    const flag=new THREE.Mesh(new THREE.PlaneGeometry(0.45,0.3),new THREE.MeshBasicMaterial({color:0xf2c230,side:THREE.DoubleSide}));flag.position.set(0.35,2.2,0);G.guide.g.add(flag);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,1.3,4),toon(0x2b2f36));pole.position.set(0.12,1.6,0);G.guide.g.add(pole);}
+  {const pk=BIKE_PARKS.find(p=>p.label==='第四宿舍')||{x:233,z:119};const p=msStand(pk.x+3,pk.z+2,1);G.an=msNpc(p[0],p[1],pk.x,pk.z);G.anPark=pk;}
+  {const s=spots.find(q=>q.id==='m20')||{x:202,z:136};const p=msStand(s.x,s.z,4);G.hai=msNpc(p[0],p[1],s.x,s.z);}
+  {let C=null,bd=1e9;for(const c of SPORT.courts){const d=Math.hypot(c.x-26,c.z+95);if(d<bd){bd=d;C=c;}}G.court=C;
+    if(C){const p=msStand(C.x+C.lz*(C.wid+2.2),C.z-C.lx*(C.wid+2.2));G.kai=msNpc(p[0],p[1],C.x,C.z);}}
+  {const s=spots.find(q=>q.id==='race')||{x:-190,z:137};const p=msStand(s.x+5,s.z+2,1);G.racer=msNpc(p[0],p[1],s.x,s.z);G.raceSpot=s;}
+  {const p=msFacade(7,-120,-85);G.de=msNpc(p[0],p[1],-120,-85);
+    const box=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.4,0.45),toon(0xb98a52));box.position.set(0.55,0.2,0.3);box.castShadow=true;G.de.g.add(box);G.deBox=box;G.deHome=p;}
+  G.shore=msShore(467,-124);G.pier=msShore(-136,-226,1.5);G.drop=msRoadPt(199,51);
+  G.libU=INT.lib?INT.lib.doorMain:0;
+  // ---- the missions ----
+  const L=MS.list;
+  L.push({id:'m1',zh:'新生報到',en:'Freshman check-in',giver:G.senpai,who:'學姐 · 濱海校門公車站',
+    idle:['學弟妹加油！','要去圖書館嗎？','記得帶傘喔，基隆常下雨'],doneEn:'You borrowed your first book. Welcome to NTOU!',
+    steps:[
+      {zh:'和學姐打招呼',en:'Say hi to 學姐',t:()=>npcT(G.senpai),ok:(M,d)=>d<4.5&&!INT.inside,
+        then:()=>{say(G.senpai,'歡迎來到海大！先騎腳踏車去行政大樓領學生證吧！',4.2);chime();}},
+      {zh:'騎上腳踏車',en:'Get on your bike',t:()=>{const b=nearestBikeAny();return b?{x:b.px,z:b.pz,y:ground(b.px,b.pz)}:null;},ok:()=>P.riding},
+      {zh:'騎到行政大樓領學生證',en:'Ride to 行政大樓 for your student card',t:()=>npcT(G.clerk),ok:(M,d)=>d<4&&!INT.inside,
+        then:()=>{say(G.clerk,'新同學嗎？這是你的學生證，歡迎入學！',4);chime();toast('Student card','領到學生證','You got your student card',3200);}},
+      {zh:'到圖書館 2F 借第一本書',en:'Borrow your first book at the library, 2F',t:()=>msLibTarget(1,G.libU,5.4),ok:(M,d,dt,t)=>t&&t.inside&&!t.via&&INT.space==='lib'&&INT.floor===1&&d<3}]});
+  L.push({id:'breakfast',zh:'早餐跑腿',en:'Breakfast run',giver:G.zhe,who:'阿哲 · 第二宿舍門口',
+    greet:'早安！我快遲到了…可以幫我去 7-11 買個早餐嗎？十分鐘內回來就好！',idle:['昨天的早餐真的謝謝你','今天又要趕早八…'],doneEn:'Breakfast delivered',
+    start:M=>{M.t=600;},tick:(M,dt)=>{M.t-=dt;},note:M=>M.t>0?'剩 '+mmss(M.t):'有點晚了',
+    end:M=>say(G.zhe,M.t>0?'還是熱的！太感謝了！':'雖然有點冷掉了，還是謝謝你！',3.6),
+    steps:[
+      {zh:'到 7-11 買早餐',en:'Buy breakfast at the 7-11',t:msStoreTarget,ok:(M,d,dt,t)=>t&&t.inside&&INT.space==='store'&&d<1.8,
+        then:()=>{blip(1320,1320,0.07,0.05);blip(1320,1320,0.07,0.05,0,'sine',0.14);say(INT.talk,'謝謝光臨！',2);}},
+      {zh:'把早餐送回第二宿舍',en:'Bring it back to 阿哲 at the dorm',t:()=>npcT(G.zhe),ok:(M,d)=>d<3&&!INT.inside}]});
+  L.push({id:'harbour',zh:'搭公車去海邊',en:'Bus to the sea',giver:G.senpai,who:'學姐 · 濱海校門公車站',when:()=>{const h=gameHour();return h>=6&&h<23;},whenZh:'06:00–23:00',
+    greet:'想看船嗎？搭公車到體育館站，再走到海邊看船進出港吧！',doneEn:'You watched the boats from the shore',
+    steps:[
+      {zh:'在濱海校門站搭公車',en:'Catch a bus at the 濱海校門 stop',t:()=>spotT('bus海大(濱海校門)'),ok:()=>!!P.onBus},
+      {zh:'在海大(體育館)站下車',en:'Get off at the 海大(體育館) stop',t:()=>spotT('bus海大(體育館)'),ok:(M,d)=>!P.onBus&&d<40},
+      {zh:'走到海邊看船',en:'Walk to the shore and watch the boats',t:()=>({x:G.shore[0],z:G.shore[1],y:ground(G.shore[0],G.shore[1])}),
+        ok:(M,d,dt)=>{if(d<9)M.w=(M.w||0)+dt;return M.w>=15;},note:M=>M.w?'看海中 '+Math.ceil(15-M.w)+' s':''}]});
+  L.push({id:'umbrella',zh:'雨天送傘',en:'Umbrella delivery',giver:G.yu,who:'小雨 · 海空大樓門口',when:isRainy,whenZh:'下雨時',
+    greet:'糟糕，我的傘忘在圖書館 2 樓了…可以幫我拿過來嗎？',idle:['上次真的謝謝你的傘'],doneEn:'小雨 got her umbrella back',
+    start:M=>{const [x,z]=INT.lib.floorW(1)(G.libU+1.6,5.2);M.prop=closedUmbrella(0xff8aa8);M.prop.position.set(x,IN_Y,z);M.prop.rotation.z=0.35;INT.groups[1].add(M.prop);},
+    clean:M=>{if(M.prop&&M.prop.parent)M.prop.parent.remove(M.prop);if(M.carry&&M.carry.parent)M.carry.parent.remove(M.carry);},
+    end:M=>{say(G.yu,'謝謝！你人真好～',3.4);if(!G.yu.umb){G.yu.umb=makeUmbrella();G.yu.g.add(G.yu.umb);}G.yu.umb.visible=true;},
+    steps:[
+      {zh:'到圖書館 2F 拿傘',en:'Fetch the umbrella from the library, 2F',t:()=>msLibTarget(1,G.libU+1.6,5.2),ok:(M,d,dt,t)=>t&&t.inside&&!t.via&&INT.space==='lib'&&INT.floor===1&&d<2.2,
+        then:M=>{M.prop.parent&&M.prop.parent.remove(M.prop);M.carry=closedUmbrella(0xff8aa8);M.carry.position.set(0.32,0.45,0.12);M.carry.rotation.x=0.35;player.root.add(M.carry);blip(880,990,0.15,0.05);}},
+      {zh:'把傘送到海空大樓',en:'Bring it to 小雨 at 海空大樓',t:()=>npcT(G.yu),ok:(M,d)=>d<3&&!INT.inside}]});
+  const TOUR=['m33','m16','m40','m24','m27'];
+  const tourNext=M=>{let b=null,bd=1e9;for(const id of TOUR){if(M.seen.has(id))continue;const t=spotT(id);if(!t)continue;const d=Math.hypot(t.x-WPOS.x,t.z-WPOS.z);if(d<bd){bd=d;b=t;}}return b;};
+  L.push({id:'tour',zh:'校園巡禮',en:'Campus tour',giver:G.guide,who:'導覽志工 · 山海迴廊',
+    greet:'第一次來嗎？去這五個地方走走，就算認識海大了！',idle:['海大很美吧？','有空再來走走！'],doneEn:'You saw five favourite places on campus',
+    start:M=>{M.seen=new Set();},
+    end:()=>{},
+    steps:[{zh:M=>'校園巡禮 '+M.seen.size+' / 5',en:M=>{const t=tourNext(M);return t?'下一站 Next: '+t.zh:'';},t:M=>tourNext(M),
+      ok:(M,d,dt,t)=>{if(t&&d<12&&!INT.inside){M.seen.add(t.id);if(M.seen.size<5){blip(988,990,0.25,0.05);toast('',t.zh,M.seen.size+' / 5',2200);}}return M.seen.size>=TOUR.length;}}]});
+  const parkNext=M=>{let b=null,bd=1e9;for(const p of BIKE_PARKS){if(p===G.anPark||M.checked.has(p))continue;const d=Math.hypot(p.x-P.x,p.z-P.z);if(d<bd){bd=d;b=p;}}return b?{x:b.x,z:b.z,y:ground(b.x,b.z),p:b}:null;};
+  L.push({id:'lostbike',zh:'找回腳踏車',en:'The lost bike',giver:G.an,who:'小安 · 第四宿舍停車場',
+    greet:'我的粉紅色腳踏車不見了…可以幫我到各個停車場找找嗎？',idle:['我的腳踏車現在都會上鎖了！'],doneEn:'小安 has her bike back',
+    start:M=>{const cand=BIKE_PARKS.filter(p=>p!==G.anPark);M.park=pick(cand);M.checked=new Set();
+      const [x,z]=msStand(M.park.x+2.2,M.park.z+1.2,0.5);M.bike=Object.assign(makeBike(0xff6fa8),{px:0,pz:0,prot:0,home:{x,z,rot:0.6,label:'lost'}});scene.add(M.bike.g);BIKES.push(M.bike);placeBike(M.bike,x,z,0.6);},
+    clean:(M,ok)=>{if(ok||!M.bike)return;if(P.riding&&bike===M.bike)dismount();scene.remove(M.bike.g);const i=BIKES.indexOf(M.bike);if(i>=0)BIKES.splice(i,1);},
+    end:M=>{say(G.an,'找到了！謝謝你！',3.4);if(P.riding&&bike===M.bike)dismount();const [x,z]=msStand(G.an.x+1.5,G.an.z+1.5,0.5);M.bike.home={x,z,rot:0.6,label:'第四宿舍'};placeBike(M.bike,x,z,0.6);},
+    steps:[
+      {zh:'到停車場找粉紅色腳踏車',en:'Look for a pink bike at the bike parks',t:parkNext,note:M=>M.checked.size?'找過 '+M.checked.size+' 處':'',
+        ok:(M,d,dt,t)=>{if(!t||d>14)return false;if(t.p===M.park)return true;M.checked.add(t.p);toast('',t.p.label,'這裡沒有 Not here',1800);return false;}},
+      {zh:'騎上粉紅色腳踏車',en:'Get on the pink bike',t:M=>({x:M.bike.px,z:M.bike.pz,y:ground(M.bike.px,M.bike.pz)}),ok:M=>P.riding&&bike===M.bike},
+      {zh:'騎回第四宿舍給小安',en:'Ride it back to 小安',t:()=>npcT(G.an),ok:M=>Math.hypot(M.bike.px-G.an.x,M.bike.pz-G.an.z)<6}]});
+  L.push({id:'night',zh:'夜釣之約',en:'Night fishing',giver:G.hai,who:'阿海 · 第二餐廳',when:()=>{const h=gameHour();return h>=19||h<4;},whenZh:'19:00 後',
+    greet:'晚上一起去小艇碼頭釣魚吧？大家都在那邊等了！',idle:['下次再一起去釣魚！'],doneEn:'A quiet night by the harbour',
+    start:M=>{const [x,z]=G.pier,w=nearestWater(x,z)||[x,z-5],dx=w[0]-x,dz=w[1]-z,l=Math.hypot(dx,dz)||1,tx=-dz/l,tz=dx/l;M.f=[];M.c={x,z,y:ground(x,z)};
+      for(const k of [-1.7,0,1.7]){const px=x+tx*k,pz=z+tz*k,n=msNpc(px,pz,px+dx,pz+dz,false);
+        const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.02,2.2,4),toon(0x3a2a1a));rod.position.set(0.2,1.3,0.7);rod.rotation.x=1.05;n.g.add(rod);M.f.push(n);}},
+    clean:M=>{if(M.f)MS.temp.push(...M.f);},
+    tick:(M,dt)=>{if(MS.step===1&&M.f&&(M.chat=(M.chat||4)-dt)<=0){M.chat=7;say(pick(M.f),pick(['有咬餌了嗎？','今天風好舒服','你看那艘船','好安靜喔','又放空了…','星星好多']),2.6);}},
+    end:M=>say(M.f[0],'下次再約！',3),
+    steps:[
+      {zh:'到小艇碼頭找朋友',en:'Meet your friends at the boat pier',t:M=>M.c,ok:(M,d)=>d<6},
+      {zh:'和大家一起看夜景',en:'Watch the harbour lights together',t:M=>M.c,ok:(M,d,dt)=>{if(d<10)M.w=(M.w||0)+dt;return M.w>=30;},note:M=>'看夜景 '+Math.ceil(30-(M.w||0))+' s'}]});
+  const C=G.court;
+  if(C)L.push({id:'court',zh:'球場補一咖',en:'Pickup game',giver:G.kai,who:'阿凱 · 籃球場',when:()=>{const h=gameHour();return h>=7&&h<22;},whenZh:'07:00–22:00',
+    greet:'我們三對三還少一個人，要不要一起打？',idle:['再來打球啊！'],doneEn:'Good game!',
+    start:()=>{C.mis=true;},clean:()=>{C.mis=false;},
+    tick:(M,dt)=>{if(MS.step===1&&(M.chat=(M.chat||3)-dt)<=0){M.chat=6;const L2=C.list.filter(s=>s.state==='sport');if(L2.length)say(pick(L2),pick(['傳我！','好球！','防守！','漂亮！','再一球！']),1.8);}},
+    end:()=>say(G.kai,'打得不錯！下次再來！',3.4),
+    steps:[
+      {zh:'走進球場',en:'Step onto the court',t:()=>({x:C.x,z:C.z,y:C.y}),ok:()=>inCourt(C)&&!P.riding&&!DRIVE.v},
+      {zh:'一起打球',en:'Play a pickup game',t:()=>({x:C.x,z:C.z,y:C.y}),ok:(M,d,dt)=>{if(inCourt(C,1))M.p=(M.p||0)+dt;return M.p>=45;},note:M=>'打球中 '+Math.ceil(45-(M.p||0))+' s'}]});
+  L.push({id:'race',zh:'第一場比賽',en:'First race',giver:G.racer,who:'學長 · 第一餐廳 比賽起點',
+    greet:'要不要比一場？騎到海空大樓，前三名我請你喝飲料！',idle:['再比一場嗎？起點在那邊！'],doneEn:'You finished your first race',
+    start:()=>{RACE.lastPlace=null;},
+    end:M=>{const p=M.place||6;toast('任務完成',p<=3?'前三名！學長請你喝飲料':'完賽就很棒了！',p<=3?'Top 3: 學長 owes you a drink':'Finishing is what counts',4200,true);},
+    steps:[
+      {zh:'到起點開始比賽',en:'Start a race at the start circle',t:()=>({x:G.raceSpot.x,z:G.raceSpot.z,y:ground(G.raceSpot.x,G.raceSpot.z)}),ok:()=>RACE.active},
+      {zh:'完成比賽',en:'Finish the race',t:()=>null,ok:M=>{if(RACE.lastPlace){M.place=RACE.lastPlace;return true;}if(!RACE.active)M.back=0;return false;}}]});
+  L.push({id:'ride',zh:'代駕學長',en:'Give 阿德 a ride',giver:G.de,who:'阿德 · 郵局門口',
+    greet:'這箱子好重…可以開車載我到海空大樓嗎？',idle:['上次多謝你載我！'],doneEn:'阿德 and his box arrived safely',
+    start:M=>{M.bumps=0;},
+    clean:(M,ok)=>{if(!ok){msPlace(G.de,G.deHome[0],G.deHome[1],-120,-85);}},
+    end:M=>{const [x,z]=msStand(G.drop[0],G.drop[1],2);msPlace(G.de,x,z,G.drop[0],G.drop[1]);say(G.de,M.bumps>2?'呼…總算到了，下次開慢一點啦':'謝啦！坐得很舒服！',3.8);},
+    steps:[
+      {zh:'找一台汽車或機車',en:'Get in a car or on a scooter',t:()=>{let b=null,bd=1e9;for(const v of PARKED){if(v.type==='bus'||v.type==='truck')continue;const d=Math.hypot(v.x-P.x,v.z-P.z);if(d<bd){bd=d;b=v;}}return b?{x:b.x,z:b.z,y:ground(b.x,b.z)}:null;},
+        ok:()=>DRIVE.v&&DRIVE.v.type!=='bus'},
+      {zh:'開到郵局載阿德',en:'Pick up 阿德 at the post office',t:()=>npcT(G.de),ok:(M,d)=>{if(!DRIVE.v){M.back=0;return false;}return d<7&&Math.abs(DRIVE.speed)<2;},
+        then:()=>{G.de.g.visible=false;say(DRIVE.v,'出發！',1.6);blip(660,660,0.1,0.05);}},
+      {zh:'載阿德到海空大樓',en:'Drive 阿德 to 海空大樓',t:()=>({x:G.drop[0],z:G.drop[1],y:ground(G.drop[0],G.drop[1])}),note:()=>DRIVE.v?'':'回到車上 Back in the car',
+        ok:(M,d)=>DRIVE.v&&d<10&&Math.abs(DRIVE.speed)<2}]});
+  for(const m of L)if(m.giver&&!m.giver.bang)msBang(m.giver);
   // the beacon: a soft column of light with a bobbing arrow
   const g=new THREE.Group();const col=new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,30,20,1,true),new THREE.MeshBasicMaterial({color:0xf2c230,transparent:true,opacity:0.22,side:THREE.DoubleSide,depthWrite:false}));col.position.y=15;g.add(col);
-  const arr=new THREE.Mesh(new THREE.ConeGeometry(0.6,1.2,4),new THREE.MeshBasicMaterial({color:0xf2c230}));arr.rotation.x=Math.PI;arr.position.y=3.4;g.add(arr);g.visible=false;scene.add(g);MIS.beacon=g;MIS.arrow=arr;
-  refreshMission();
+  const arr=new THREE.Mesh(new THREE.ConeGeometry(0.6,1.2,4),new THREE.MeshBasicMaterial({color:0xf2c230}));arr.rotation.x=Math.PI;arr.position.y=3.4;g.add(arr);g.visible=false;scene.add(g);MS.beacon=g;MS.arrow=arr;
+  msLoad();
 }
-function setMissionStep(n){MIS.step=n;try{localStorage.setItem(MIS_KEY,n<0?'done':String(n));}catch(e){}MIS.done=n<0;refreshMission();}
-function refreshMission(){const el=$('#mission');if(!el)return;const on=!MIS.done&&MIS.step>=0&&mode==='play';el.hidden=!on;if(!on)return;
-  const s=MIS_STEPS[MIS.step];$('#msStep').textContent=(MIS.step+1)+' / '+MIS_STEPS.length;$('#msTask').textContent=s.zh;$('#msEn').textContent=s.en;}
-// where the objective is right now (world point, or inside the library)
-function missionTarget(){
-  if(MIS.step===0)return MIS.npc?{x:MIS.npc.x,z:MIS.npc.z,y:ground(MIS.npc.x,MIS.npc.z)}:null;
-  if(MIS.step===1){let b=null,bd=1e9;for(const k of BIKES){const d=Math.hypot(k.px-P.x,k.pz-P.z);if(d<bd){bd=d;b=k;}}return b?{x:b.px,z:b.pz,y:ground(b.px,b.pz)}:null;}
-  if(MIS.step===2&&MIS.door)return {x:MIS.door[0],z:MIS.door[1],y:ground(MIS.door[0],MIS.door[1])};
-  if(MIS.step===3&&INT.lib){const I=INT.lib;
-    if(!INT.inside){const [x,z]=I.Ww(I.doorMain,-1.4);return {x,z,y:I.y0};}
-    if(INT.space==='lib'&&INT.floor!==1){const c=INT.cab,[x,z]=I.floorW(INT.floor)((c.u0+c.u1)/2,(c.v0+c.v1)/2);return {x,z,y:IN_Y,inside:true};}
-    if(INT.space==='lib'){const [x,z]=I.floorW(1)(I.doorMain,5.4);return {x,z,y:IN_Y,inside:true};}}
-  return null;}
+function msLoad(){MS.done=new Set();MS.act=null;MS.step=0;MS.M={};
+  try{const d=JSON.parse(localStorage.getItem(MS_KEY)||'null');
+    if(d){(d.done||[]).forEach(i=>MS.done.add(i));MS.act=d.act||null;MS.step=d.step|0;}
+    else{const v=localStorage.getItem('ntou-walk-mission1');if(v==='done')MS.done.add('m1');else if(v!=null){MS.act='m1';MS.step=+v||0;}}}catch(e){}
+  if(!MS.done.has('m1'))MS.act='m1';
+  const def=msDef(MS.act);if(!def){MS.act=null;}
+  else if(MS.act!=='m1'){MS.step=0;def.start&&def.start(MS.M);}   // anything left half-way starts over
+  if(def&&MS.step>=def.steps.length)MS.step=0;
+  refreshMission();}
+function msReset(){const def=msDef(MS.act);if(def&&def.clean)def.clean(MS.M,false);try{localStorage.removeItem(MS_KEY);localStorage.removeItem('ntou-walk-mission1');}catch(e){}msLoad();}
+function msAvail(m){return (m.id==='m1'||MS.done.has('m1'))&&!MS.done.has(m.id)&&(!m.when||m.when());}
+function startMission(m){MS.act=m.id;MS.step=0;MS.M={};if(m.start)m.start(MS.M);if(m.greet&&m.giver)say(m.giver,m.greet,4.6);chime();msSave();refreshMission();}
+function finishMission(){const m=msDef(MS.act),M=MS.M;MS.done.add(m.id);MS.act=null;MS.step=0;
+  if(m.end)m.end(M);if(m.clean)m.clean(M,true);msSave();refreshMission();chime();setTimeout(chime,380);
+  if(m.id!=='race')toast('任務完成','任務完成：'+m.zh,m.doneEn||'Mission complete',5200,true);
+  if(m.id==='m1')setTimeout(()=>{if(!MS.act)toast('','新任務','頭上有 ! 的人有事想請你幫忙',4200);},6000);}
+function dropMission(){const m=msDef(MS.act);if(!m)return;if(m.clean)m.clean(MS.M,false);MS.act=null;MS.step=0;MS.M={};msSave();refreshMission();toast('','已放棄任務：'+m.zh,'Mission dropped',2400);}
+function missionCrash(closing){if(MS.act==='ride'&&MS.step===2&&closing>2.5){MS.M.bumps=(MS.M.bumps||0)+1;if(DRIVE.v)say(DRIVE.v,pick(['小心啦！','慢一點～','我的箱子！']),1.6);}}
+function refreshMission(){const el=$('#mission');if(!el)return;const m=msDef(MS.act);const on=!!m&&mode==='play'&&!RACE.active;el.hidden=!on;
+  const n=$('#mMisN');if(n)n.textContent=MS.done.size+' / '+MS.list.length;if(!on)return;
+  const s=m.steps[MS.step],M=MS.M,f=v=>typeof v==='function'?v(M):v;
+  $('#msName').textContent=m.zh;$('#msStep').textContent=m.steps.length>1?' · '+(MS.step+1)+' / '+m.steps.length:'';$('#msTask').textContent=f(s.zh);$('#msEn').textContent=f(s.en);}
+// where the objective is right now, and the point the beacon shows (the way out first when you are in another space)
+function missionTarget(){const m=msDef(MS.act);if(!m)return null;let t=m.steps[MS.step].t(MS.M);if(t&&INT.inside&&!t.inside)t=msExit();return t;}
 function updateMission(dt){
-  if(MIS.npc)tickBubble(MIS.npc,dt,MIS.npc.x,ground(MIS.npc.x,MIS.npc.z)+2.6,MIS.npc.z);
-  if(MIS.clerk)tickBubble(MIS.clerk,dt,MIS.clerk.x,ground(MIS.clerk.x,MIS.clerk.z)+2.6,MIS.clerk.z);
-  const el=$('#mission');if(el&&el.hidden!==(MIS.done||MIS.step<0||mode!=='play'))refreshMission();
-  if(MIS.done||MIS.step<0){if(MIS.beacon)MIS.beacon.visible=false;
-    // after it's done 學姐 still says hello now and then
-    if(MIS.npc&&!INT.inside&&Math.hypot(P.x-MIS.npc.x,P.z-MIS.npc.z)<4&&(MIS.talkT-=dt)<=0){say(MIS.npc,pick(['學弟妹加油！','要去圖書館嗎？','記得帶傘喔，基隆常下雨']),2.4);MIS.talkT=20;}
+  for(const n of MS.npcs)if(n.g.visible)tickBubble(n,dt,n.x,n.g.position.y+2.5,n.z);
+  for(let i=MS.temp.length-1;i>=0;i--){const n=MS.temp[i];if(Math.hypot(n.x-WPOS.x,n.z-WPOS.z)>70){msRemoveNpc(n);MS.temp.splice(i,1);}}
+  const el=$('#mission'),want=!!MS.act&&mode==='play'&&!RACE.active;if(el&&el.hidden===want)refreshMission();
+  const bob=Math.sin(performance.now()/300)*0.15;
+  {const vis=new Map();for(const m of MS.list){const g=m.giver;if(!g||!g.bang)continue;vis.set(g,vis.get(g)||(!MS.act&&msAvail(m)&&g.g.visible&&!INT.inside));}
+    for(const [g,on] of vis){g.bang.visible=on;if(on)g.bang.position.set(g.x,g.g.position.y+2.75+bob,g.z);}}
+  if(!MS.act){MS.beacon.visible=false;
+    if(INT.inside||P.onBus||RACE.active)return;
+    for(const m of MS.list)if(m.giver&&msAvail(m)&&Math.hypot(P.x-m.giver.x,P.z-m.giver.z)<3.2){startMission(m);return;}
+    if((MS.talkT-=dt)<=0)for(const m of MS.list)if(m.giver&&m.idle&&MS.done.has(m.id)&&Math.hypot(P.x-m.giver.x,P.z-m.giver.z)<4){say(m.giver,pick(m.idle),2.6);MS.talkT=20;break;}
     return;}
-  const t=missionTarget();
-  // beacon over the target, and how far it is
-  if(t&&MIS.beacon){const show=!!t.inside===INT.inside;MIS.beacon.visible=show;MIS.beacon.position.set(t.x,t.y,t.z);MIS.arrow.position.y=3.4+Math.sin(performance.now()/300)*0.3;
-    $('#msDist').textContent=show?Math.round(Math.hypot(t.x-P.x,t.z-P.z))+' m':'';}
-  const d=t?Math.hypot(t.x-P.x,t.z-P.z):1e9;
-  if(MIS.step===0&&d<4.5&&!INT.inside){say(MIS.npc,'歡迎來到海大！先騎腳踏車去行政大樓領學生證吧！',4.2);chime();setMissionStep(P.riding?2:1);}
-  else if(MIS.step===1&&P.riding){blip(880,880,0.12,0.05);setMissionStep(2);}
-  else if(MIS.step===2&&d<4){say(MIS.clerk,'新同學嗎？這是你的學生證，歡迎入學！',4);chime();toast('Student card','領到學生證','You got your student card',3200);setMissionStep(3);}
-  else if(MIS.step===3&&t&&t.inside&&INT.space==='lib'&&INT.floor===1&&d<3){chime();setTimeout(chime,380);
-    toast('Mission complete','任務完成：新生報到','You borrowed your first book — welcome to NTOU!',5200);setMissionStep(-1);}
+  const m=msDef(MS.act),M=MS.M,s=m.steps[MS.step];
+  if(m.tick)m.tick(M,dt);
+  const raw=s.t(M);let t=raw;if(t&&INT.inside&&!t.inside)t=msExit();
+  const show=!!t&&!!t.inside===INT.inside;MS.beacon.visible=show;if(show){MS.beacon.position.set(t.x,t.y,t.z);MS.arrow.position.y=3.4+bob*2;}
+  const d=raw?Math.hypot(raw.x-P.x,raw.z-P.z):1e9;
+  const note=(s.note&&s.note(M))||(m.note&&m.note(M))||'';
+  $('#msDist').textContent=[show?Math.round(Math.hypot(t.x-P.x,t.z-P.z))+' m':'',note].filter(Boolean).join(' · ');
+  if(s.ok(M,d,dt,raw)){if(s.then)s.then(M);MS.step++;if(MS.step>=m.steps.length){finishMission();return;}blip(880,880,0.12,0.05);msSave();refreshMission();}
+  else if(M.back!=null){MS.step=M.back;M.back=null;msSave();refreshMission();}
+  else if(s.zh.call||s.en.call)refreshMission();
 }
-function drawMissionOnMini(px,pz,k,W,H){if(MIS.done||MIS.step<0||INT.inside)return;const t=missionTarget();if(!t)return;
-  let x=(t.x-G.x0-px)*k+W/2,y=(t.z-G.z0-pz)*k+H/2;const cx=W/2,cy=H/2;const m=8;
-  if(x<m||y<m||x>W-m||y>H-m){const dx=x-cx,dy=y-cy,s=Math.min((W/2-m)/Math.abs(dx||1e-6),(H/2-m)/Math.abs(dy||1e-6));x=cx+dx*s;y=cy+dy*s;}   // pinned to the edge when off the map
-  mini.fillStyle='#f2c230';mini.strokeStyle='#0b1c2c';mini.lineWidth=2;mini.beginPath();mini.arc(x,y,6,0,TAU);mini.fill();mini.stroke();}
+function drawMissionOnMini(px,pz,k,W,H,g=mini,big=false){
+  const P2=(x,z)=>big?[(x-G.x0)*k,(z-G.z0)*k]:[(x-G.x0-px)*k+W/2,(z-G.z0-pz)*k+H/2];
+  if(!MS.act){for(const m of MS.list){if(!m.giver||!msAvail(m)||!m.giver.g.visible)continue;const [x,y]=P2(m.giver.x,m.giver.z);if(x<0||y<0||x>W||y>H)continue;
+      g.fillStyle='#f2c230';g.strokeStyle='#0b1c2c';g.lineWidth=1.5;g.beginPath();g.arc(x,y,big?8:5,0,TAU);g.fill();g.stroke();g.fillStyle='#0b1c2c';g.font=`900 ${big?11:8}px sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText('!',x,y+0.5);}
+    return;}
+  if(INT.inside&&!big)return;const raw=msDef(MS.act).steps[MS.step].t(MS.M);if(!raw||raw.inside)return;
+  let [x,y]=P2(raw.x,raw.z);const cx=W/2,cy=H/2,mg=8;
+  if(!big&&(x<mg||y<mg||x>W-mg||y>H-mg)){const dx=x-cx,dy=y-cy,s=Math.min((W/2-mg)/Math.abs(dx||1e-6),(H/2-mg)/Math.abs(dy||1e-6));x=cx+dx*s;y=cy+dy*s;}   // pinned to the edge when off the map
+  g.fillStyle='#f2c230';g.strokeStyle='#0b1c2c';g.lineWidth=2;g.beginPath();g.arc(x,y,big?9:6,0,TAU);g.fill();g.stroke();}
+function openMissions(){const ol=$('#msList');ol.innerHTML='';
+  MS.list.forEach((m,i)=>{const li=document.createElement('li');const st=MS.done.has(m.id)?['完成','done']:MS.act===m.id?['進行中','on']:(m.id!=='m1'&&!MS.done.has('m1'))?['完成新生報到後','lock']:m.when&&!m.when()?[m.whenZh,'wait']:['找 '+m.who.split(' · ')[0],'open'];
+    li.className=st[1];li.innerHTML=`<i>${i+1}</i><div><b></b><span></span><small></small></div><em></em>`;
+    li.querySelector('b').textContent=m.zh;li.querySelector('span').textContent=m.en;li.querySelector('small').textContent=m.who;li.querySelector('em').textContent=st[0];ol.appendChild(li);});
+  $('#msDrop').hidden=!MS.act;show('#missions',true);$('#msDone').focus();}
 
 /* ---------- characters ---------- */
 function makeChar(gender){
@@ -3157,7 +3345,7 @@ $('#cfYes').addEventListener('click',()=>{show('#confirm',false);toPick();});
 $('#pickBack').addEventListener('click',toTitle);
 $('#go').addEventListener('click',()=>{phoneFullscreen();primeSpeech();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
-  found.clear();try{localStorage.removeItem(MIS_KEY);}catch(e){}MIS.done=false;MIS.step=0;show('#pick',false);startNewDay();startPlay();startIntro();});
+  found.clear();msReset();show('#pick',false);startNewDay();startPlay();startIntro();});
 // a new game always begins at 09:00, then the clock runs on from there
 function startNewDay(){resetClock();WX.key='clear';WX.target={cloud:0,rain:0,fog:0,thunder:0};Object.assign(WX.mix,WX.target);WX.wet=0;WX.next=performance.now()/1000+300;const base=realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
 // settings
@@ -3180,7 +3368,7 @@ $('#tSet').addEventListener('click',()=>openSettings($('#tSet')));
 $('#setDone').addEventListener('click',()=>{show('#settings',false);modalBack&&modalBack.focus();});
 // in-game menu: the world pauses while it is open
 function openMenu(){if(mode!=='play')return;mode='pause';for(const k in keys)keys[k]=false;joy.x=joy.y=0;DRIVE.hand=false;show('#menu',true);$('#mResume').focus();}
-function closeMenu(){if(mode!=='pause')return;show('#menu',false);show('#settings',false);mode='play';cv.focus();}
+function closeMenu(){if(mode!=='pause')return;show('#menu',false);show('#settings',false);show('#missions',false);mode='play';cv.focus();}
 $('#menuBtn').addEventListener('click',openMenu);
 $('#mtMinus').addEventListener('click',()=>shiftClock(-1));$('#mtPlus').addEventListener('click',()=>shiftClock(1));$('#mtNow').addEventListener('click',()=>{resetClock();$('#mtFast').setAttribute('aria-pressed','false');});
 $('#mtFast').addEventListener('click',()=>{toggleFast();$('#mtFast').setAttribute('aria-pressed',CLOCK.fast);});
@@ -3191,6 +3379,9 @@ $('#mtFast').addEventListener('click',()=>{toggleFast();$('#mtFast').setAttribut
     document.addEventListener('fullscreenchange',lab);document.addEventListener('webkitfullscreenchange',lab);}}
 $('#mResume').addEventListener('click',closeMenu);
 $('#mSet').addEventListener('click',()=>openSettings($('#mSet')));
+$('#mMis').addEventListener('click',()=>{modalBack=$('#mMis');openMissions();});
+$('#msDone').addEventListener('click',()=>{show('#missions',false);modalBack&&modalBack.focus();});
+$('#msDrop').addEventListener('click',()=>{dropMission();show('#missions',false);modalBack&&modalBack.focus();});
 $('#mTitle').addEventListener('click',()=>{saveGame();location.reload();});
 $('#mQuit').addEventListener('click',()=>{saveGame();show('#menu',false);show('#hud',false);show('#touch',false);mode='bye';try{window.close();}catch(e){}show('#bye',true);$('#byeTitle').focus();});
 $('#byeTitle').addEventListener('click',()=>location.reload());
@@ -3198,6 +3389,7 @@ addEventListener('keydown',e=>{
   if(mode==='intro'&&['Escape','Space','Enter'].includes(e.code)){e.preventDefault();endIntro();return;}
   if(e.code!=='Escape')return;
   if(!$('#confirm').hidden){$('#cfNo').click();return;}
+  if(!$('#missions').hidden){$('#msDone').click();return;}
   if(!$('#settings').hidden){$('#setDone').click();return;}
   if(mode==='play'&&!$('#map').hidden)return;          // the map's own Esc handler closes it
   if(mode==='play')openMenu();else if(mode==='pause')closeMenu();else if(mode==='pick')toTitle();
@@ -3463,8 +3655,8 @@ function animateChar(c,dt,speed,air,run){
 
 /* ---------- discovery & HUD ---------- */
 function updateFound(){$('#found').textContent=`已探索 ${spots.filter(s=>found.has(s.id)).length} / ${spots.length}`;}
-let toastT=0;
-function toast(no,zh,en,ms){$('#tNo').textContent=no;$('#tZh').textContent=zh;$('#tEn').textContent=en;$('#toast').classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>$('#toast').classList.remove('on'),ms);}
+let toastT=0,toastPri=0;   // a mission message isn't covered by a place you happen to discover at the same moment
+function toast(no,zh,en,ms,pri){const now=performance.now();if(!pri&&now<toastPri){setTimeout(()=>toast(no,zh,en,ms),toastPri-now+60);return;}if(pri)toastPri=now+ms;$('#tNo').textContent=no;$('#tZh').textContent=zh;$('#tEn').textContent=en;$('#toast').classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>$('#toast').classList.remove('on'),ms);}
 function checkSpots(){
   for(const s of spots){if(found.has(s.id))continue;
     const near=s.poly?(pip(s.poly,WPOS.x,WPOS.z)||polyEdgeDist(s.poly,WPOS.x,WPOS.z)<s.r):Math.hypot(WPOS.x-s.x,WPOS.z-s.z)<s.r;
@@ -3520,6 +3712,7 @@ function drawBigMap(){
     else{g.fillStyle=f?'#2fa4d6':'#6b7682';g.beginPath();g.arc(x,y,5,0,TAU);g.fill();}
     if(f){g.font='700 11px "Noto Sans TC",sans-serif';const tw=g.measureText(s.zh).width;g.fillStyle='rgba(11,28,44,.8)';roundRect(g,x-tw/2-4,y+12,tw+8,16,4);g.fill();g.fillStyle='#fff8ec';g.fillText(s.zh,x,y+20);}}
   for(const b of BIKES){if(P.riding&&b===bike)continue;g.fillStyle='#7fd1c4';g.strokeStyle='#0b1c2c';g.lineWidth=1.5;g.beginPath();g.arc(X(b.px),Z(b.pz),5,0,TAU);g.fill();g.stroke();}
+  drawMissionOnMini(0,0,k,mapC.width,mapC.height,g,true);
   drawArrow(g,X(P.x),Z(P.z),P.rot,13);
 }
 function toggleMap(){const m=$('#map');m.hidden=!m.hidden;if(!m.hidden){drawBigMap();$('#mapClose').focus();}else cv.focus();}
@@ -3849,7 +4042,7 @@ function makeVehicle(type){
 }
 function spawnVehicle(c,lane,s){
   let type;const r=Math.random();
-  if(c.bus&&lane.outer&&r<0.08)type='bus';
+  if(c.bus&&lane.outer&&r<(MS.act==='harbour'&&MS.step===0?0.35:0.08))type='bus';   // more buses while a mission waits for one
   else if(r<0.5)type='scooter';else if(r<0.62)type='taxi';else if(r<0.93)type='car';else type='truck';
   if(type==='scooter'&&!lane.outer&&Math.random()<0.6)type='car';   // scooters keep to the outer lane mostly
   const m=makeVehicle(type);
@@ -4274,7 +4467,7 @@ function updateSports(dt){
         const u=Math.random()*1000,[x,z]=trackPt(T,d,u);const s=sportStudent(x,T.y,z);
         s.sport={kind:'track',T,d,u,spd:walker?1.3+Math.random()*0.3:2.6+Math.random()*1.6,walker};T.list.push(s);}
       else if(L.length>want&&L.length&&Math.hypot(L[0].x-P.x,L[0].z-P.z)>30)removeStudent(L[0]);}
-    for(const C of SPORT.courts){const L=live(C),near=Math.hypot(C.x-P.x,C.z-P.z)<150,want=near?sportCount('ball'):0;
+    for(const C of SPORT.courts){const L=live(C),near=Math.hypot(C.x-P.x,C.z-P.z)<150,want=near?Math.max(sportCount('ball'),C.mis?5:0):0;
       if(L.length<want){const x=C.x-C.lz*(C.wid+1),z=C.z+C.lx*(C.wid+1);const s=sportStudent(x,C.y,z);s.sport={kind:'ball',C,tx:x,tz:z,retT:0,shootT:0};C.list.push(s);}
       else if(L.length>want&&L.length&&Math.hypot(C.x-P.x,C.z-P.z)>40)removeStudent(L[L.length-1]);
       if(!C.list.length&&C.ball){scene.remove(C.ball.m);C.ball=null;}}}
