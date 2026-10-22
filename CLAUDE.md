@@ -236,6 +236,21 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   `kind:'floor'` slabs are stood on (`floorAt`) but never block, `nocam` solids don't pull the camera in. The
   building's single block solid is replaced by perimeter walls with door gaps (lintel above), plus entrance steps.
 
+## Seasons and weather (`WX`, `setupSeason`, `pickWeather`, `updateWeather`, user request)
+
+- Season from today's date in Taiwan (Mar–May spring, Jun–Aug summer, Sep–Nov autumn, Dec–Feb winter). Sunrise/sunset
+  follow the year (`WX.sr/ss`: ~05:05–18:50 in June, ~06:30–17:05 in December) and drive `updateSky` and the sun arc.
+  Tree leaf colours (`WX.leaf`): spring 12 % pink blossom + fresher green, autumn 24 % yellow/orange + warmer, winter
+  duller; terrain gets a seasonal tint uniform.
+- Weather states clear / cloudy / drizzle / rain / storm / fog (cloud, rain, fog, thunder mix), re-rolled every
+  4–9 min with ~35 s transitions, weighted per season for Keelung (`WX_SEASON`: wet winter monsoon, spring fog,
+  summer thunderstorms). A new game always starts fine (the intro); Settings → 天氣 自動 / 晴天 (always fine).
+- Effects: grey sky + closer fog (`scene.fog` near/far), dimmer sun, lamps and headlights on in dark weather
+  (`nightLevel` raised; coast lights follow `nightLevel`), rain as ~3000 streak point-sprites in a 40 m box round the
+  camera (1-px lines were invisible), wet ground (terrain shader `wxWet`, road and sidewalk materials darken),
+  umbrellas on students and on you when walking (not riding/driving/indoors), lightning flashes and delayed thunder
+  in storms, a rain hiss in the sound mix (muffled indoors), stronger breeze. HUD clock shows e.g. 一般時段 · 秋 · 雨.
+
 ## Sound (`SND`, `audioInit`, `updateAudio`)
 
 - Relaxing game: everything synthesised with Web Audio, no files. Output: master → DynamicsCompressor (−20 dB, 4:1) →

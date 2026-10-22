@@ -309,6 +309,7 @@ body.touch #toast b{font-size:1rem}
     <div class="sRow"><label>畫質 <span>Graphics</span></label><div class="seg" data-key="quality"><button type="button" data-v="low">低</button><button type="button" data-v="mid">中</button><button type="button" data-v="high">高</button></div></div>
     <div class="sRow"><label>車流量 <span>Traffic</span></label><div class="seg" data-key="traffic"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
     <div class="sRow"><label>人潮 <span>Crowd</span></label><div class="seg" data-key="crowd"><button type="button" data-v="0.5">少</button><button type="button" data-v="1">正常</button><button type="button" data-v="1.5">多</button></div></div>
+    <div class="sRow"><label>天氣 <span>Weather</span></label><div class="seg" data-key="weather"><button type="button" data-v="auto">自動</button><button type="button" data-v="clear">晴天</button></div></div>
     <div class="sRow"><label>聲音 <span>Sound</span></label><div class="seg" data-key="sound"><button type="button" data-v="on">開</button><button type="button" data-v="off">關</button></div></div>
     <div class="sRow"><label for="sSens">視角靈敏度 <span>Camera</span></label><input id="sSens" type="range" min="0.4" max="2" step="0.1"><output id="sSensV"></output></div>
     <button class="btn mDone" id="setDone" type="button">完成 Done</button>
@@ -355,7 +356,7 @@ const isTouch=matchMedia('(pointer:coarse)').matches||('ontouchstart' in window)
 // player settings, kept in this browser
 document.body.classList.toggle('touch',isTouch);
 const SET_KEY='ntou-walk-settings';
-const SET=Object.assign({quality:isTouch?'mid':'high',traffic:'1',crowd:'1',sound:'on',sens:1},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}')||{};}catch(e){return {};}})());
+const SET=Object.assign({quality:isTouch?'mid':'high',traffic:'1',crowd:'1',sound:'on',weather:'auto',sens:1},(()=>{try{return JSON.parse(localStorage.getItem(SET_KEY)||'{}')||{};}catch(e){return {};}})());
 const D=JSON.parse(document.getElementById('campus-data').textContent);
 
 /* ---------- terrain grid (heights in decimeters, 4 m cells) ---------- */
@@ -1078,9 +1079,9 @@ function drawRoadNet(){
       }}
   }
   // ---- meshes ----
-  rnMesh(B.major,offM(aTex('rnMajor','#4a4f55'),-1,-4));rnMesh(B.minor,offM(aTex('rnMinor','#585d63'),-1,-4));rnMesh(B.service,offM(aTex('rnService','#62676c'),-1,-4));
+  for(const [b,k2,c] of [[B.major,'rnMajor','#4a4f55'],[B.minor,'rnMinor','#585d63'],[B.service,'rnService','#62676c']]){const m=offM(aTex(k2,c),-1,-4);WX.roadMats.push(m);rnMesh(b,m);}
   const swC=sw.clone(),brC=brick.clone();for(const t of [swC,brC]){t.needsUpdate=true;t.wrapS=THREE.ClampToEdgeWrapping;t.wrapT=THREE.RepeatWrapping;}
-  rnMesh(B.sw,offM(swC,-1,-2));rnMesh(B.brick,offM(brC,-1,-2));rnMesh(B.pave,offM(pave,-1,-2));rnMesh(B.brickP,offM(brickP,-1,-2));
+  for(const [b,t] of [[B.sw,swC],[B.brick,brC],[B.pave,pave],[B.brickP,brickP]]){const m=offM(t,-1,-2);WX.roadMats.push(m);rnMesh(b,m);}
   rnMesh(B.kerb,new THREE.MeshToonMaterial({color:0x8b8780,gradientMap:grad,side:THREE.DoubleSide}));
   rnMesh(B.white,paint(0xf4f4ee,-10),false);rnMesh(B.yellow,paint(0xf2c230,-10),false);rnMesh(B.red,paint(0xd8463c,-10),false);rnMesh(B.teal,paint(0x3fae9b,-9),false);
   // ---- crossings become the game's crossing spots (traffic stops, pedestrians cross), with their traffic lights ----
@@ -1853,10 +1854,10 @@ function buildTerrain(){
   for(let i=0;i<pos.count;i++)pos.setY(i,HT[i]);
   geo.computeVertexNormals();
   const tm=toon(0xffffff,tex);
-  tm.onBeforeCompile=sh=>{sh.uniforms.detailMap={value:detail};
+  tm.onBeforeCompile=sh=>{sh.uniforms.detailMap={value:detail};sh.uniforms.wxWet=WX.u.wet;sh.uniforms.wxTint=WX.u.tint;
     sh.vertexShader='varying vec2 vDUv;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vDUv=(modelMatrix*vec4(position,1.0)).xz/4.0;');
-    sh.fragmentShader='uniform sampler2D detailMap;\nvarying vec2 vDUv;\n'+sh.fragmentShader.replace('#include <map_fragment>',
-      '#include <map_fragment>\n  diffuseColor.rgb*=mix(vec3(1.0),texture2D(detailMap,vDUv).rgb*2.0,0.42);\n  diffuseColor.rgb*=mix(vec3(1.0),texture2D(detailMap,vDUv*0.13+0.37).rgb*2.0,0.3);\n  diffuseColor.rgb*=0.8;');};   // the sun + sky add up to ~1.5x: keep pale paving below white so its texture still shows
+    sh.fragmentShader='uniform sampler2D detailMap;\nuniform float wxWet;\nuniform vec3 wxTint;\nvarying vec2 vDUv;\n'+sh.fragmentShader.replace('#include <map_fragment>',
+      '#include <map_fragment>\n  diffuseColor.rgb*=mix(vec3(1.0),texture2D(detailMap,vDUv).rgb*2.0,0.42);\n  diffuseColor.rgb*=mix(vec3(1.0),texture2D(detailMap,vDUv*0.13+0.37).rgb*2.0,0.3);\n  diffuseColor.rgb*=0.8*wxTint*(1.0-0.25*wxWet);');};   // the sun + sky add up to ~1.5x: keep pale paving below white so its texture still shows
   const m=new THREE.Mesh(geo,tm);m.position.set(G.x0+GW/2,0,G.z0+GH/2);m.receiveShadow=true;scene.add(m);
   // outer land skirt so the world does not end in a cliff edge
   const skirt=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),toon(0x6fae55));skirt.rotation.x=-Math.PI/2;skirt.position.y=-8;scene.add(skirt);
@@ -2199,6 +2200,7 @@ function trees(){
     const o={kind:'circle',x,z,r:0.5*s,top:y+4,mat:'tree'};gridAdd(o,x-1,z-1,x+1,z+1);
   });
   trunk.castShadow=leaf.castShadow=true;leaf.receiveShadow=true;scene.add(trunk,leaf,leafO);
+  WX.leaf={mesh:leaf,base:pts.map((_,i)=>{leaf.getColorAt(i,col);return col.getHex();})};
 }
 function onCampus(x,z){return D.campus.some(c=>pip(c,x,z));}
 function free(x,z,pad){for(const o of cell(x,z)){if(o.kind==='poly'){if(pip(o.p,x,z)||polyEdgeDist(o.p,x,z)<pad)return false;}else if(Math.hypot(o.x-x,o.z-z)<o.r+pad)return false;}return true;}
@@ -2222,7 +2224,7 @@ function coastProps(){
    at night; the research ship docking at the campus wharf; channel buoys, the harbour light on the breakwater, gulls,
    people fishing on the seawall, 基隆嶼 on the horizon and squid-jigging boats lit up offshore at night ---------- */
 const COAST={boats:[],gulls:[],blink:[],night:[],squid:[],foamTex:null};
-const coastDark=()=>{const h=gameHour();return h<5.8||h>=18.4;};
+const coastDark=()=>nightLevel>0.5;
 function buildCoast(){
   const rockTex=canvasTex(128,128,g=>{g.fillStyle='#8f8a80';g.fillRect(0,0,128,128);
     for(let i=0;i<70;i++){const c=['#a7a196','#7d786f','#bdb7ab','#6f6a62'][i%4];g.fillStyle=c;g.beginPath();g.ellipse(Math.random()*128,Math.random()*128,5+Math.random()*9,4+Math.random()*6,Math.random()*3,0,TAU);g.fill();}});
@@ -2374,7 +2376,7 @@ function buildWorld(){
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
-  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();setupSeason();buildRain();pickWeather(true);
 }
 
 /* ---------- interiors: the library (圖書館, 圖書一館) with the 7-ELEVEN X-STORE 8 on its ground floor.
@@ -2887,7 +2889,7 @@ $('#go').addEventListener('click',()=>{phoneFullscreen();primeSpeech();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
   found.clear();show('#pick',false);startNewDay();startPlay();startIntro();});
 // a new game always begins at 09:00, then the clock runs on from there
-function startNewDay(){resetClock();const base=realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
+function startNewDay(){resetClock();WX.key='clear';WX.target={cloud:0,rain:0,fog:0,thunder:0};Object.assign(WX.mix,WX.target);WX.wet=0;WX.next=performance.now()/1000+300;const base=realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
 // settings
 function applySettings(first){
   const pr={low:1,mid:Math.min(devicePixelRatio||1,1.25),high:Math.min(devicePixelRatio||1,isTouch?1.5:2)}[SET.quality]||1;
@@ -2897,6 +2899,7 @@ function applySettings(first){
   VEH.max=Math.round(VEH.base*+SET.traffic);STU.max=Math.round(STU.base*+SET.crowd);
   for(const seg of document.querySelectorAll('.seg'))for(const b of seg.children)b.setAttribute('aria-pressed',String(SET[seg.dataset.key])===b.dataset.v);
   refreshSoundBtn();if(!first&&soundOn())audioInit();
+  if(!first&&WX.season)pickWeather(SET.weather==='clear');
   $('#sSens').value=SET.sens;$('#sSensV').textContent='×'+(+SET.sens).toFixed(1);
 }
 const saveSettings=()=>{try{localStorage.setItem(SET_KEY,JSON.stringify(SET));}catch(e){}};
@@ -3266,23 +3269,100 @@ function periodLabel(h){return isNight(h)?'深夜 · 閃光號誌':isPeak(h)?'�
 function fmtClock(){const s=gameSec();const hh=Math.floor(s/3600),mm=Math.floor(s%3600/60);return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');}
 
 /* ---------- sky and light follow the hour ---------- */
+const _wxGrey=new THREE.Color();
 const SKY_DAY=new THREE.Color(0x9fdcf5),SKY_DUSK=new THREE.Color(0xf2a76b),SKY_NIGHT=new THREE.Color(0x14233b);
 const hemi=scene.children.find(o=>o.isHemisphereLight);
 let lampMats=[];
+/* ---------- seasons and weather. The season comes from today's date in Taiwan: sunrise/sunset move through the year
+   and the trees change colour. The weather drifts between states every few minutes, weighted for Keelung (the 雨都:
+   drizzly winter monsoon, spring fog and plum rain, summer afternoon thunderstorms, fine autumns). Rain brings grey
+   skies, closer fog, falling streaks, wet dark ground, umbrellas, a rain sound (muffled indoors) and, in storms,
+   lightning and thunder. Settings → 天氣 can keep it always fine. ---------- */
+const WX={key:'clear',mix:{cloud:0,rain:0,fog:0,thunder:0},target:{cloud:0,rain:0,fog:0,thunder:0},next:0,flash:0,thT:25,wet:0,
+  drops:null,dropV:null,season:'',sr:5.8,ss:17.9,leaf:null,u:{wet:{value:0},tint:{value:new THREE.Color(1,1,1)}},roadMats:[],uT:0};
+const WX_TYPES={clear:[0,0,0,0,'晴','Clear'],cloudy:[0.6,0,0,0,'多雲','Cloudy'],drizzle:[0.75,0.35,0.15,0,'毛毛雨','Drizzle'],rain:[0.9,0.75,0.3,0,'雨','Rain'],storm:[1,1,0.35,1,'雷雨','Thunderstorm'],fog:[0.55,0,1,0,'起霧','Fog']};
+const WX_SEASON={   // chance of each state (clear, cloudy, drizzle, rain, storm, fog)
+  winter:[0.12,0.25,0.3,0.23,0,0.1],spring:[0.25,0.3,0.2,0.1,0.03,0.12],summer:[0.5,0.2,0.05,0.07,0.15,0.03],autumn:[0.35,0.3,0.15,0.12,0.03,0.05]};
+const SEASON_ZH={spring:'春',summer:'夏',autumn:'秋',winter:'冬'};
+function taipeiDoy(){const d=new Date(Date.now()+8*3600e3);const s=Date.UTC(d.getUTCFullYear(),0,1);return Math.floor((d-s)/864e5)+1;}
+function setupSeason(){
+  const doy=taipeiDoy(),m=new Date(Date.now()+8*3600e3).getUTCMonth()+1,k=Math.cos(TAU*(doy-172)/365);
+  WX.season=m>=3&&m<=5?'spring':m>=6&&m<=8?'summer':m>=9&&m<=11?'autumn':'winter';
+  WX.sr=5.82-0.74*k;WX.ss=17.95+0.88*k;            // Keelung: ~05:05–18:50 in June, ~06:30–17:05 in December
+  WX.u.tint.value.setRGB(...({spring:[1,1.01,0.98],summer:[0.97,1.02,0.95],autumn:[1.03,0.99,0.9],winter:[0.95,0.96,0.97]})[WX.season]);
+  // trees: blossom in spring, deep green in summer, turning in autumn, dull in winter
+  const L=WX.leaf;if(L){const c=new THREE.Color(),rnd=(()=>{let s=7;return()=>(s=(s*16807)%2147483647)/2147483647;})();
+    L.base.forEach((h,i)=>{c.setHex(h);const r=rnd();
+      if(WX.season==='spring'){if(r<0.12)c.setHex(0xf2a7c3);else c.lerp(new THREE.Color(0x9ad46a),0.25);}
+      else if(WX.season==='autumn'){if(r<0.24)c.setHex([0xd9a03c,0xc9652e,0xe0b44a][(r*100|0)%3]);else c.lerp(new THREE.Color(0xa8a04a),0.15);}
+      else if(WX.season==='winter')c.lerp(new THREE.Color(0x6b8a6a),0.35);
+      L.mesh.setColorAt(i,c);});
+    L.mesh.instanceColor.needsUpdate=true;}
+}
+function pickWeather(first){
+  if(SET.weather==='clear'){WX.key='clear';}
+  else{const w=WX_SEASON[WX.season]||WX_SEASON.autumn,keys2=Object.keys(WX_TYPES);let r=Math.random(),k=0;while(k<w.length-1&&r>w[k]){r-=w[k];k++;}WX.key=keys2[k];}
+  const T=WX_TYPES[WX.key];WX.target={cloud:T[0],rain:T[1],fog:T[2],thunder:T[3]};
+  if(first)Object.assign(WX.mix,WX.target);
+  WX.next=performance.now()/1000+240+Math.random()*300;hudT=0;
+}
+function makeUmbrella(){const g=new THREE.Group();const col=pick([0x2f6fb8,0xd8463c,0xf2c230,0x2b2f36,0x4f9a72,0xff8aa8,0xffffff]);
+  const can=new THREE.Mesh(new THREE.ConeGeometry(0.72,0.34,10,1,true),new THREE.MeshToonMaterial({color:col,gradientMap:grad,side:THREE.DoubleSide}));can.position.y=2.32;g.add(can);
+  const sh=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,1.0,5),toon(0x2b2f36));sh.position.y=1.85;g.add(sh);g.position.set(0.18,0,0.05);g.visible=false;return g;}
+// rain: point sprites carrying a soft vertical streak (lines would be 1 px wide and vanish on sharp screens)
+function buildRain(){
+  const N=isTouch?1400:3000,pos=new Float32Array(N*3);
+  for(let i=0;i<N;i++)pos.set([(Math.random()-0.5)*40,Math.random()*24,(Math.random()-0.5)*40],i*3);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const tex=canvasTex(32,64,c=>{const gr=c.createLinearGradient(0,0,0,64);gr.addColorStop(0,'rgba(235,242,248,0)');gr.addColorStop(0.5,'rgba(235,242,248,.9)');gr.addColorStop(1,'rgba(235,242,248,0)');
+    c.fillStyle=gr;c.fillRect(14,0,4,64);});
+  WX.drops=new THREE.Points(g,new THREE.PointsMaterial({map:tex,size:0.7,transparent:true,opacity:0,depthWrite:false,sizeAttenuation:true}));WX.drops.frustumCulled=false;WX.drops.visible=false;scene.add(WX.drops);
+}
+function thunderSound(dist){const c=SND.ctx;if(!c||!soundOn())return;const t=c.currentTime+dist;
+  const s=c.createBufferSource();s.buffer=SND.white;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=220;const g=c.createGain();
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.5,t+0.08);g.gain.exponentialRampToValueAtTime(0.0001,t+3.2);s.connect(f);f.connect(g);g.connect(SND.master);s.start(t,Math.random()*1.5);s.stop(t+3.4);}
+function updateWeather(dt){
+  const now=performance.now()/1000;if(now>WX.next)pickWeather(false);
+  const k=Math.min(1,dt/35);for(const q of ['cloud','rain','fog','thunder'])WX.mix[q]+=(WX.target[q]-WX.mix[q])*k;
+  const rain=WX.mix.rain,indoors=INT.inside;
+  WX.wet=Math.max(0,Math.min(1,WX.wet+(rain>0.2?rain*0.03:-0.004)*dt*10));WX.u.wet.value=WX.wet;
+  for(const m of WX.roadMats)m.color.setScalar(1-0.28*WX.wet);
+  // lightning and thunder
+  if(WX.mix.thunder>0.5&&rain>0.6){WX.thT-=dt;if(WX.thT<=0){WX.flash=1;thunderSound(0.6+Math.random()*2.4);WX.thT=12+Math.random()*40;}}
+  WX.flash=Math.max(0,WX.flash-dt*5);
+  // the rain itself: streaks falling around the camera, slanted by the wind
+  const D2=WX.drops;if(D2){const on=rain>0.03&&!indoors;D2.visible=on;
+    if(on){D2.material.opacity=0.45+0.5*rain;const p=D2.geometry.attributes.position.array,cx=camera.position.x,cy=camera.position.y,cz=camera.position.z,n=p.length/3;
+      const vy=-(14+8*rain)*dt,vx=2.5*dt,vis=Math.floor(n*Math.min(1,0.3+rain));
+      for(let i=0;i<n;i++){const o=i*3;if(i>=vis){p[o+1]=-999;continue;}
+        let x=p[o]+vx,y=p[o+1]+vy,z=p[o+2];
+        if(y<cy-10||y<-50||Math.abs(x-cx)>20||Math.abs(z-cz)>20){x=cx+(Math.random()-0.5)*40;z=cz+(Math.random()-0.5)*40;y=cy+6+Math.random()*14;}   // a 40 m box round the camera
+        p[o]=x;p[o+1]=y;p[o+2]=z;}
+      D2.geometry.attributes.position.needsUpdate=true;}}
+  // umbrellas (a moment's delay so it isn't every frame)
+  WX.uT-=dt;if(WX.uT<=0){WX.uT=0.4;const up=rain>0.25;
+    for(const s of STU.list){if(!s.umb){s.umb=makeUmbrella();s.g.add(s.umb);}s.umb.visible=up&&s.state!=='sport'&&s.state!=='down';}
+    for(const c of Object.values(chars))if(c&&c.umb)c.umb.visible=up&&c===player&&!P.riding&&!DRIVE.v&&!P.onBus&&!indoors;}
+}
+function weatherLabel(){const T=WX_TYPES[WX.key];return (SEASON_ZH[WX.season]||'')+' · '+T[4];}
 function smooth(a,b,x){const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);}
 let nightLevel=0;
 function updateSky(){
   const h=gameHour();
-  const day=smooth(5.3,7,h)*(1-smooth(17.6,19.2,h));
-  const dusk=Math.max(smooth(5,6.2,h)*(1-smooth(6.2,7.4,h)),smooth(16.8,18,h)*(1-smooth(18,19.4,h)));
+  const SR=WX.sr,SS=WX.ss,cl=WX.mix.cloud,fg=WX.mix.fog,rn=WX.mix.rain,fl=WX.flash;
+  const day=smooth(SR-0.5,SR+1.2,h)*(1-smooth(SS-0.4,SS+1.2,h));
+  const dusk=Math.max(smooth(SR-0.8,SR+0.4,h)*(1-smooth(SR+0.4,SR+1.6,h)),smooth(SS-1.1,SS+0.1,h)*(1-smooth(SS+0.1,SS+1.5,h)))*(1-cl*0.8);
   const c=SKY_NIGHT.clone().lerp(SKY_DAY,day).lerp(SKY_DUSK,dusk*0.75);
+  c.lerp(_wxGrey.setHex(0x8f9ba6).multiplyScalar(0.25+0.75*day),Math.min(0.85,cl*0.7+fg*0.45));   // overcast greys the sky
+  if(fl>0)c.lerp(_wxGrey.setHex(0xdfe8ff),fl*0.6);
   scene.background.copy(c);scene.fog.color.copy(c);
-  sun.intensity=0.08+0.85*day;sun.color.setHex(dusk>0.3?0xffc89a:0xfff4e0);
-  if(hemi)hemi.intensity=0.32+0.32*day;
-  nightLevel=1-day;
+  scene.fog.near=220*(1-0.8*fg)*(1-0.4*rn);scene.fog.far=700*(1-0.72*Math.max(fg,rn*0.55));
+  sun.intensity=(0.08+0.85*day)*(1-0.68*cl)+fl*1.2;sun.color.setHex(dusk>0.3?0xffc89a:0xfff4e0);
+  if(hemi)hemi.intensity=(0.32+0.32*day)*(1-0.2*cl)+fl*0.8;
+  nightLevel=Math.max(1-day,Math.min(0.75,cl*0.45+rn*0.35));   // lamps and headlights come on in dark weather
   for(const m of lampMats)m.color.setHex(nightLevel>0.5?0xfff1b0:0xf4efe0);
   // sun moves across the sky (rises over the sea to the east, sets behind the hills)
-  const a=(h-6)/12*Math.PI;sunDir.set(Math.cos(a)*70,Math.max(15,Math.sin(a)*90),35);
+  const a=(h-SR)/(SS-SR)*Math.PI;sunDir.set(Math.cos(a)*70,Math.max(15,Math.sin(a)*90),35);
 }
 const sunDir=new THREE.Vector3(50,90,35);
 
@@ -4113,6 +4193,9 @@ function audioInit(){
   const bed=(type,f,q,g)=>{const s=ctx.createBufferSource();s.buffer=buf;s.loop=true;s.loopStart=Math.random()*3;const fl=ctx.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;
     const gn=ctx.createGain();gn.gain.value=g;s.connect(fl);fl.connect(gn);gn.connect(M);s.start(0,Math.random()*3);return gn;};
   {const w=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate),wd=w.getChannelData(0);for(let i=0;i<wd.length;i++)wd[i]=Math.random()*2-1;SND.white=w;}
+  // rain: a soft high hiss (white noise, 1.5–7 kHz)
+  {const s=ctx.createBufferSource();s.buffer=SND.white;s.loop=true;const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=1500;const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=7000;
+    const g=ctx.createGain();g.gain.value=0;s.connect(hp);hp.connect(lp);lp.connect(g);g.connect(M);s.start();SND.rainBed=g;}
   SND.sea=bed('lowpass',420,0.4,0);SND.wind=bed('bandpass',800,0.5,0);SND.tyre=bed('lowpass',380,0.6,0);
   // the traffic bed: tyres rolling on asphalt, broadband around 1 kHz (white noise), from all the traffic around you
   {const s=ctx.createBufferSource();s.buffer=SND.white;s.loop=true;const b=ctx.createBiquadFilter();b.type='bandpass';b.frequency.value=850;b.Q.value=0.45;
@@ -4158,7 +4241,8 @@ function updateAudio(dt){
   let wet=0;for(let k=0;k<12;k++){const a=k/12*TAU;if(ground(cx+Math.cos(a)*45,cz+Math.sin(a)*45)<0)wet++;if(ground(cx+Math.cos(a)*110,cz+Math.sin(a)*110)<0)wet+=0.5;}
   const sea=Math.min(1,wet/9),t=c.currentTime;
   ramp(SND.sea.gain,(0.045+0.12*sea)*(0.75+0.25*Math.sin(t*0.7)),0.8);   // slow swell, like waves arriving
-  ramp(SND.wind.gain,0.018+0.01*Math.sin(t*0.23+1),1.2);
+  ramp(SND.wind.gain,0.018+0.01*Math.sin(t*0.23+1)+WX.mix.rain*0.03,1.2);
+  ramp(SND.rainBed.gain,WX.mix.rain*0.2*(INT.inside?0.3:1),0.8);   // muffled indoors
   // birds by day; nights are just the sea and the breeze (crickets read as electronic beeps: removed)
   SND.birdT-=0.1;if(day&&SND.birdT<=0){birdCall(Math.random()*1.6-0.8);SND.birdT=2.5+Math.random()*6;}
   // traffic. Tyres rolling are the base: every moving vehicle within 300 m adds to one broadband roar. The 4 loudest
@@ -4261,7 +4345,7 @@ function frame(now){
   anim.boats.forEach((b,i)=>{b.position.y=0.1+Math.sin(t*1.3+i)*0.15;b.rotation.z=Math.sin(t+i)*0.05;});
   anim.jets.forEach((j,i)=>j.scale.set(1,0.8+Math.sin(t*3+i)*0.25,1));
   for(const r of LM.turbines)r.rotation.z=-t*0.9;
-  updateCoast(dt);
+  updateCoast(dt);updateWeather(dt);
   if(mode==='title'||mode==='bye'){
     // slow aerial circle over the 濱海 gate and 北寧路
     const a=t*0.035,cx=-40,cz=-110,R=150;camera.position.set(cx+Math.cos(a)*R,70,cz+Math.sin(a)*R);camera.lookAt(cx,8,cz);
@@ -4281,7 +4365,7 @@ function frame(now){
   updateSky();updateSignals();updateVehicles(dt);updateStudents(dt);updateSports(dt);updateKnock(dt);updateRecover(dt);flexPosts(dt);updateHazards(dt);updateAbandoned(dt);updateVehLights();
   }
   tickBubble(playerTalk,dt,P.x,P.y+2.75,P.z);
-  hudT-=dt;if(hudT<=0){hudT=0.5;const h=gameHour();$('#clockT').textContent=fmtClock();$('#clockP').textContent=periodLabel(h)+(CLOCK.offset||CLOCK.fast?'':' · 現在');}
+  hudT-=dt;if(hudT<=0){hudT=0.5;const h=gameHour();$('#clockT').textContent=fmtClock();$('#clockP').textContent=periodLabel(h)+' · '+weatherLabel()+(CLOCK.offset||CLOCK.fast?'':' · 現在');}
   sun.position.set(P.x+sunDir.x,P.y+sunDir.y,P.z+sunDir.z);sun.target.position.set(P.x,P.y,P.z);
   if(mode==='play'){updateBikes(dt);if((saveT+=dt)>5){saveT=0;saveGame();}}
   fadeLabels();updateAudio(dt);
@@ -4291,6 +4375,7 @@ function frame(now){
 function boot(data){
   buildEmoteBar();buildWorld();paintMapBase();
   chars.m=makeChar('m');chars.f=makeChar('f');
+  for(const c of [chars.m,chars.f]){c.umb=makeUmbrella();c.root.add(c.umb);}
   const gy=ground(START.x,START.z);
   chars.m.root.position.set(START.x-1.4,gy,START.z);chars.f.root.position.set(START.x+1.4,gy,START.z);
   scene.add(chars.m.root,chars.f.root);
