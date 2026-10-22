@@ -370,3 +370,17 @@ Setting `M.back=n` sends the mission back to step `n` (used when a race is quit 
 5. UI: the card is `#mission` and is hidden during races. The pause menu lists missions in `#missions`, built by
    `openMissions`, and can drop the current one. Mission toasts pass `pri` so a newly discovered place doesn't cover
    them. Mission targets and available givers appear on the minimap and the big map (`drawMissionOnMini`).
+
+## Solid paving (`PAVE`, `pave`, `surf`)
+
+`pave(x,z)` gives the height of the paved surface above the terrain:
+- sidewalks and corner paving: `SW_LIFT` (0.2);
+- carriageways and junctions: `RN_LIFT` (0.08);
+- steps: 0.15; footpaths: 0.1.
+
+It is indexed by `paveIndex()` after `rnIndex()`, and `surf(x,z)` = `ground` + `pave`. These use it:
+- `floorAt`, so walking and bikes stand on the surface;
+- `placeBike`, `placeFree` (parked vehicles), pedestrians and mission NPCs.
+
+The driven vehicle keeps its jump physics on the bare terrain. `wheelGround` adds the kerb as `W.kerb` (eased into
+`v.kS`) and as extra pitch/roll, so a car rolls up onto a sidewalk without launching off the kerb.
