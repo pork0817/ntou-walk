@@ -52,6 +52,7 @@ body{background:#9fdcf5;color:var(--paper);font-family:var(--body);-webkit-user-
 .trow{display:flex;gap:4px}
 .btn.sm{padding:6px 6px;font-size:.75rem;flex:1}
 #tFast[aria-pressed="true"]{background:var(--signal)}
+#doorFade{position:fixed;inset:0;background:#0b1c2c;opacity:0;pointer-events:none;z-index:7}
 #lift{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);padding:10px;display:flex;flex-direction:column;gap:8px;z-index:6;pointer-events:auto}
 #lift b{font:900 1rem/1 var(--body)}#lift b span{font:700 .7rem var(--display);color:var(--muted)}
 #lift .lrow{display:flex;flex-direction:column;gap:6px}#lift .btn{min-width:64px;padding:9px 10px;font-size:1rem}
@@ -232,6 +233,7 @@ body.touch #toast b{font-size:1rem}
   <div id="toast" class="panel"><small id="tNo">New place</small><b id="tZh"></b><span id="tEn"></span></div>
 </div>
 
+<div id="doorFade" aria-hidden="true"></div>
 <div id="emoteBar" class="panel" hidden></div>
 <div id="lift" class="panel" hidden><b>電梯 <span>Lift</span></b><div class="lrow"><button class="btn" type="button" data-f="4">5F</button><button class="btn" type="button" data-f="3">4F</button><button class="btn" type="button" data-f="2">3F</button><button class="btn" type="button" data-f="1">2F</button><button class="btn" type="button" data-f="0">1F</button></div></div>
 <div id="touch" hidden>
@@ -2379,14 +2381,35 @@ function buildWorld(){
   buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();setupSeason();buildRain();pickWeather(true);
 }
 
-/* ---------- interiors: the library (圖書館, 圖書一館) with the 7-ELEVEN X-STORE 8 on its ground floor.
+/* ---------- interiors: the library (圖書館, 圖書一館) and the 7-ELEVEN X-STORE 8 in its south corner.
    Floor list from the library's own 樓層配置 page; X-STORE 8 is in the library building (19 坪, open 24 h,
-   grab-and-go with LiDAR shelf sensors, a four-door fridge). Five floors above ground, 4.2 m apart (the building's
-   21 m). Inside, the shell hides and only your floor shows, walls cut away at 2.7 m (dollhouse view); an elevator
-   with a floor panel joins the floors. Everything is laid out in façade coordinates: u along the long south-west
-   façade from its west corner, v inward. ---------- */
-const INT={lib:null,inside:false,floor:-1,groups:[],shell:[],cab:null,talk:{bubbleT:0},inStore:false};
-const FLOOR_H=4.2;
+   grab-and-go with LiDAR shelf sensors, a four-door fridge). Each interior is its own space, built far from the world
+   (user: entering should take you into the room, not cut the building open): walking into a door fades you into it,
+   walking back to the door brings you out in front of it. Every library floor is a separate space joined by the lift,
+   so nothing shows through floors or ceilings. Rooms are tall (7 m library, 5 m store) for the third-person camera;
+   walls only face inwards, so a wall between the camera and you is see-through. Indoor light is constant. While
+   inside, the rest of the game (map, places, students, saving) treats you as standing at the door outside. ---------- */
+const INT={lib:null,inside:false,space:'',floor:-1,groups:[],cab:null,talk:{bubbleT:0},inStore:false,anchor:null,ceil:0,cool:0,store:null,storeGrp:null};
+const FLOOR_H=4.2,IN_X=6000,IN_Z=6000,IN_Y=100,IN_GAP=140,LIB_CEIL=7,STORE_CEIL=5;
+// where world systems should think you are (the door, while you're inside)
+const WPOS={get x(){return INT.inside&&INT.anchor?INT.anchor.x:P.x;},get z(){return INT.inside&&INT.anchor?INT.anchor.z:P.z;}};
+// an inward-facing room: walls round the polygon (world points) from y to y+h with a window band, and a lit ceiling
+function roomShell(grp,poly,y,h,wallCol,winCol){
+  const [cx,cz]=centroid(poly),pos=[],uv=[],idx=[];let acc=0;
+  for(let i=0;i<poly.length;i++){const A=poly[i],B=poly[(i+1)%poly.length],L=Math.hypot(B[0]-A[0],B[1]-A[1]);if(L<0.01)continue;
+    const ex=B[0]-A[0],ez=B[1]-A[1],nx=-ez,nz=ex,inward=nx*(cx-(A[0]+B[0])/2)+nz*(cz-(A[1]+B[1])/2)>0;const b=pos.length/3;
+    pos.push(A[0],y,A[1],B[0],y,B[1],A[0],y+h,A[1],B[0],y+h,B[1]);uv.push(acc/4,0,(acc+L)/4,0,acc/4,1,(acc+L)/4,1);acc+=L;
+    if(inward)idx.push(b,b+1,b+2,b+2,b+1,b+3);else idx.push(b,b+2,b+1,b+2,b+3,b+1);}
+  const t=canvasTex(64,128,g=>{g.fillStyle=wallCol;g.fillRect(0,0,64,128);g.fillStyle=winCol;g.fillRect(6,30,52,62);g.fillStyle='rgba(255,255,255,.35)';g.fillRect(6,30,52,4);
+    g.fillStyle='rgba(0,0,0,.12)';g.fillRect(0,122,64,6);});t.wrapS=THREE.RepeatWrapping;
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setIndex(idx);geo.computeVertexNormals();
+  const w=new THREE.Mesh(geo,new THREE.MeshToonMaterial({map:t,gradientMap:grad}));w.receiveShadow=true;grp.add(w);
+  const ct=canvasTex(128,128,g=>{g.fillStyle='#e9e5dc';g.fillRect(0,0,128,128);g.fillStyle='#fffbe8';for(const [x,yy] of [[16,16],[80,16],[16,80],[80,80]])g.fillRect(x,yy,32,32);
+    g.fillStyle='rgba(0,0,0,.08)';for(let i=0;i<=128;i+=64){g.fillRect(i,0,1,128);g.fillRect(0,i,128,1);}});ct.wrapS=ct.wrapT=THREE.RepeatWrapping;
+  const cg=new THREE.ShapeGeometry(new THREE.Shape(poly.map(([x,z])=>new THREE.Vector2(x,z))));cg.rotateX(Math.PI/2);   // faces down
+  {const u=cg.attributes.uv,pp=cg.attributes.position;for(let i=0;i<pp.count;i++)u.setXY(i,pp.getX(i)/6,pp.getZ(i)/6);}
+  const c=new THREE.Mesh(cg,new THREE.MeshBasicMaterial({map:ct}));c.position.y=y+h;grp.add(c);
+}
 // OSM splits the library outline into three ways; only the first was drawn. Chain them back into one polygon.
 function mergeLibraryFootprint(){
   const parts=D.b.filter(b=>b.no===3&&b.lib);if(parts.length<2)return;
@@ -2403,32 +2426,22 @@ function buildLibrary(){
   let fi=0,fs=-1e9;for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;const sc=L+(mz-centroid(P)[1])*1.5-(mx-centroid(P)[0])*0.5;if(sc>fs){fs=sc;fi=i;}}
   let A=P[fi],Bp=P[(fi+1)%P.length];if(A[0]>Bp[0])[A,Bp]=[Bp,A];        // u runs from the west end
   const L0=Math.hypot(Bp[0]-A[0],Bp[1]-A[1]),ux=(Bp[0]-A[0])/L0,uz=(Bp[1]-A[1])/L0;let vx=-uz,vz=ux;const [ccx,ccz]=centroid(P);if((ccx-A[0])*vx+(ccz-A[1])*vz<0){vx=-vx;vz=-vz;}
-  const W=(u,v)=>[A[0]+ux*u+vx*v,A[1]+uz*u+vz*v],toUV=(x,z)=>[(x-A[0])*ux+(z-A[1])*uz,(x-A[0])*vx+(z-A[1])*vz];
+  let W=(u,v)=>[A[0]+ux*u+vx*v,A[1]+uz*u+vz*v];const Ww=W,toUV=(x,z)=>[(x-A[0])*ux+(z-A[1])*uz,(x-A[0])*vx+(z-A[1])*vz];
   const UV=P.map(q=>toUV(...q)),U1=Math.max(...UV.map(q=>q[0])),V1=Math.max(...UV.map(q=>q[1]));
-  const rot=Math.atan2(-uz,ux);                                           // local x → u, local z → v
+  let rot=Math.atan2(-uz,ux);const rotW=rot;                              // local x → u, local z → v
   let gmax=-1e9;for(const q of P.concat([[ccx,ccz]]))gmax=Math.max(gmax,ground(q[0],q[1]));
   const y0=gmax+1.1,yk=k=>y0+k*FLOOR_H,NF=5;
-  const inner=offsetPoly(P,-0.45),inside=(u,v,m=0)=>{const [x,z]=W(u,v);return pip(inner,x,z)&&polyEdgeDist(inner,x,z)>=m;};
-  INT.lib={B,P,W,toUV,y0,NF,rot,U1,V1,inner};
-  // the outside: remove the building's single solid block; walls with door gaps take its place
-  for(const arr of grid.values()){const i=arr.indexOf(B._solid);if(i>=0)arr.splice(i,1);}
+  const innerUV=offsetPoly(UV,-0.45),inside=(u,v,m=0)=>pip(innerUV,u,v)&&polyEdgeDist(innerUV,u,v)>=m;
+  const floorW=k=>(u,v)=>[IN_X+u,IN_Z+k*IN_GAP+v];              // each floor's own space, axis-aligned (u → x, v → z)
+  INT.lib={B,P,Ww,toUV,y0,NF,U1,V1,floorW};
   const doorMain=U1*0.5,doorStore=U1-4.5;                                  // main entrance mid-façade; the store door near the south corner
+  INT.lib.doorMain=doorMain;INT.lib.doorStore=doorStore;
   const mats={};const M=(c,o={})=>{const k=c+JSON.stringify(o);return mats[k]||(mats[k]=o.basic?new THREE.MeshBasicMaterial(Object.assign({color:c},o.mat||{})):new THREE.MeshToonMaterial(Object.assign({color:c,gradientMap:grad},o.mat||{})));};
   const boxG=new THREE.BoxGeometry(1,1,1);
-  // a box in façade coordinates: centre (u,v), base height y, size su × sv × h
   const box=(grp,u,v,y,su,sv,h,c,o={})=>{const m=new THREE.Mesh(boxG,o.m||M(c,o));const [x,z]=W(u,v);m.position.set(x,y+h/2,z);m.scale.set(su,h,sv);m.rotation.y=rot+(o.r||0);
     if(!o.noShadow){m.castShadow=false;m.receiveShadow=true;}grp.add(m);return m;};
   const solid=(u0,v0,u1,v1,bot,top,o={})=>{const p=[W(u0,v0),W(u1,v0),W(u1,v1),W(u0,v1)];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
     const s={kind:'poly',p,top,bot,x0,x1,z0,z1,mat:o.mat||'wall',nocam:o.nocam};gridAdd(s,x0-1,z0-1,x1+1,z1+1);return s;};
-  // perimeter walls (collision, full height) with the two ground-floor doors
-  const wallTop=yk(NF)+1;
-  for(let i=0;i<inner.length;i++){const a=toUV(...inner[i]),b=toUV(...inner[(i+1)%inner.length]);const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const du=(b[0]-a[0])/L,dv=(b[1]-a[1])/L;
-    const front=Math.abs(a[1])<1.2&&Math.abs(b[1])<1.2;
-    const gaps=front?[[doorMain-1.8,doorMain+1.8],[doorStore-1.1,doorStore+1.1]].map(([g0,g1])=>[(g0-a[0])/du,(g1-a[0])/du].sort((p,q)=>p-q)):[];
-    for(let t=0;t<L;t+=0.6){const t1=Math.min(L,t+0.6),m=(t+t1)/2;const g=gaps.find(([g0,g1])=>m>g0&&m<g1);
-      const u0=a[0]+du*t,v0=a[1]+dv*t,u1=a[0]+du*t1,v1=a[1]+dv*t1,nu=-dv*0.18,nv=du*0.18;
-      const p=[W(u0-nu,v0-nv),W(u1-nu,v1-nv),W(u1+nu,v1+nv),W(u0+nu,v0+nv)];let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
-      const s={kind:'poly',p,top:wallTop,bot:g?y0+3:undefined,x0,x1,z0,z1,mat:'wall'};gridAdd(s,x0-1,z0-1,x1+1,z1+1);}}
   // entrance steps from the plaza up to the ground floor (plinth is 1.1 m)
   const outsideG=new THREE.Group();scene.add(outsideG);
   for(const [du0,w] of [[doorMain,4.2],[doorStore,2.6]]){const gy=ground(...W(du0,-2));const rise=y0-gy;const n=Math.max(1,Math.ceil(rise/0.25));
@@ -2457,22 +2470,25 @@ function buildLibrary(){
   const bookCols=[0xc0392b,0x2e86c1,0x27ae60,0xf1c40f,0x8e44ad,0xe67e22,0x16a085,0x34495e,0xd35400,0x7f8c8d];
   const signTex=(zh,en)=>canvasTex(320,110,g=>{g.fillStyle='#13304a';roundRect(g,4,4,312,102,18);g.fill();g.fillStyle='#fff8ec';g.font='900 40px "Noto Sans TC",sans-serif';g.textAlign='center';g.fillText(zh,160,52);
     g.fillStyle='#9fc9dd';g.font='700 22px "Baloo 2",sans-serif';g.fillText(en,160,88);});
+  // a sign fixed flat to the inside of the front wall (seen from inside; invisible from behind, so never in the camera's way)
+  const wallSign=(grp,u,y,zh,en)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.52),new THREE.MeshBasicMaterial({map:signTex(zh,en)}));const [x,z]=W(u,0.12);m.position.set(x,y,z);grp.add(m);};
   const sign=(grp,u,v,y,zh,en)=>{const s=new THREE.Sprite(new THREE.SpriteMaterial({map:signTex(zh,en)}));s.scale.set(1.5,0.52,1);const [x,z]=W(u,v);s.position.set(x,y-0.3,z);grp.add(s);};
   const core={u0:U1*0.5-4,u1:U1*0.5+4,v0:V1*0.55,v1:V1*0.55+6};
   const used=[];const free2=(u0,v0,u1,v1,m=0.5)=>{if(!inside(u0,v0,0.3)||!inside(u1,v0,0.3)||!inside(u0,v1,0.3)||!inside(u1,v1,0.3))return false;
     if(u1>core.u0-1&&u0<core.u1+1&&v1>core.v0-1&&v0<core.v1+1)return false;return !used.some(r=>u1>r[0]-m&&u0<r[2]+m&&v1>r[1]-m&&v0<r[3]+m);};
   const take=(u0,v0,u1,v1)=>used.push([u0,v0,u1,v1]);
   INT.bookTotal=0;
-  for(let k=0;k<NF;k++){const grp=new THREE.Group();grp.visible=false;scene.add(grp);INT.groups.push(grp);used.length=0;const y=yk(k);const books=[];
+  for(let k=0;k<NF;k++){const grp=new THREE.Group();grp.visible=false;scene.add(grp);INT.groups.push(grp);used.length=0;const y=IN_Y;const books=[];
+    W=floorW(k);rot=0;const inner=innerUV.map(([u,v])=>W(u,v));
     // slab, cut-away walls with a window band
     const sh=new THREE.Shape(inner.map(([x,z])=>new THREE.Vector2(x,-z)));const sg=new THREE.ShapeGeometry(sh);sg.rotateX(-Math.PI/2);
     {const uv=sg.attributes.uv,pp=sg.attributes.position;for(let i=0;i<pp.count;i++)uv.setXY(i,pp.getX(i),-pp.getZ(i));}   // world-metre UVs: the tiles stay 1 m
     const slab=new THREE.Mesh(sg,new THREE.MeshToonMaterial({map:floorTex[k],gradientMap:grad}));slab.position.y=y+0.02;slab.receiveShadow=true;grp.add(slab);
-    const wallTex=canvasTex(64,64,g=>{g.fillStyle='#f1ede4';g.fillRect(0,0,64,64);g.fillStyle='#9fd3ee';g.fillRect(4,18,56,30);g.fillStyle='#d6d0c4';g.fillRect(0,60,64,4);});wallTex.wrapS=THREE.RepeatWrapping;
-    {const pos=[],uv=[],idx=[];let acc=0;
-      for(let i=0;i<=inner.length;i++){const q=inner[i%inner.length];if(i)acc+=Math.hypot(q[0]-inner[i-1][0],q[1]-inner[i-1][1]);const b=pos.length/3;pos.push(q[0],y,q[1],q[0],y+2.7,q[1]);uv.push(acc/3,0,acc/3,1);if(i)idx.push(b-2,b,b-1,b-1,b,b+1);}
-      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
-      grp.add(new THREE.Mesh(g,new THREE.MeshToonMaterial({map:wallTex,gradientMap:grad,side:THREE.DoubleSide})));}
+    roomShell(grp,inner,y,LIB_CEIL,['#efe9dd','#e6eef2','#e3efe9','#f2e8da','#ece9e4'][k],'#a8d6ee');
+    {for(let i=0;i<inner.length;i++){const a2=inner[i],b2=inner[(i+1)%inner.length],L=Math.hypot(b2[0]-a2[0],b2[1]-a2[1]);   // walls you can't walk through
+      for(let t=0;t<L;t+=1){const t1=Math.min(L,t+1),ax=a2[0]+(b2[0]-a2[0])*t/L,az=a2[1]+(b2[1]-a2[1])*t/L,bx=a2[0]+(b2[0]-a2[0])*t1/L,bz=a2[1]+(b2[1]-a2[1])*t1/L;
+        const nx=-(bz-az)*0.2/(t1-t||1),nz=(bx-ax)*0.2/(t1-t||1),pp=[[ax-nx,az-nz],[bx-nx,bz-nz],[bx+nx,bz+nz],[ax+nx,az+nz]];
+        const o={kind:'poly',p:pp,top:y+LIB_CEIL,x0:Math.min(ax,bx)-0.3,x1:Math.max(ax,bx)+0.3,z0:Math.min(az,bz)-0.3,z1:Math.max(az,bz)+0.3,mat:'wall',nocam:true};gridAdd(o,o.x0-1,o.z0-1,o.x1+1,o.z1+1);}}}
     // floor slab you stand on (not a wall)
     {let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of inner){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
       const f={kind:'floor',p:inner,top:y,x0,x1,z0,z1};gridAdd(f,x0-1,z0-1,x1+1,z1+1);}
@@ -2514,7 +2530,11 @@ function buildLibrary(){
     const L=U1,Vd=V1;
     if(k===0){
       // X-STORE 8 in the south corner; lobby at the main door
-      INT.store={u0:L-9.2,u1:L-0.6,v0:0.6,v1:7.4};take(L-9.6,0,L,7.8);buildStore(grp,box,solid,y,W,rot,M,L,sign);
+      take(L-9.6,0,L,7.8);box(grp,L-9.6,3.9,y,0.3,7.8,LIB_CEIL,0xd6d0c4);box(grp,L-4.8,7.8,y,9.6,0.3,LIB_CEIL,0xd6d0c4);solid(L-9.8,0,L-9.4,7.9,y,y+LIB_CEIL);solid(L-9.6,7.6,L,8,y,y+LIB_CEIL);
+      sign(grp,L-9.8,5,y+2.8,'X-STORE 8','由外側入口 · Street entrance');
+      {const dp=new THREE.Mesh(new THREE.PlaneGeometry(3.6,3.0),M(0x2a4a5e));const [x,z]=W(doorMain,0.3);dp.position.set(x,y+1.5,z);grp.add(dp);   // faces inward only: see-through from behind
+        const gp=new THREE.Mesh(new THREE.PlaneGeometry(3.0,2.7),M(0x9fd3ee));gp.position.set(x,y+1.4,z+0.02);grp.add(gp);}
+      wallSign(grp,doorMain,y+3.4,'出口','Exit');
       take(doorMain-5,0,doorMain+5,11);area(doorMain,6,'大廳','Lobby');
       box(grp,doorMain+3.2,2.2,y,1.0,0.7,1.1,0x4f6b80);area(doorMain+3.2,1.4,'還書箱','Book drop');solid(doorMain+2.7,1.85,doorMain+3.7,2.55,y,y+1.1,{nocam:true});
       for(let i=0;i<8;i++)box(grp,doorMain+6.5+i*0.62,9.6,y,0.6,0.5,1.9,i%2?0x3a8fb7:0x2f7fb0);area(doorMain+8.6,9,'智取櫃','Smart lockers');take(doorMain+6,9.2,doorMain+11.6,10);
@@ -2565,12 +2585,24 @@ function buildLibrary(){
       tables(19,L-16,18,Vd-2);}
     // a few people: readers at tables and browsing the shelves
     let readers=0;for(const r of used.slice(0,40)){if(readers>=6||Math.random()<0.6)continue;const m=makeStudent();scene.remove(m.g);grp.add(m.g);
-      const u=(r[0]+r[2])/2,v=r[1]-0.6;const [x,z]=W(u,v);m.g.position.set(x,y,z);m.g.rotation.y=Math.atan2(vx,vz);readers++;}   // facing into the shelf / table
+      const u=(r[0]+r[2])/2,v=r[1]-0.6;const [x,z]=W(u,v);m.g.position.set(x,y,z);m.g.rotation.y=0;readers++;}
     // the books, one instanced mesh per floor
     if(books.length){const im=new THREE.InstancedMesh(boxG,new THREE.MeshToonMaterial({gradientMap:grad}),books.length);const Mx=new THREE.Matrix4(),Q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rot),S=new THREE.Vector3(),V=new THREE.Vector3(),C=new THREE.Color();
       books.forEach(([u,v,yy,du,dv,h,c],i)=>{const [x,z]=W(u,v);Mx.compose(V.set(x,yy+h/2,z),Q,S.set(du,h,dv));im.setMatrixAt(i,Mx);im.setColorAt(i,C.setHex(c));});grp.add(im);}
     sign(grp,core.u0-0.5,core.v0-1.6,y+2.9,names[k],'Library '+names[k]);
   }
+  {const grp=new THREE.Group();grp.visible=false;scene.add(grp);INT.storeGrp=grp;const L=U1;
+    W=(u,v)=>[IN_X-IN_GAP+u,IN_Z+v];rot=0;
+    const poly=[[L-9.6,0],[L,0],[L,7.8],[L-9.6,7.8]].map(([u,v])=>W(u,v));
+    const sh=new THREE.Shape(poly.map(([x,z])=>new THREE.Vector2(x,-z)));const sg=new THREE.ShapeGeometry(sh);sg.rotateX(-Math.PI/2);
+    const slab=new THREE.Mesh(sg,M(0xc9c6bf));slab.position.y=IN_Y+0.01;grp.add(slab);
+    roomShell(grp,poly,IN_Y,STORE_CEIL,'#f4f2ec','#9fd3ee');
+    for(const [a0,b0,a1,b1] of [[L-9.8,-0.25,L+0.2,0.25],[L-9.8,7.55,L+0.2,8.05],[L-9.85,0,L-9.35,7.8],[L-0.25,0,L+0.25,7.8]])solid(a0,b0,a1,b1,IN_Y-0.1,IN_Y+STORE_CEIL,{nocam:true});
+    {let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of poly){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}const f={kind:'floor',p:poly,top:IN_Y,x0,x1,z0,z1};gridAdd(f,x0-1,z0-1,x1+1,z1+1);}
+    INT.store={u0:L-9.2,u1:L-0.6,v0:0.6,v1:7.4,W};buildStore(grp,box,solid,IN_Y,W,rot,M,L,sign);
+    // the stripe fascia and door inside the front wall
+    for(const [c,hh] of [[0xf0802a,0],[0x2a9d55,0.2],[0xd8262f,0.4]]){const st=new THREE.Mesh(new THREE.PlaneGeometry(9.4,0.18),M(c,{basic:true}));const [x,z]=W(L-4.8,0.06);st.position.set(x,IN_Y+3.2+hh,z);grp.add(st);}   // face inward only
+    wallSign(grp,doorStore,IN_Y+2.6,'出口','Exit');W=Ww;rot=rotW;}
   if(!spots.some(s=>s.id==='xstore'))spots.push({id:'xstore',no:0,zh:'7-ELEVEN X-STORE 8',en:'Convenience store',zone:'n',x:W(doorStore,3)[0],z:W(doorStore,3)[1],r:5,kind:'s'});
 }
 // X-STORE 8: grab-and-go. Entry gates at the door, gondola shelves, the wall of fridges, a coffee counter, and the
@@ -2578,10 +2610,6 @@ function buildLibrary(){
 function buildStore(grp,box,solid,y,W,rot,M,L,sign){
   const u0=L-9.2,u1=L-0.6,v0=0.6,v1=7.4,uc=(u0+u1)/2;
   box(grp,uc,(v0+v1)/2,y+0.015,u1-u0,v1-v0,0.02,0xc9c6bf);                              // light tile floor (mid-tone: pale clips to white)
-  // glass partition to the lobby, with an opening
-  const gl={m:new THREE.MeshToonMaterial({color:0xbfe4f2,gradientMap:grad,transparent:true,opacity:0.35})};
-  box(grp,u0,(v0+v1)/2+1.2,y,0.1,v1-v0-2.4,2.6,0,gl);solid(u0-0.1,v0+2.4,u0+0.1,v1,y,y+2.6,{nocam:true,mat:'glass'});
-  box(grp,uc,v1,y,u1-u0,0.1,2.6,0,gl);solid(u0,v1-0.1,u1,v1+0.1,y,y+2.6,{nocam:true,mat:'glass'});
   // entry gates just inside the door
   const du=L-4.5;for(const s of [-1,1]){box(grp,du+s*0.75,1.4,y,0.18,0.8,1.0,0x23292e);box(grp,du+s*0.75,1.4,y+1.0,0.2,0.3,0.12,0x5fd18a,{basic:true});solid(du+s*0.75-0.1,1.0,du+s*0.75+0.1,1.8,y,y+1,{nocam:true});}
   // gondolas with products (colourful little boxes), the fridge wall, coffee counter
@@ -2598,22 +2626,41 @@ function buildStore(grp,box,solid,y,W,rot,M,L,sign){
     prod.forEach(([u,v,yy,a,b,h,c],i)=>{const [x,z]=W(u,v);Mx.compose(V.set(x,yy+h/2,z),Q,S.set(a,h,b));im.setMatrixAt(i,Mx);im.setColorAt(i,C.setHex(c));});grp.add(im);}
   sign(grp,uc,4.3,y+2.95,'X-STORE 8','7-ELEVEN · 24h');
 }
-// each frame: are you inside, on which floor; the lift panel; the store's welcome
+// going in and out: a short fade, then you're placed in the other space facing away from the door
+function moveTo(x,y,z,facing){P.x=x;P.z=z;P.y=y;P.vy=0;P.rot=facing;yaw=facing+Math.PI;player.root.position.set(x,y,z);player.root.rotation.y=facing;
+  INT.fadeT=1;$('#doorFade').style.opacity=1;}   // the frame loop fades it back out (updateInterior)
+function enterSpace(space,floor){const I=INT.lib;INT.cool=1.2;
+  INT.anchor=space==='store'?{x:I.Ww(I.doorStore,-1.8)[0],z:I.Ww(I.doorStore,-1.8)[1]}:{x:I.Ww(I.doorMain,-1.8)[0],z:I.Ww(I.doorMain,-1.8)[1]};
+  INT.inside=true;INT.space=space;INT.floor=floor;INT.ceil=IN_Y+(space==='store'?STORE_CEIL:LIB_CEIL);
+  INT.groups.forEach((g,i)=>g.visible=space==='lib'&&i===floor);INT.storeGrp.visible=space==='store';
+  if(space==='store'){const [x,z]=INT.store.W(I.doorStore,1.6);moveTo(x,IN_Y,z,0);}
+  else{const [x,z]=I.floorW(0)(I.doorMain,2.2);moveTo(x,IN_Y,z,0);}
+  dist=Math.min(dist,7);updateSky();}
+function exitSpace(){const I=INT.lib;INT.cool=1.2;const store=INT.space==='store';
+  INT.inside=false;INT.space='';INT.floor=-1;INT.groups.forEach(g=>g.visible=false);INT.storeGrp.visible=false;
+  const du=store?I.doorStore:I.doorMain,[x,z]=I.Ww(du,-2.2),[x2,z2]=I.Ww(du,-6);moveTo(x,floorAt(x,z,I.y0+1),z,Math.atan2(x2-x,z2-z));updateSky();}
 function updateInterior(dt){
-  const I=INT.lib;if(!I)return;
-  const inB=pip(I.inner,P.x,P.z)&&P.y>I.y0-0.8&&!DRIVE.v&&!P.onBus;
-  const fl=inB?Math.max(0,Math.min(I.NF-1,Math.round((P.y-I.y0)/FLOOR_H))):-1;
-  if(inB!==INT.inside||fl!==INT.floor){INT.inside=inB;INT.floor=fl;
-    for(const m of INT.shell)m.visible=!inB;INT.groups.forEach((g,i)=>g.visible=i===fl);}
-  // the lift: stand on the yellow square in front of the door
-  const [u,v]=I.toUV(P.x,P.z),c=INT.cab,inCab=inB&&c&&u>c.u0&&u<c.u1&&v>c.v0&&v<c.v1;
-  const lp=$('#lift');if(lp){if(lp.hidden===inCab){lp.hidden=!inCab;if(inCab)[...lp.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.f===fl)));}}
-  // the store
-  const s=INT.store,inS=inB&&fl===0&&s&&u>s.u0&&u<s.u1&&v>s.v0&&v<s.v1;
-  if(inS&&!INT.inStore){const [x,z]=I.W(I.U1-4.5,1.4);INT.talk.x=x;INT.talk.z=z;say(INT.talk,'歡迎光臨！',2.2);chime();}
-  INT.inStore=inS;if(INT.talk.bubble){const [x,z]=I.W(I.U1-4.5,1.4);tickBubble(INT.talk,dt,x,I.y0+2.2,z);}
+  const I=INT.lib;if(!I)return;INT.cool=Math.max(0,INT.cool-dt);
+  if(INT.fadeT>0){INT.fadeT=Math.max(0,INT.fadeT-dt*2.4);$('#doorFade').style.opacity=INT.fadeT*INT.fadeT;}
+  const walking=!DRIVE.v&&!P.onBus&&!P.riding;
+  if(!INT.inside){
+    // step onto the landing in front of a door
+    if(!walking||INT.cool>0)return;const [u,v]=I.toUV(P.x,P.z);
+    if(v>-0.95&&v<0.1&&P.y>I.y0-0.4){if(Math.abs(u-I.doorMain)<1.8)enterSpace('lib',0);else if(Math.abs(u-I.doorStore)<1.1)enterSpace('store',0);}
+    return;}
+  if(INT.space==='lib'){const fw=I.floorW(INT.floor),u=P.x-fw(0,0)[0],v=P.z-fw(0,0)[1];
+    if(INT.floor===0&&INT.cool<=0&&v<1.3&&Math.abs(u-I.doorMain)<1.8){exitSpace();return;}
+    const c=INT.cab,inCab=c&&u>c.u0&&u<c.u1&&v>c.v0&&v<c.v1,lp=$('#lift');
+    if(lp&&lp.hidden===inCab){lp.hidden=!inCab;if(inCab)[...lp.querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.f===INT.floor)));}}
+  else{const o=INT.store.W(0,0),u=P.x-o[0],v=P.z-o[1],s=INT.store;
+    if(INT.cool<=0&&v<1.0&&Math.abs(u-I.doorStore)<1.2){exitSpace();return;}
+    const inS=u>s.u0&&u<s.u1&&v>s.v0+1.2&&v<s.v1;
+    if(inS&&!INT.inStore){const [x,z]=s.W(I.doorStore,1.4);INT.talk.x=x;INT.talk.z=z;say(INT.talk,'歡迎光臨！',2.2);chime();}
+    INT.inStore=inS;if(INT.talk.bubble){const [x,z]=s.W(I.doorStore,1.4);tickBubble(INT.talk,dt,x,IN_Y+2.2,z);}}
+  if(INT.space!=='lib'){const lp=$('#lift');if(lp&&!lp.hidden)lp.hidden=true;}
 }
-function liftTo(f){const I=INT.lib;if(!I)return;P.y=I.y0+f*FLOOR_H;P.vy=0;player.root.position.y=P.y;blip(880,880,0.25,0.06);blip(660,660,0.3,0.05,0,'sine',0.22);}
+function liftTo(f){const I=INT.lib;if(!I||INT.space!=='lib')return;const fw=I.floorW(INT.floor),u=P.x-fw(0,0)[0],v=P.z-fw(0,0)[1],[x,z]=I.floorW(f)(u,v);
+  INT.floor=f;INT.groups.forEach((g,i)=>g.visible=i===f);moveTo(x,IN_Y,z,P.rot);blip(880,880,0.25,0.06);blip(660,660,0.3,0.05,0,'sine',0.22);}
 
 /* ---------- characters ---------- */
 function makeChar(gender){
@@ -2723,7 +2770,7 @@ function readSave(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null
 function saveGame(){
   if(mode!=='play'&&mode!=='pause')return;
   if(DRIVE.v)DRIVE.v.heading=DRIVE.heading;
-  const d={v:1,t:Date.now(),gender,x:P.x,z:P.z,rot:P.rot,yaw,pitch,dist,riding:P.riding,bike:P.riding?BIKES.indexOf(bike):-1,heading:BK.heading,
+  const d={v:1,t:Date.now(),gender,x:WPOS.x,z:WPOS.z,rot:P.rot,yaw,pitch,dist,riding:P.riding,bike:P.riding?BIKES.indexOf(bike):-1,heading:BK.heading,
     bikes:BIKES.map(b=>[+b.px.toFixed(2),+b.pz.toFixed(2),+b.prot.toFixed(3)]),clock:CLOCK.offset,
     cars:PARKED.slice(-40).map(v=>[v.id??-1,v.type,+v.x.toFixed(2),+v.z.toFixed(2),+(v===DRIVE.v?DRIVE.heading:v.heading).toFixed(3)]),driving:DRIVE.v?PARKED.slice(-40).indexOf(DRIVE.v):-1};
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(d));}catch(e){}
@@ -2933,6 +2980,7 @@ addEventListener('keydown',e=>{
   if(mode==='play')openMenu();else if(mode==='pause')closeMenu();else if(mode==='pick')toTitle();
 });
 function startPlay(){
+  if(INT.inside){INT.inside=false;INT.space='';INT.floor=-1;INT.groups.forEach(g=>g.visible=false);if(INT.storeGrp)INT.storeGrp.visible=false;}
   mode='play';player=chars[gender];scene.remove(chars[gender==='m'?'f':'m'].root);
   P.riding=false;P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=START.rot||0;yaw=START.yaw??P.rot+Math.PI;pitch=0.38;
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
@@ -2952,6 +3000,7 @@ function hitsSolid(x,z,y){
     else if(Math.hypot(o.x-x,o.z-z)<o.r+R)return LASTSOLID=o;}
   return null;}
 function blocked(x,z,y,step){
+  if(INT.inside)return !!hitsSolid(x,z,y);          // interiors live outside the map: only their walls and furniture block
   if(x<BX0||x>BX1||z<BZ0||z>BZ1)return true;
   const g=ground(x,z);
   if(g<0.8)return true;                       // sea
@@ -3072,8 +3121,9 @@ function updatePlay(dt){
   if(DRIVE.v&&!drag&&Math.abs(DRIVE.speed)>2&&performance.now()-BK.lastDrag>1200){
     let d=(DRIVE.heading+Math.PI)-yaw;d=Math.atan2(Math.sin(d),Math.cos(d));yaw+=d*Math.min(1,dt*2);}
   const ox=Math.sin(yaw)*Math.cos(pitch),oy=Math.sin(pitch),oz=Math.cos(yaw)*Math.cos(pitch);
-  let want=sp?Math.max(dist,sp.cam):P.riding?dist+2:dist;if(INT.inside)want=Math.min(want,6);   // indoors: a closer, dollhouse view
+  let want=sp?Math.max(dist,sp.cam):P.riding?dist+2:dist;if(INT.inside)want=Math.min(want,INT.space==='store'?5:8);
   let d=want;for(let s=0.8;s<=want;s+=0.4){if(camHit(tx+ox*s,ty+oy*s,tz+oz*s)){d=Math.max(1.4,s-0.5);break;}}
+  if(INT.inside&&oy>0.01)d=Math.max(1.4,Math.min(d,(INT.ceil-0.5-ty)/oy));   // stay under the ceiling
   const cxp=tx+ox*d,czp=tz+oz*d;
   camera.position.set(cxp,Math.max(ground(cxp,czp)+0.5,ty+oy*d,0.6),czp);camera.lookAt(tx,ty,tz);
   updateInterior(dt);
@@ -3194,7 +3244,7 @@ let toastT=0;
 function toast(no,zh,en,ms){$('#tNo').textContent=no;$('#tZh').textContent=zh;$('#tEn').textContent=en;$('#toast').classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>$('#toast').classList.remove('on'),ms);}
 function checkSpots(){
   for(const s of spots){if(found.has(s.id))continue;
-    const near=s.poly?(pip(s.poly,P.x,P.z)||polyEdgeDist(s.poly,P.x,P.z)<s.r):Math.hypot(P.x-s.x,P.z-s.z)<s.r;
+    const near=s.poly?(pip(s.poly,WPOS.x,WPOS.z)||polyEdgeDist(s.poly,WPOS.x,WPOS.z)<s.r):Math.hypot(WPOS.x-s.x,WPOS.z-s.z)<s.r;
     if(near){found.add(s.id);saveFound();updateFound();
       toast(s.no?`No. ${s.no} · New place`:'New place',s.zh,s.en,2600);
       if(spots.every(q=>found.has(q.id)))setTimeout(()=>toast('Complete','全部 '+spots.length+' 個地點都去過了！','You explored the whole campus',5000),2800);
@@ -3204,13 +3254,13 @@ const BEINING=D.r.filter(r=>r.nm==='北寧路'&&!r.t);
 let lastZone='';
 function updateZone(){
   let key;
-  let dmin=1e9;for(const r of BEINING)for(let i=0;i<r.p.length-1;i++)dmin=Math.min(dmin,segDist(P.x,P.z,...r.p[i],...r.p[i+1]));
+  let dmin=1e9;for(const r of BEINING)for(let i=0;i<r.p.length-1;i++)dmin=Math.min(dmin,segDist(WPOS.x,WPOS.z,...r.p[i],...r.p[i+1]));
   if(dmin<9)key='road';
-  else if(!onCampus(P.x,P.z)){
-    let best=null,bd=1e9;for(const s of spots){const d=Math.hypot(s.x-P.x,s.z-P.z);if(d<bd){bd=d;best=s;}}
+  else if(!onCampus(WPOS.x,WPOS.z)){
+    let best=null,bd=1e9;for(const s of spots){const d=Math.hypot(s.x-WPOS.x,s.z-WPOS.z);if(d<bd){bd=d;best=s;}}
     key=bd<60&&best?best.zone:'out';}
-  else{let best=null,bd=1e9;for(const s of spots){if(s.kind==='s')continue;const d=Math.hypot(s.x-P.x,s.z-P.z);if(d<bd){bd=d;best=s;}}key=best?best.zone:'n';}
-  $('#ele').textContent=`海拔 ≈ ${Math.max(0,Math.round(P.y))} m`;
+  else{let best=null,bd=1e9;for(const s of spots){if(s.kind==='s')continue;const d=Math.hypot(s.x-WPOS.x,s.z-WPOS.z);if(d<bd){bd=d;best=s;}}key=best?best.zone:'n';}
+  $('#ele').textContent=INT.inside?(INT.space==='store'?'X-STORE 8':'圖書館 '+(INT.floor+1)+'F'):`海拔 ≈ ${Math.max(0,Math.round(P.y))} m`;
   if(key===lastZone)return;lastZone=key;
   const set=(zh,en,c)=>{$('#zoneZh').textContent=zh;$('#zoneEn').textContent=en;$('#zoneDot').style.background=c;};
   if(key==='road')set('北寧路','Beining Road','#666e78');
@@ -3228,7 +3278,7 @@ function drawArrow(g,x,y,rot,s){g.save();g.translate(x,y);g.rotate(-rot+Math.PI)
   g.beginPath();g.moveTo(0,-s);g.lineTo(s*0.75,s*0.8);g.lineTo(0,s*0.35);g.lineTo(-s*0.75,s*0.8);g.closePath();g.fill();g.stroke();g.restore();}
 const mini=$('#miniC').getContext('2d');let miniT=0;
 function drawMini(){if((miniT=(miniT+1)%3))return;
-  const W=300,H=220,k=1.1;const px=P.x-G.x0,pz=P.z-G.z0;
+  const W=300,H=220,k=1.1;const px=WPOS.x-G.x0,pz=WPOS.z-G.z0;
   mini.fillStyle='#2f9fd3';mini.fillRect(0,0,W,H);
   mini.drawImage(mapBase,px-W/2/k,pz-H/2/k,W/k,H/k,0,0,W,H);
   for(const b of BIKES){if(P.riding&&b===bike)continue;const bx=(b.px-G.x0-px)*k+W/2,bz=(b.pz-G.z0-pz)*k+H/2;if(bx<0||bz<0||bx>W||bz>H)continue;mini.fillStyle='#7fd1c4';mini.strokeStyle='#0b1c2c';mini.lineWidth=1.5;mini.beginPath();mini.arc(bx,bz,4,0,TAU);mini.fill();mini.stroke();}
@@ -3349,6 +3399,7 @@ function smooth(a,b,x){const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3
 let nightLevel=0;
 function updateSky(){
   const h=gameHour();
+  if(INT.inside){scene.background.setHex(0x2a2f36);scene.fog.color.setHex(0x2a2f36);scene.fog.near=80;scene.fog.far=200;sun.intensity=0.7;sun.color.setHex(0xfff4e0);if(hemi)hemi.intensity=0.75;return;}   // indoor lights
   const SR=WX.sr,SS=WX.ss,cl=WX.mix.cloud,fg=WX.mix.fog,rn=WX.mix.rain,fl=WX.flash;
   const day=smooth(SR-0.5,SR+1.2,h)*(1-smooth(SS-0.4,SS+1.2,h));
   const dusk=Math.max(smooth(SR-0.8,SR+0.4,h)*(1-smooth(SR+0.4,SR+1.6,h)),smooth(SS-1.1,SS+0.1,h)*(1-smooth(SS+0.1,SS+1.5,h)))*(1-cl*0.8);
@@ -3711,7 +3762,7 @@ function updateVehicles(dt){
   // when the hour gets quieter, quietly retire cars far from the player
   VEH.cull=(VEH.cull||0)-dt;
   if(VEH.cull<=0){VEH.cull=0.5;const target=Math.round(VEH.max*Math.min(1,dens*1.15))+2;
-    if(VEH.list.length>target){const far=VEH.list.filter(v=>Math.hypot(v.x-P.x,v.z-P.z)>70);if(far.length)removeVehicle(far[(Math.random()*far.length)|0]);}}
+    if(VEH.list.length>target){const far=VEH.list.filter(v=>Math.hypot(v.x-WPOS.x,v.z-WPOS.z)>70);if(far.length)removeVehicle(far[(Math.random()*far.length)|0]);}}
 }
 // roof height of vehicle v at distance a along its heading (cars: low hood and boot, taller cabin)
 const vehTopAt=(v,a)=>v.cabin&&(a<v.cabin[0]||a>v.cabin[1])?v.base+v.low:v.top;
@@ -3874,7 +3925,7 @@ function removeStudent(s){const kn=KNOCK.findIndex(q=>q.o===s);if(kn>=0)KNOCK.sp
 function spawnAround(){
   if(!PG.comp.length)return;
   const r=Math.random();
-  const node=stuNode(P.x,P.z,25,140);if(node<0)return;
+  const node=stuNode(WPOS.x,WPOS.z,25,140);if(node<0)return;
   const x=PG.nx[node],z=PG.nz[node];
   if(r<0.16&&PG.poi.length){ // a group chatting by a building
     const n2=PG.poi[(Math.random()*PG.poi.length)|0];if(Math.hypot(PG.nx[n2]-P.x,PG.nz[n2]-P.z)>160)return;
@@ -3909,7 +3960,7 @@ function updateStudents(dt){
   if(STU.acc<=0){STU.acc=0.6;
     if(STU.list.length<target)spawnAround();
     // retire students who wandered far away, or when the crowd should thin out
-    for(const s of STU.list.slice()){const d=Math.hypot(s.x-P.x,s.z-P.z);
+    for(const s of STU.list.slice()){const d=Math.hypot(s.x-WPOS.x,s.z-WPOS.z);
       if(d>190||(STU.list.length>target+2&&d>40&&!s.lead&&s.state!=='sport'&&Math.random()<0.3))removeStudent(s);}
   }
   for(const s of STU.list){
@@ -4239,7 +4290,7 @@ function updateAudio(dt){
   const cx=camera.position.x,cz=camera.position.z,h=gameHour(),day=h>=5.5&&h<18.5;
   // the sea: how much water is around (a ring of samples)
   let wet=0;for(let k=0;k<12;k++){const a=k/12*TAU;if(ground(cx+Math.cos(a)*45,cz+Math.sin(a)*45)<0)wet++;if(ground(cx+Math.cos(a)*110,cz+Math.sin(a)*110)<0)wet+=0.5;}
-  const sea=Math.min(1,wet/9),t=c.currentTime;
+  const sea=INT.inside?0:Math.min(1,wet/9),t=c.currentTime;
   ramp(SND.sea.gain,(0.045+0.12*sea)*(0.75+0.25*Math.sin(t*0.7)),0.8);   // slow swell, like waves arriving
   ramp(SND.wind.gain,0.018+0.01*Math.sin(t*0.23+1)+WX.mix.rain*0.03,1.2);
   ramp(SND.rainBed.gain,WX.mix.rain*0.2*(INT.inside?0.3:1),0.8);   // muffled indoors
@@ -4264,6 +4315,7 @@ function updateAudio(dt){
   if(dv){const sp=Math.abs(DRIVE.speed);if(own.lastV===undefined)own.lastV=sp;const acc=(sp-own.lastV)/0.1;own.lastV=sp;
     driveVoice(own,dv.type,sp,Math.max(acc,(DRIVE.throttle||0)*3),dv,0.8);if(own.p.pan)ramp(own.p.pan,0,0.2);}
   else{ramp(own.eg.gain,0,0.3);ramp(own.lg.gain,0,0.3);ramp(own.tg.gain,0,0.3);own.lastV=undefined;}
+  if(INT.inside)roll=0;
   ramp(SND.roll.gain,Math.min(0.32,roll*0.16),0.35);
   ramp(SND.tyre.gain,Math.min(0.12,roll*0.05),0.35);           // the low rumble under it
 }

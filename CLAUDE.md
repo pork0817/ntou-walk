@@ -230,11 +230,19 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   靜音艙 pods, study carrels, manga corner. 4F: Western books, theses, children's books, 數位攝影棚, learning commons.
   5F: Eastern books, 特藏室 display cases, AV archive, rarely-used books. Hanging signs per area, a floor directory
   at the lift, a few readers. Books are one InstancedMesh per floor.
-- Inside: the shell (all of the building's meshes but the plinth) hides and only your floor's group shows; walls are
-  cut away at 2.7 m (dollhouse view) and the camera stays ≤ 6 m. The lift: stand on the yellow square in front of
-  the lift door → a 1F–5F panel. Collision is floor-aware: solids may carry `bot` (ignored when you are below it),
-  `kind:'floor'` slabs are stood on (`floorAt`) but never block, `nocam` solids don't pull the camera in. The
-  building's single block solid is replaced by perimeter walls with door gaps (lintel above), plus entrance steps.
+- Separate interior spaces (user: the dollhouse cut-away showed the campus through the walls and felt cramped):
+  each interior is built far from the world (`IN_X/IN_Z`, y = `IN_Y` = 100; library floors `IN_GAP` 140 m apart,
+  the store beside them). The building outside stays one solid block. Stepping onto the landing in front of a door
+  (`updateInterior`) fades (`#doorFade`, driven by the frame loop) into that space; walking back to the door inside
+  brings you out in front of it (`enterSpace` / `exitSpace` / `moveTo`). Each library floor is its own space; the lift
+  (yellow square → 1F–5F panel) moves you between them at the same spot. Rooms are tall (library 7 m, store 5 m):
+  `roomShell` builds inward-facing walls (window band) and a downward-facing lit ceiling, so anything between the
+  camera and you is see-through from behind; the camera stays under the ceiling (≤ 8 m, store ≤ 5 m). Exit doors and
+  exit signs are inward-facing panels for the same reason. Indoors: constant light (`updateSky`), no sea/traffic/rain
+  sound or rain, HUD shows 圖書館 nF / X-STORE 8 instead of altitude, and `blocked()` only checks walls/furniture
+  (the spaces are outside the map bounds). `WPOS` (the door outside while inside) feeds places, zone, minimap,
+  student spawning, traffic culling and saving. The library's 1F corner is walled off (the store has its own street
+  door). Collision stays floor-aware (`bot`, `kind:'floor'`, `nocam`).
 
 ## Seasons and weather (`WX`, `setupSeason`, `pickWeather`, `updateWeather`, user request)
 
