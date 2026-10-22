@@ -47,19 +47,29 @@ Needs Python 3 with numpy, scipy, matplotlib (godmap.py uses the Noto Sans CJK f
 - Roads are realistic (user request, matched to Street View of 北寧路): asphalt, double yellow centre, dashed white lanes,
   white edge lines, red curb paint, raised tiled sidewalks, zebra crossings with green bike band, traffic lights at OSM signals,
   orange delineator posts on 北寧路's centre line, street lamps.
-- Junctions (`buildJunctions`): wherever a road meets a road with sidewalks, an asphalt mouth breaks the main road's kerb paint
-  and edge line, sidewalk corners are rounded (radius `JR`, brick on 北寧路) with a kerb face, the side road's markings start
-  after the sidewalk with a stop line, and smaller roads stop under the bigger one. Crossings and signal poles slide along the
-  road out of junction mouths.
-- Junction boxes (`findJunctionBoxes` / `drawJunctionBoxes` / `inJBox`): where 3+ arms meet at a shared OSM vertex (one a
-  main road), the junction is built like a real one (user request: "not two straight roads slapped on top of each other").
-  Arms are sorted by angle; between neighbours the kerbs get a fillet (radius 3–6 m, a tight nose for narrow forks) or stay
-  straight for a through side (≥166°). One plain asphalt polygon (draped on the terrain, polygonOffset above every road
-  strip) covers the box so no lane markings run through it; corner paving and curved kerbs join the sidewalks; each arm gets a
-  stop line on its incoming half unless its own crosswalk has one. Sidewalk strips, side-road mouths and crosswalks keep out
-  of boxes; a crosswalk that cannot slide clear is placed on its road's nearest arm just outside the box (never dropped,
-  since traffic lights are built on crosswalks). A 2-arm node (one road carrying on under a new name) gets no box, so its markings continue.
-- Crosswalk stop lines cover only the lanes approaching the crossing (one full-width line on one-way roads).
+- Road network (`buildRoadNet` → `drawRoadNet`, user request: "real junctions, not roads slapped on each other"; replaces
+  the old per-road textured strips, mouth patches and junction boxes). OSM drivable ways become a clean graph:
+  a road end that stops short of / overshoots another road is snapped onto it; roads crossing mid-segment are split;
+  vertices < 1 m apart are one node; slip roads (≤0.6× the width, < 35° off the wider road) are cut where they clear
+  its kerb and joined to it square, so they get a mouth; roads that simply carry on through a node are one edge (width
+  eased over 8 m). Nodes with 3+ arms are junctions (two joined by a stub < 10 m merge; longer links share their
+  length, ≤45 % each). Each junction is ONE polygon from all its arms (fillet radius 3–6 m, tight nose for narrow
+  forks, straight for through sides ≥166°, cut-back 1 m past the tangent point), with corner paving and curved kerb
+  faces; each edge is ONE ribbon trimmed to the junctions, 5 vertices across, world-UV asphalt. Markings are geometry
+  per edge (`rnLine`, `rnRuns` with blank intervals): main roads red curb, white edge lines, double yellow, 4/6 m lane
+  dashes (solid for 30 m before a signalised stop line); minor roads white edges + dashed yellow; service none.
+  Sidewalks (rank ≥ 3) are ribbons + vertical kerb faces. Footpaths keep their own ribbons but stop at kerbs
+  (`onRoadArea`). Paint materials must be double-sided (strip winding faces down).
+- Crossings: every arm (rank ≥ 2) of a signalised junction (OSM signal within the junction's reach) gets a crosswalk
+  just outside it: zebra (0.45 m stripes along the traffic), teal bike band, stop line on the incoming half only, and
+  the signal pole on the near-side right kerb at that stop line, arm over the incoming lanes (`signalPole`, user
+  screenshot). Its crossing spot has `inDir` (only traffic heading into the junction obeys it) and `gap` 4.1 (stop at
+  the line; measured: cars wait ~2 m behind it). OSM crossings near a junction move onto that arm; others are
+  mid-block (stop lines on both incoming halves, poles at them). Unsignalised junctions: a stop line where a smaller
+  road meets a bigger one. Signal phases per junction: the straightest highest-ranked pair is the main road; other
+  arms are `side` (green while the main road is held for pedestrians; their walkers cross with the main green; at
+  night main flashes yellow, side flashes red 'FR', which traffic treats like 'FY').
+- The 濱海校門 lawn island is the surveyed outline (`BH_ISLAND`); an OSM service way runs through it and is left out.
 - Ground texture: resolution follows the quality setting (2048/4096/6144 px wide), zone tint and the sea edge are drawn from
   small canvases scaled up smoothly (no 4 m squares), anisotropic filtering, and a tiling detail texture blended in the
   terrain shader (`onBeforeCompile`). The shader scales the colour by 0.8 because the sun + sky add up to ~1.5×, which used
