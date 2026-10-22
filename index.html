@@ -3117,9 +3117,16 @@ function spawnVehicle(c,lane,s){
 function removeVehicle(v){scene.remove(v.g);v.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});if(v.bubble)scene.remove(v.bubble);
   v.lane.veh.splice(v.lane.veh.indexOf(v),1);VEH.list.splice(VEH.list.indexOf(v),1);}
 const prog=v=>v.lane.dir>0?v.s:v.c.L-v.s;
+// a point on a lane: the chain is a polyline, so its direction is averaged over ±5 m before offsetting sideways —
+// otherwise the lane line has corners at every vertex and anything following it jumps there
+function laneAt(c,s,off){const a=chainAt(c,s),p=chainAt(c,s-5),q=chainAt(c,s+5);let tx=q.x-p.x,tz=q.z-p.z;const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
+  return [a.x-tz*off,a.z+tx*off];}
+// traffic steers like a car: front and rear axle points both ride the lane line, the body sits between them and points
+// from the rear axle to the front one, so on a curve it turns gradually instead of snapping at each polyline vertex
 function placeVehicle(v){
-  const a=chainAt(v.c,v.s);const nx=-a.tz,nz=a.tx;const off=v.lane.off+v.lat+(v.shift||0);
-  const x=a.x+nx*off,z=a.z+nz*off;const hx=a.tx*v.lane.dir,hz=a.tz*v.lane.dir;
+  const off=v.lane.off+v.lat+(v.shift||0),d=v.lane.dir,wb=Math.max(1.2,v.len*0.6);
+  const f=laneAt(v.c,v.s+d*wb/2,off),r=laneAt(v.c,v.s-d*wb/2,off);
+  const x=(f[0]+r[0])/2,z=(f[1]+r[1])/2;let hx=f[0]-r[0],hz=f[1]-r[1];const hl=Math.hypot(hx,hz)||1;hx/=hl;hz/=hl;
   const y=ground(x,z)+0.1,yf=ground(x+hx*v.len*0.5,z+hz*v.len*0.5),yb=ground(x-hx*v.len*0.5,z-hz*v.len*0.5);
   v.x=x;v.z=z;v.hx=hx;v.hz=hz;
   v.g.position.set(x,Math.max(y,(yf+yb)/2+0.1),z);v.base=v.g.position.y;v.top=v.base+v.hgt;v.g.rotation.set(0,Math.atan2(hx,hz),0);v.g.rotateX(-Math.atan2(yf-yb,v.len));

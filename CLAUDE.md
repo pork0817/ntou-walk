@@ -108,6 +108,10 @@ All in `tools/game.tpl.html` (the "CAMPUS LIFE" section; `tools/life.reference.j
   Cars, taxis, scooters, trucks, Keelung city buses (103/104/108) that stop at the bus shelters. Density follows TRAFFIC[hour]
   (peaks 7–9 and 16–19, near zero after midnight). Intelligent-driver following; stop at red, yield to people on zebras,
   stop and honk for a player standing in the lane. Vehicles block the player.
+- Traffic steering (`placeVehicle`, `laneAt`; user: NPCs twitched on curves): front and rear axle points (0.6 × length
+  apart) both ride the lane line, whose direction is averaged over ±5 m of the chain before the sideways offset; the body
+  sits between them and points rear → front. Measured over all lanes: worst heading change 4.4° per 0.5 m (a junction
+  corner) vs 19.9° snaps before; sideways jumps 0.09 m vs 1.55 m.
 - Students: walking graph from footpaths, campus roads, sidewalks and zebra crossings (largest component ~1000 nodes, A* routes).
   Count follows CROWD[hour]. Solo walkers, pairs, and chatting groups near buildings; speech bubbles in Chinese (lines vary by
   morning / peak / night); they wait for the walking man, greet the player, and react to emotes.
