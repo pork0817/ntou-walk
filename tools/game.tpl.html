@@ -4050,9 +4050,12 @@ function setSirenLights(v,t){if(!v.bar)return;const on=!!v.siren,ph=Math.floor(t
 // the drivers' side: who saw what, and the stop
 function startChase(p,target,why){p.mode='chase';p.target=target;p.why=why;p.siren=true;p.chaseT=0;p.lostT=0;p.vmax=22;p.acc=3.8;p.T=0.6;
   say(p,target==='me'?'前方駕駛請靠邊停車！':'前面的車，靠邊停！',2.4);
-  if(target==='me'){COP.chasingMe=p;toast('','警察在追你！',(why==='red'?'闖紅燈 Ran a red light':'超速 Speeding')+' · 靠邊停車 Pull over',3800,true);}
+  if(target==='me'){COP.chasingMe=p;goFree(p);toast('','警察在追你！',(why==='red'?'闖紅燈 Ran a red light':'超速 Speeding')+' · 靠邊停車 Pull over',3800,true);}
   else target.chasedBy=p;}
 function endChase(p,msg){if(p.target&&p.target!=='me'){p.target.pulled=false;p.target.chasedBy=null;}if(p.target==='me')COP.chasingMe=null;
+  if(p.free){   // off the lanes: drive away somewhere and leave the road
+    p.mode='leave';p.target=null;p.siren=false;p.halt=false;p.leaveT=0;p.path=null;if(msg)say(p,msg,2.4);
+    const far=[...RG.nodes.values()].filter(n=>Math.hypot(n.x-P.x,n.z-P.z)>180);const n=far.length?pick(far):{x:p.x+200,z:p.z};p.dest=[n.x,n.z];return;}
   p.mode='patrol';p.target=null;p.siren=false;p.halt=false;p.vmax=p.vmax0;p.acc=2.2;p.T=1.2;p.cool=25;if(msg)say(p,msg,2.4);}
 function ticketMe(p){const fine=p.why==='red'?2700:1800;COP.fines+=fine;COP.tix++;try{localStorage.setItem('ntou-walk-fines',String(COP.fines));}catch(e){}
   toast('罰單','罰單：'+(p.why==='red'?'闖紅燈':'超速')+' NT$'+fine.toLocaleString(),`Ticket · ${p.why==='red'?'Red light':'Speeding'} · total NT$${COP.fines.toLocaleString()}`,4800,true);blip(660,660,0.12,0.05);}
@@ -4064,12 +4067,66 @@ function watchMyLights(){const mv=(DRIVE.v&&DRIVE.v.type!=='bus')||P.riding;if(!
     const al=dx*x.tx+dz*x.tz,ac=-dx*x.tz+dz*x.tx;if(Math.abs(al)>2.2||Math.abs(ac)>x.w/2+1)continue;
     const dot=x.inDir?hx*x.inDir[0]+hz*x.inDir[1]:Math.abs(hx*x.tx+hz*x.tz);if(dot<0.6)continue;
     if(COP.lastX!==x||nowS()-COP.redT>6){COP.redT=nowS();COP.lastX=x;}}}
+// ---- driving off the lanes, along the road graph: a police car chasing the player plans a route over the junctions to
+// where you are (re-planned every 1.5 s), steers along it (turning round when it has to), and drives straight at you for
+// the last stretch. Afterwards it drives off somewhere and leaves. ----
+const RG={cells:null,nodes:null};
+function rgBuild(){RG.cells=new Map();RG.nodes=new Map();
+  for(const E of RN.edges){for(let s=0;s<=E.L;s+=2){const p=edgePt(E,s),k=Math.floor(p[0]/16)+','+Math.floor(p[1]/16);(RG.cells.get(k)||RG.cells.set(k,[]).get(k)).push([E,s,p[0],p[1]]);}
+    const a=E.cl[0],b=E.cl[E.cl.length-1];
+    for(const [id,to,fwd] of [[a,b,true],[b,a,false]]){if(!RG.nodes.has(id)){const c=RN.C.get(id);RG.nodes.set(id,{id,x:c.x,z:c.z,adj:[]});}RG.nodes.get(id).adj.push({E,to,fwd});}}}
+function rgNear(x,z){if(!RG.cells)rgBuild();const cx=Math.floor(x/16),cz=Math.floor(z/16);
+  for(const R of [2,5,10]){let best=null,bd=1e9;for(let i=-R;i<=R;i++)for(let j=-R;j<=R;j++)for(const q of RG.cells.get((cx+i)+','+(cz+j))||[]){const d=Math.hypot(q[2]-x,q[3]-z);if(d<bd){bd=d;best=q;}}
+    if(best)return {E:best[0],s:best[1],d:bd};}return null;}
+function rgSpan(E,s0,s1){const out=[],st=s1>=s0?3:-3;for(let s=s0;st>0?s<s1:s>s1;s+=st)out.push(edgePt(E,s));out.push(edgePt(E,s1));return out;}
+// shortest route between two points on the road graph, as a polyline
+function rgPath(from,to){
+  if(from.E===to.E)return rgSpan(from.E,from.s,to.s);
+  const dist=new Map(),prev=new Map(),open=[];const E0=from.E,a=E0.cl[0],b=E0.cl[E0.cl.length-1];
+  dist.set(a,from.s);prev.set(a,{start:0});open.push(a);if((dist.get(b)??1e9)>E0.L-from.s){dist.set(b,E0.L-from.s);prev.set(b,{start:E0.L});open.push(b);}
+  const goalA=to.E.cl[0],goalB=to.E.cl[to.E.cl.length-1];let best=1e9,bestEnd=null;
+  while(open.length){let bi=0;for(let i=1;i<open.length;i++)if(dist.get(open[i])<dist.get(open[bi]))bi=i;const u=open.splice(bi,1)[0],du=dist.get(u);if(du>=best)break;
+    if(u===goalA&&du+to.s<best){best=du+to.s;bestEnd={node:u,s:0};}
+    if(u===goalB&&du+to.E.L-to.s<best){best=du+to.E.L-to.s;bestEnd={node:u,s:to.E.L};}
+    for(const e of RG.nodes.get(u).adj){const nd=du+e.E.L;if(nd<(dist.get(e.to)??1e9)){if(!dist.has(e.to))open.push(e.to);dist.set(e.to,nd);prev.set(e.to,{from:u,e});}}}
+  if(!bestEnd)return null;
+  const legs=[];let n=bestEnd.node;while(prev.get(n)&&prev.get(n).e){const p=prev.get(n);legs.unshift(p.e);n=p.from;}
+  let pts=rgSpan(E0,from.s,prev.get(n).start);
+  for(const e of legs)pts=pts.concat(rgSpan(e.E,e.fwd?0:e.E.L,e.fwd?e.E.L:0));
+  return pts.concat(rgSpan(to.E,bestEnd.s,to.s));}
+function goFree(p){const k=p.lane?p.lane.veh.indexOf(p):-1;if(k>=0)p.lane.veh.splice(k,1);p.free=true;p.heading=Math.atan2(p.hx,p.hz);p.path=null;p.pi=0;p.plan=0;}
+// one step of free driving toward (gx,gz) via the roads; want = top speed; stopAt = how close to get
+function freeDrive(p,dt,gx,gz,want,stopAt){
+  p.plan-=dt;
+  if(p.plan<=0||!p.path){p.plan=1.5;const A=rgNear(p.x,p.z),B=rgNear(gx,gz);p.path=A&&B?rgPath(A,B):null;p.pi=0;if(p.path)p.path.push([gx,gz]);
+    p.route=p.path?p.path.reduce((t,q,i)=>i?t+Math.hypot(q[0]-p.path[i-1][0],q[1]-p.path[i-1][1]):0,0):1e9;}
+  let tx=gx,tz=gz;const dg=Math.hypot(gx-p.x,gz-p.z);
+  if(p.path&&dg>30){while(p.pi<p.path.length-1&&Math.hypot(p.path[p.pi][0]-p.x,p.path[p.pi][1]-p.z)<7)p.pi++;
+    const q=p.path[Math.min(p.path.length-1,p.pi+1)];tx=q[0];tz=q[1];}
+  let dh=Math.atan2(tx-p.x,tz-p.z)-p.heading;dh=Math.atan2(Math.sin(dh),Math.cos(dh));
+  // speed: slow for turns, for the goal, and for anyone in front who hasn't moved over
+  let vt=want;const turn=Math.abs(dh);if(turn>1.2)vt=Math.min(vt,3);else if(turn>0.5)vt=Math.min(vt,8);else if(turn>0.25)vt=Math.min(vt,14);
+  vt=Math.min(vt,Math.sqrt(2*5.5*Math.max(0,dg-stopAt)));   // a speed it can still stop from in time
+  for(const o of VEH.list.concat(PARKED)){if(o===p||o.yield)continue;const dx=o.x-p.x,dz=o.z-p.z;if(Math.abs(dx)>45||Math.abs(dz)>45)continue;
+    const al=dx*p.hx+dz*p.hz,la=Math.abs(-dx*p.hz+dz*p.hx);if(al>0&&al<40&&la<(o.wid||1.8)/2+1.2){const ov=o===DRIVE.v?Math.abs(DRIVE.speed):Math.abs(o.v||0);vt=Math.min(vt,ov+Math.sqrt(2*5.5*Math.max(0,al-(o.len||4)/2-p.len/2-2.5)));}}
+  if(p.halt)vt=0;
+  const acc=vt>p.v?4:-7;p.v=Math.max(0,p.v+Math.max(-7*dt,Math.min(4*dt,vt-p.v)));p.braking=acc<0&&p.v>0.3;
+  // steering: a car's turning circle (or turning round on the spot when nearly stopped, a three-point turn in spirit)
+  const rate=p.v<2.5?1.1:Math.min(1.4,p.v/6);p.heading+=Math.max(-rate*dt,Math.min(rate*dt,dh));
+  p.hx=Math.sin(p.heading);p.hz=Math.cos(p.heading);
+  const nx=p.x+p.hx*p.v*dt,nz=p.z+p.hz*p.v*dt;p.x=nx;p.z=nz;
+  const y=ground(nx,nz)+0.1;p.g.position.set(nx,y,nz);p.g.rotation.set(0,p.heading,0);p.base=y;p.top=y+p.hgt;
+  for(const w of p.wheels)w.rotation.x+=p.v*dt/0.33;
+  tickBubble(p,dt,p.x,y+2.6,p.z);
+  return dg;}
 function updatePolice(dt){
   const t=nowS();watchMyLights();
   for(const v of VEH.list.concat(PARKED))if(v.bar)setSirenLights(v,t);
-  for(const p of VEH.list){if(p.type!=='police')continue;p.cool=Math.max(0,(p.cool||0)-dt);
+  for(const p of VEH.list.slice()){if(p.type!=='police')continue;p.cool=Math.max(0,(p.cool||0)-dt);
+    if(p.mode==='leave'){p.leaveT+=dt;freeDrive(p,dt,p.dest[0],p.dest[1],13,4);
+      if((Math.hypot(p.x-P.x,p.z-P.z)>110&&Math.hypot(p.x-camera.position.x,p.z-camera.position.z)>90)||p.leaveT>120)removeVehicle(p);continue;}
     if(p.vmax0===undefined)p.vmax0=p.vmax;
-    if(p.mode!=='chase'&&p.mode!=='stop'){
+    if(p.mode!=='chase'&&p.mode!=='stop'){if(p.free)continue;
       if(p.cool>0||(p.scan=(p.scan||0)-dt)>0)continue;p.scan=0.4;
       // the road ahead, same direction: speeders and red-light runners
       for(const q of p.lane.veh){if(q===p||q.type==='police'||q.type==='ambulance'||q.type==='bus'||q.chasedBy)continue;const d=prog(q)-prog(p);if(d<0||d>70)continue;
@@ -4085,10 +4142,10 @@ function updatePolice(dt){
       continue;}
     p.chaseT+=dt;
     if(p.mode==='chase'){
-      if(p.target==='me'){const dm=Math.hypot(P.x-p.x,P.z-p.z),sp=playerSpeed(),still=sp<1.5||(!DRIVE.v&&!P.riding);
+      if(p.target==='me'){const dm=freeDrive(p,dt,P.x,P.z,22,8),sp=playerSpeed(),still=sp<1.5||(!DRIVE.v&&!P.riding);
         if(dm<22&&still){p.stillT=(p.stillT||0)+dt;if(p.stillT>1.2){p.mode='stop';p.stopT=0;p.halt=true;}}else p.stillT=0;
-        if(dm>170)p.lostT+=dt;else p.lostT=0;
-        if(p.lostT>8||p.chaseT>90){endChase(p,'算了…');toast('','警察放棄追你了','The police gave up',2600,true);continue;}
+        if(p.route>1500)p.lostT+=dt;else p.lostT=0;   // no way to you by road, or a very long way round
+        if(p.lostT>10||p.chaseT>150){endChase(p,'算了…');toast('','警察放棄追你了','The police gave up',2600,true);continue;}
         if((p.callT=(p.callT||0)-dt)<=0&&dm<60){p.callT=6;say(p,pick(['前方駕駛請靠邊停車！','靠邊停！','請立即停車！']),2);}}
       else{const q=p.target;if(!VEH.list.includes(q)){endChase(p);continue;}
         // into the target's lane when it's in another one going the same way
@@ -4100,7 +4157,7 @@ function updatePolice(dt){
       continue;}
     // the stop: a word with the driver, a ticket, and everyone goes on their way
     p.stopT+=dt;
-    if(p.target==='me'){
+    if(p.target==='me'){p.halt=true;freeDrive(p,dt,P.x,P.z,0,8);
       if(p.stopT>1&&!p.said1){p.said1=true;say(p,'駕照、行照請拿出來。',2.8);}
       if(p.stopT>4.5&&!p.said2){p.said2=true;say(p,p.why==='red'?'剛剛紅燈喔，開單。':'剛剛超速了，開單。',2.8);ticketMe(p);}
       if(p.stopT>8){p.said1=p.said2=false;endChase(p,'開車小心。');}}
@@ -4208,7 +4265,8 @@ function spawnVehicle(c,lane,s){
   lane.veh.push(v);VEH.list.push(v);placeVehicle(v);return v;
 }
 function removeVehicle(v){scene.remove(v.g);v.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});if(v.bubble)scene.remove(v.bubble);
-  v.lane.veh.splice(v.lane.veh.indexOf(v),1);VEH.list.splice(VEH.list.indexOf(v),1);}
+  const k=v.lane?v.lane.veh.indexOf(v):-1;if(k>=0)v.lane.veh.splice(k,1);const j=VEH.list.indexOf(v);if(j>=0)VEH.list.splice(j,1);
+  if(COP.chasingMe===v)COP.chasingMe=null;}
 const prog=v=>v.lane.dir>0?v.s:v.c.L-v.s;
 // a point on a lane: the chain is a polyline, so its direction is averaged over ±5 m before offsetting sideways —
 // otherwise the lane line has corners at every vertex and anything following it jumps there
@@ -4250,7 +4308,7 @@ function updateVehicles(dt){
     if(l.veh.some(v=>prog(v)<16))continue;
     spawnVehicle(c,l,l.dir>0?0.5:c.L-0.5);
   }
-  const laneChanges=[],SIRENS=VEH.list.filter(q=>q.siren);
+  const laneChanges=[],SIRENS=VEH.list.filter(q=>q.siren),FREE=VEH.list.filter(q=>q.free);
   for(const c of VEH.chains)for(const l of c.lanes){
     l.veh.sort((a,b)=>prog(b)-prog(a));
     for(let i=0;i<l.veh.length;i++){
@@ -4294,10 +4352,10 @@ function updateVehicles(dt){
             if(v.v>2.5&&!v.emerg){v.emerg=true;skidSound(v.x,v.z,Math.min(1,v.v/12));
               if(v.fast||Math.random()<0.65){hornSound(v.x,v.z);say(v,pick(v.fast?['叭叭——！','看路啦！','找死喔！']:['叭！','哇！','小心！']),1.6);v.honk=-3;}}}}}
       if(!v.blockedByPlayer||v.v<0.3)v.emerg=false;
-      for(const o of PARKED){const dx=o.x-v.x,dz=o.z-v.z;if(Math.abs(dx)>32||Math.abs(dz)>32)continue;const a=dx*v.hx+dz*v.hz;if(a<0||a>24)continue;
+      for(const o of FREE.length?PARKED.concat(FREE):PARKED){const dx=o.x-v.x,dz=o.z-v.z;if(Math.abs(dx)>32||Math.abs(dz)>32)continue;const a=dx*v.hx+dz*v.hz;if(a<0||a>24)continue;
         const lat=Math.abs(-dx*v.hz+dz*v.hx);if(lat>v.wid/2+o.wid/2+0.5)continue;const d=a-v.len/2-o.len/2-1.6;
-        if(d<gap){gap=Math.max(0.01,d);lv=o===DRIVE.v?Math.max(0,DRIVE.speed*(o.hx*v.hx+o.hz*v.hz)):0;if(o===DRIVE.v)v.blockedByPlayer=lv<0.5;}
-        if(o!==DRIVE.v||Math.abs(DRIVE.speed)<1)obs=Math.min(obs,d);}
+        if(d<gap){gap=Math.max(0.01,d);lv=o===DRIVE.v?Math.max(0,DRIVE.speed*(o.hx*v.hx+o.hz*v.hz)):o.free?Math.max(0,o.v*(o.hx*v.hx+o.hz*v.hz)):0;if(o===DRIVE.v)v.blockedByPlayer=lv<0.5;}
+        if((o!==DRIVE.v&&!o.free)||Math.abs(o===DRIVE.v?DRIVE.speed:o.v)<1)obs=Math.min(obs,d);}
       // something stuck in this lane ahead (a crash, a parked or recovering vehicle), or the queue in front is stuck behind one:
       // move over to the next lane going the same way if there is a safe gap
       const ld=i>0?l.veh[i-1]:null;
@@ -4311,7 +4369,9 @@ function updateVehicles(dt){
           if(safe){laneChanges.push([v,l,l2]);break;}}}
       for(const s of STU.list)if(s.onRoad&&Math.abs(s.x-v.x)<22&&Math.abs(s.z-v.z)<22)checkPerson(s.x,s.z);
       // a siren behind you in your lane: move over to the kerb and slow down; pulled over: come to a stop there
-      v.yield=false;if(!v.siren)for(const e of SIRENS){if(e===v||e.c!==c||e.lane.dir!==l.dir)continue;const dd=p-prog(e);if(dd>-2&&dd<50){v.yield=true;break;}}
+      v.yield=false;if(!v.siren)for(const e of SIRENS){if(e===v)continue;
+        if(e.free){const dx=v.x-e.x,dz=v.z-e.z,al=dx*e.hx+dz*e.hz;if(al>-2&&al<45&&Math.abs(-dx*e.hz+dz*e.hx)<5&&v.hx*e.hx+v.hz*e.hz>0.3){v.yield=true;break;}continue;}
+        if(e.c!==c||e.lane.dir!==l.dir)continue;const dd=p-prog(e);if(dd>-2&&dd<50){v.yield=true;break;}}
       if(v.yield)v.cap=Math.min(v.cap??99,4);
       if(v.pulled||v.halt){gap=Math.min(gap,Math.max(0.4,v.v*v.v/6));lv=0;}
       {const base=v.lat0??0;let goal=base;if(v.yield||v.pulled)goal=base+l.dir*1.3;
@@ -4336,7 +4396,7 @@ function updateVehicles(dt){
   }
   for(const [v,l,l2] of laneChanges){l.veh.splice(l.veh.indexOf(v),1);l2.veh.push(v);v.shift=(v.shift||0)+l.off-l2.off;v.lane=l2;v.lcT=5;v.obsAhead=false;}
   // at the end of a road, carry on into a road that continues from there (中正路 → 北寧路 and so on); otherwise leave the world
-  for(const v of VEH.list.slice()){
+  for(const v of VEH.list.slice()){if(v.free)continue;
     const atEnd=v.lane.dir>0?v.s>v.c.L+1:v.s<-1;if(!atEnd)continue;
     const c=v.c,pt=v.lane.dir>0?c.pts[c.pts.length-1]:c.pts[0];let next=null;
     for(const c2 of VEH.chains){if(c2===c)continue;
@@ -4353,7 +4413,7 @@ function updateVehicles(dt){
   // when the hour gets quieter, quietly retire cars far from the player
   VEH.cull=(VEH.cull||0)-dt;
   if(VEH.cull<=0){VEH.cull=0.5;const target=Math.round(VEH.max*Math.min(1,dens*1.15))+2;
-    if(VEH.list.length>target){const far=VEH.list.filter(v=>Math.hypot(v.x-WPOS.x,v.z-WPOS.z)>70);if(far.length)removeVehicle(far[(Math.random()*far.length)|0]);}}
+    if(VEH.list.length>target){const far=VEH.list.filter(v=>!v.free&&v.mode!=='chase'&&v.mode!=='stop'&&Math.hypot(v.x-WPOS.x,v.z-WPOS.z)>70);if(far.length)removeVehicle(far[(Math.random()*far.length)|0]);}}
 }
 // roof height of vehicle v at distance a along its heading (cars: low hood and boot, taller cabin)
 const vehTopAt=(v,a)=>v.cabin&&(a<v.cabin[0]||a>v.cabin[1])?v.base+v.low:v.top;

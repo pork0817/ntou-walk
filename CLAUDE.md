@@ -436,3 +436,17 @@ It also watches the player within 55 m: driving over `LIMIT`, or crossing a red 
 **Audio and controls.** `updateSirens` runs two triangle-wave voices swept by an LFO: a fast yelp for police and a
 slow wail for ambulances. Siren vehicles flash on the minimap. If the player drives a police car or ambulance, G
 toggles its siren.
+
+**Chasing the player off the lanes (`RG`, `rgBuild`, `rgNear`, `rgPath`, `goFree`, `freeDrive`).** Lane-bound police
+could only speed up the way they were facing, so a police car chasing the player leaves its lane (`p.free`):
+1. **Route.** Every 1.5 s it plans a shortest route over the road graph to the player's nearest road point. The graph's
+   nodes are `RN.C` edge endpoints and its edges are `RN.edges`; `rgNear` uses a 16 m spatial index of 2 m samples.
+2. **Steering.** It follows the route with a car's turning rate and slows for turns. Nearly stopped, it turns round
+   on the spot. For the last 30 m it heads straight at the player.
+3. **Braking.** It brakes with real stopping distances for the goal and for anything ahead that hasn't moved over.
+4. **Other traffic.** Lane traffic treats free cars as obstacles (`FREE` in `updateVehicles`) and yields to a free
+   siren ahead of or behind it within 45 m. Free cars are skipped by the chain hand-over and by culling.
+5. **Giving up.** It gives up only when there is no road route, or the route is over 1.5 km for 10 s, or after 150 s.
+6. **After the ticket** (`mode 'leave'`) it drives to a far road node and is removed once out of sight.
+
+`removeVehicle` tolerates vehicles that are no longer in a lane.
