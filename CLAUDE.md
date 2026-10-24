@@ -470,16 +470,22 @@ could only speed up the way they were facing, so a police car chasing the player
 - **Paving:** east of the campus, `townPave` paints quay concrete within 28 m of water and town paving within 20 m of
   buildings and streets.
 - **Coast:** heights there are capped near the sea (`2 + 0.9·distance`), so real cliffs end as slopes, not walls.
-- **Road levelling (`build.py`, user report: 北寧路 by 碧砂 climbed a hill that isn't there).** At 30 m the DEM smears
-  hillsides onto roads at their foot, so every drivable road outside the campus box gets its own level:
-  1. Take the lowest ground (floored at 2.5 m, since the DEM reads the sea as below zero) within the road's
-     width + 8 m.
-  2. Smooth it along the road and cap the gradient (7% for main roads, 12% otherwise).
-  3. Flatten the ground across the road and ease back over 12 m.
-  4. Major roads claim their ground first. Minor roads take the major road's level where they meet or run alongside
-     it (pinned smoothing).
-  5. The 4 m grid is a block average.
-  6. Outside the box, terrain is the real DEM only; the old estimated hills no longer feather past the box edge.
+- **Road levelling (`build.py`; user: "roads have even, flat, smooth surfaces; only off-road is hilly").** At 30 m
+  the DEM smears hillsides onto roads at their foot, so every drivable road gets its own level:
+  1. Take the lowest ground across it, floored at 2.5 m (the DEM reads the sea as below zero).
+  2. Smooth it along the road over 60 m for main roads or 24 m for streets.
+  3. Cap the gradient at 3% for main roads and 12% for streets.
+  4. Make the ground flat 5 m past each kerb (no sideways tilt) and ease it back over 14 m.
+  5. Stamp it on the 1 m raster every 0.5 m along and across, vectorised. Coarser steps left holes the hillside showed
+     through, which caused the bumps.
+  6. Major roads claim their ground first. Minor roads take the major road's level where they meet or run alongside
+     it. Inside the campus box, roads take the stored campus level.
+
+  Roads are always land, and the coastal slope cap skips them. The 4 m grid is a block average. Outside the box the
+  terrain is the real DEM only.
+
+  Checks used (`ground()` every 2 m along each road): 北寧路 east of campus has bumps ≤ 0.25 m, sideways tilt ≤ 7%
+  and gradient ≤ 3%.
 - **Zones:** `bs` (碧砂漁港, x < 1300) and `bd` (八斗子).
 - **Places:** 11 new ones (`e_*` ids).
 - **Traffic and buses:** they run the whole way to 八斗子 and 海科館 by themselves. The new bus stops come from OSM

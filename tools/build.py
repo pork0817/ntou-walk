@@ -141,52 +141,72 @@ inbox=(gx>=OX0)&(gx<=OX1)&(gz>=OZ0)&(gz<=OZ1)
 wold=inbox.astype(float)          # (the box itself is replaced by the stored campus terrain further down)
 H=Hd.copy()   # real heights everywhere; inside the box the stored campus terrain replaces them later (blend band included)
 DEMHILL=(~inbox)&(Hd>22)
-# Roads outside the box get their own level: at 30 m the DEM smears hillsides onto roads that really run flat along
-# their foot (北寧路 by 碧砂 came out climbing to 57 m). Profile = the lowest ground within the road's width + 8 m,
-# smoothed along it and held to a road gradient; the ground is flattened across the road and eased back over 12 m.
+# Roads get one smooth, even surface (user: "since when did roads not have even, flat, smooth surfaces?"). At 30 m
+# the DEM smears hillsides onto roads that really run flat along their foot, so each drivable road gets its own level:
+# the lowest ground across it (never below 2.5 m: the DEM reads the sea as below zero), averaged along it (60 m for
+# main roads, 24 m for streets) and held to a gentle gradient (3 % / 12 %). The ground is flat 5 m past each kerb (no
+# sideways tilt) and eased back over 14 m. Major roads are levelled first; a smaller road takes their level where it
+# meets or runs beside one, and inside the campus box roads take the stored campus level, so the blend band agrees.
+CT0=json.load(open(os.path.join(ROOT,'data','campus-terrain.json')))
+HC0=np.frombuffer(base64.b64decode(CT0['h']),'<i2').reshape(CT0['nz'],CT0['nx']).astype(float)/10
+def hcamp(x,z):
+    fx=(x-CT0['x0'])/CT0['cell'];fz=(z-CT0['z0'])/CT0['cell']
+    return ndimage.map_coordinates(HC0,[fz,fx],order=1,mode='nearest')
+CBX1,CBZ1=CT0['x0']+(CT0['nx']-1)*CT0['cell'],CT0['z0']+(CT0['nz']-1)*CT0['cell']
 DR=np.full(H.shape,1e9);PH=np.zeros(H.shape);HW=np.zeros(H.shape);RKC=np.zeros(H.shape,np.int8)
 RK={'trunk':5,'primary':5,'secondary':4,'tertiary':3,'tertiary_link':3,'unclassified':2,'residential':2,'living_street':2,'service':1}
+FLAT,EASE=5.0,14.0
 for r in sorted(d['roads'],key=lambda r:-RK.get(r['k'],0)):   # major roads first: they claim their ground
     if r['tunnel'] or r['k'] not in RK: continue
-    rk=RK[r['k']]
-    pts=r['p']
+    rk=RK[r['k']];pts=r['p']
     if all(OX0+100<=x<=OX1-100 and OZ0<=z<=OZ1-100 for x,z in pts): continue   # (deep inside the campus box: replaced anyway)
-    S=[];cum=0
+    S=[]
     for (ax,az),(bx,bz) in zip(pts,pts[1:]):
         L=math.hypot(bx-ax,bz-az)
         if L<1e-6: continue
         tx,tz=(bx-ax)/L,(bz-az)/L
         for t in np.arange(0,L,2.0): S.append((ax+tx*t,az+tz*t,-tz,tx))
-    S.append((pts[-1][0],pts[-1][1],S[-1][2] if S else 0,S[-1][3] if S else 1))
-    if len(S)<2: continue
-    S=np.array(S);hw=r['w']/2
-    offs=np.arange(-(hw+8),hw+8.01,2.0)
+    if not S: continue
+    S.append((pts[-1][0],pts[-1][1],S[-1][2],S[-1][3]))
+    S=np.array(S);hw=r['w']/2;n=len(S)
+    offs=np.arange(-(hw+4),hw+4.01,2.0)
     lx=S[:,0,None]+S[:,2,None]*offs[None,:];lz=S[:,1,None]+S[:,3,None]*offs[None,:]
     ix=np.clip((lx-X0).astype(int),0,RX-1);iz=np.clip((lz-Z0).astype(int),0,RZ-1)
-    prof=np.maximum(Hd[iz,ix],2.5).min(axis=1)   # (the DEM reads the sea beside a quay as below zero: not a road level)
-    prof=ndimage.gaussian_filter1d(prof,8,mode='nearest')
-    g=(0.07 if rk>=4 else 0.12)*2.0
-    for i in range(1,len(prof)): prof[i]=min(prof[i],prof[i-1]+g)
-    for i in range(len(prof)-2,-1,-1): prof[i]=min(prof[i],prof[i+1]+g)
-    # where it runs on (or meets) a road already levelled, it takes that road's level and eases away from it
+    prof=np.maximum(Hd[iz,ix],2.5).min(axis=1)
+    major=rk>=4;sig=30 if major else 12;g=(0.03 if major else 0.12)*2.0
+    # pins: campus-box level inside the box, an already levelled bigger road where this one meets / runs on it
     cx=np.clip((S[:,0]-X0).astype(int),0,RX-1);cz=np.clip((S[:,1]-Z0).astype(int),0,RZ-1)
-    pin=(DR[cz,cx]<=HW[cz,cx]+3)&(RKC[cz,cx]>=rk)
-    if pin.any():
-        pv=PH[cz,cx]
-        for _ in range(40):prof=ndimage.gaussian_filter1d(prof,3,mode='nearest');prof[pin]=pv[pin]
-    offs2=np.arange(-(hw+14),hw+14.01,0.7)
-    lx=S[:,0,None]+S[:,2,None]*offs2[None,:];lz=S[:,1,None]+S[:,3,None]*offs2[None,:]
-    ix=(lx-X0).astype(int);iz=(lz-Z0).astype(int);ok=(ix>=0)&(iz>=0)&(ix<RX)&(iz<RZ)
-    dd=np.abs(np.broadcast_to(offs2[None,:],lx.shape));pp=np.broadcast_to(prof[:,None],lx.shape)
-    for a,b,dv,pv in zip(iz[ok],ix[ok],dd[ok],pp[ok]):
-        if dv<DR[a,b] and not (RKC[a,b]>rk and DR[a,b]<=HW[a,b]+3): DR[a,b]=dv;PH[a,b]=pv;HW[a,b]=hw;RKC[a,b]=rk
-road_t=np.clip((DR-(HW+2))/12,0,1);road_t=road_t*road_t*(3-2*road_t)
+    inb=(S[:,0]<=CBX1)&(S[:,1]<=CBZ1)&(S[:,0]>=CT0['x0'])&(S[:,1]>=CT0['z0'])
+    pin=inb|((DR[cz,cx]<=HW[cz,cx]+FLAT)&(RKC[cz,cx]>=rk))
+    pv=np.where(inb,hcamp(S[:,0],S[:,1]) if inb.any() else 0,PH[cz,cx])
+    prof=ndimage.gaussian_filter1d(prof,sig,mode='nearest')
+    for _ in range(3):
+        for i in range(1,n): prof[i]=min(prof[i],prof[i-1]+g)
+        for i in range(n-2,-1,-1): prof[i]=min(prof[i],prof[i+1]+g)
+        if pin.any():
+            for _k in range(30): prof=ndimage.gaussian_filter1d(prof,4,mode='nearest');prof[pin]=pv[pin]
+        else: prof=ndimage.gaussian_filter1d(prof,4,mode='nearest')
+    # stamp it every 0.5 m along and across (coarser steps leave holes on a 1 m grid, and the hillside shows through)
+    sf=np.arange(0,n-1+1e-9,0.25);i0=np.minimum(sf.astype(int),n-2);f=sf-i0
+    Sx=S[i0,0]*(1-f)+S[i0+1,0]*f;Sz=S[i0,1]*(1-f)+S[i0+1,1]*f;Snx=S[i0,2];Snz=S[i0,3];Pf=prof[i0]*(1-f)+prof[i0+1]*f
+    offs2=np.arange(-(hw+FLAT+EASE),hw+FLAT+EASE+0.01,0.5)
+    lx=Sx[:,None]+Snx[:,None]*offs2[None,:];lz=Sz[:,None]+Snz[:,None]*offs2[None,:]
+    ix=(lx-X0).astype(int).ravel();iz=(lz-Z0).astype(int).ravel()
+    dd=np.abs(np.broadcast_to(offs2[None,:],lx.shape)).ravel();pp=np.broadcast_to(Pf[:,None],lx.shape).ravel()
+    ok=(ix>=0)&(iz>=0)&(ix<RX)&(iz<RZ);ix,iz,dd,pp=ix[ok],iz[ok],dd[ok],pp[ok];cid=iz*RX+ix
+    DRf,PHf,HWf,RKf=DR.ravel(),PH.ravel(),HW.ravel(),RKC.ravel()
+    keep=(dd<DRf[cid])&~((RKf[cid]>rk)&(DRf[cid]<=HWf[cid]+FLAT))
+    cid,dd,pp=cid[keep],dd[keep],pp[keep];o=np.argsort(-dd,kind='stable')   # nearest last: it wins
+    DRf[cid[o]]=dd[o];PHf[cid[o]]=pp[o];HWf[cid[o]]=hw;RKf[cid[o]]=rk
+road_t=np.clip((DR-(HW+FLAT))/EASE,0,1);road_t=road_t*road_t*(3-2*road_t)
 H=np.where(DR<1e8,PH*(1-road_t)+H*road_t,H)
+ROADLAND=(DR<=HW+FLAT)
 # keep campus/roads area flat-ish: no change needed (wood excluded)
 # coast: land near sea a bit lower toward seawall
+sea=sea&~ROADLAND
 dsea=ndimage.distance_transform_edt(~sea)
 H=np.where(dsea<6,np.minimum(H,base),H)
-H=np.where(wold<1,np.minimum(H,2.0+dsea*0.9),H)   # real cliffs come down to the water as steep slopes, not walls
+H=np.where((wold<1)&(DR>HW+FLAT+4),np.minimum(H,2.0+dsea*0.9),H)   # (not on roads: a seawall road stays level)   # real cliffs come down to the water as steep slopes, not walls
 H=np.where(~sea,np.maximum(H,1.5),H)
 H[sea]=-5.0
 for p in d['piers']:
@@ -205,7 +225,8 @@ Hs[:CT['nz'],:CT['nx']]=blend
 # the blend band and everything new: land comes down to the water as a slope (the old map ended in a hill where the
 # wider coastline now has sea)
 seaG=Hs<0;dsg=ndimage.distance_transform_edt(~seaG)*CELL;band=np.ones_like(seaG);band[:CT['nz'],:CT['nx']]=w<1
-Hs=np.where(band&~seaG,np.minimum(Hs,2.0+dsg*0.9),Hs)
+RL=(DR<=HW+FLAT+4)[::CELL,::CELL][:Hs.shape[0],:Hs.shape[1]]
+Hs=np.where(band&~seaG&~RL,np.minimum(Hs,2.0+dsg*0.9),Hs)
 Hd=np.round(Hs*10).astype('<i2')
 grid={'x0':X0,'z0':Z0,'cell':CELL,'nx':int(nx),'nz':int(nz),'h':base64.b64encode(Hd.tobytes()).decode()}
 print('grid',nx,nz,'h range',float(Hs.min()),float(Hs.max()))
