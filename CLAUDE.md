@@ -527,8 +527,13 @@ could only speed up the way they were facing, so a police car chasing the player
 - In `build.py` a bridge deck gets the same flat strip as any road (road + 5 m each side) and a straight level from
   one end to the other (no sag). A narrow causeway was tried first: on the 4 m grid its edges blended into the sea
   and the deck came out jagged (user screenshot).
-- `hepingBridge` dresses drivable bridges outside the campus with parapets at the kerbs and at the strip's edges, and a
-  girder face down to the water at the edges.
+- `hepingBridge` dresses drivable bridges outside the campus (user request: solid sidewalks and fences):
+  - a solid raised sidewalk each side (3.2 m wide, 0.25 m high, a stepping `lmSolid`, so you walk on it; cars stop
+    at its kerb);
+  - a solid railing at its outer edge (people, bikes and cars can't leave the bridge);
+  - a 1.8 m edge beam with a face down to the water.
+
+  社寮橋's arch ribs stand outside the railings.
   社寮橋 (和平島聯外道路) gets the yellow twin arches.
 - The old stand-in at the map edge (fake island and houses) is gone.
 

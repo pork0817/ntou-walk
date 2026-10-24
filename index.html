@@ -1536,17 +1536,22 @@ function hepingBridge(){
   for(const r of D.r){if(!r.b||r.t||(RANK[r.k]??0)<1)continue;const [bx0,bz0]=centroid(r.p);if(bx0>CAMPUS_X0&&bx0<CAMPUS_X1&&bz0>CAMPUS_Z0&&bz0<CAMPUS_Z1)continue;   // road bridges outside the campus
     const s=resample(r.p,6);if(s.length<2)continue;
     const yellow=r.nm==='社寮橋'||r.nm==='和平島聯外道路',W=r.w+0.6,col=yellow?0xf2c230:0xd9d4ca;
-    for(let i=0;i<s.length-1;i++){const [ax,az]=s[i],[bx,bz]=s[i+1],L=Math.hypot(bx-ax,bz-az);if(L<0.2)continue;const tx=(bx-ax)/L,tz=(bz-az)/L,nx=-tz,nz=tx,mx=(ax+bx)/2,mz=(az+bz)/2,y=ground(mx,mz)+0.1,rot=Math.atan2(tx,tz);
-      for(const sg of [-1,1]){const px=mx+nx*sg*W/2,pz=mz+nz*sg*W/2,ex=r.w/2+5;lmBox(0.25,1.0,L+0.05,col,px,y+0.5,pz,rot);lmBox(0.25,1.0,L+0.05,col,mx+nx*sg*ex,y+0.5,mz+nz*sg*ex,rot);lmBox(0.6,y+5.5,L+0.05,0xbfbab0,mx+nx*sg*(ex+0.3),(y-5.5)/2,mz+nz*sg*(ex+0.3),rot);}}
+    const hw=r.w/2,SW=3.2;   // a raised sidewalk each side (solid: you walk on it), then a solid railing, then the edge beam
+    for(let i=0;i<s.length-1;i++){const [ax,az]=s[i],[bx,bz]=s[i+1],L=Math.hypot(bx-ax,bz-az);if(L<0.2)continue;const tx=(bx-ax)/L,tz=(bz-az)/L,nx=-tz,nz=tx,mx=(ax+bx)/2,mz=(az+bz)/2,y=ground(mx,mz)+0.08,rot=Math.atan2(tx,tz);
+      for(const sg of [-1,1]){const at=o=>[mx+nx*sg*o,mz+nz*sg*o];
+        const [wx,wz]=at(hw+SW/2);lmBox(SW,0.3,L+0.05,0xcfcac0,wx,y+0.1,wz,rot);lmSolid(wx,wz,SW,L+0.05,rot,y+0.25,true);
+        const [kx,kz]=at(hw+0.08);lmBox(0.16,0.3,L+0.05,0x8b8780,kx,y+0.1,kz,rot);
+        const [rx,rz]=at(hw+SW);lmBox(0.25,1.1,L+0.05,col,rx,y+0.8,rz,rot);lmSolid(rx,rz,0.4,L+0.05,rot,y+1.35);
+        const [ex,ez]=at(hw+SW+1.0);lmBox(1.8,y+5.8,L+0.05,0xbfbab0,ex,(y-5.8)/2+0.25,ez,rot);lmSolid(ex,ez,1.8,L+0.05,rot,y+0.3);}}
 
     if(yellow){const a=s[0],b=s[s.length-1],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<30)continue;const tx=(b[0]-a[0])/L,tz=(b[1]-a[1])/L;
       const g=new THREE.Group();g.position.set(a[0],ground((a[0]+b[0])/2,(a[1]+b[1])/2)+0.1,a[1]);g.rotation.y=Math.atan2(tx,tz);scene.add(g);
-      const arcR=L*0.42,rise=Math.min(16,L*0.2);
+      const arcR=L*0.42,rise=Math.min(16,L*0.2),AW=r.w+2*(3.2+1.0);   // the ribs stand outside the railings
       for(const sx of [-1,1]){
-        const curve=new THREE.CatmullRomCurve3(Array.from({length:17},(_,i)=>{const t=i/16;return new THREE.Vector3(sx*(W/2+0.4),Math.sin(t*Math.PI)*rise,L/2+(t-0.5)*2*arcR);}));
+        const curve=new THREE.CatmullRomCurve3(Array.from({length:17},(_,i)=>{const t=i/16;return new THREE.Vector3(sx*AW/2,Math.sin(t*Math.PI)*rise,L/2+(t-0.5)*2*arcR);}));
         g.add(shade(new THREE.Mesh(new THREE.TubeGeometry(curve,40,0.75,8,false),toon(0xf2c230))));
-        for(let i=1;i<12;i++){const t=i/12,zz=L/2+(t-0.5)*2*arcR,h=Math.sin(t*Math.PI)*rise;const hg=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,h,6),toon(0xf4f4f2));hg.position.set(sx*(W/2+0.4),h/2,zz);g.add(hg);}}
-      for(let i=1;i<6;i++){const t=i/6,h=Math.sin(t*Math.PI)*rise;if(h<6)continue;const brace=shade(new THREE.Mesh(new THREE.BoxGeometry(W+0.8,0.5,0.5),toon(0xf2c230)));brace.position.set(0,h,L/2+(t-0.5)*1.4*arcR);g.add(brace);}}}
+        for(let i=1;i<12;i++){const t=i/12,zz=L/2+(t-0.5)*2*arcR,h=Math.sin(t*Math.PI)*rise;const hg=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,h,6),toon(0xf4f4f2));hg.position.set(sx*AW/2,h/2,zz);g.add(hg);}}
+      for(let i=1;i<6;i++){const t=i/6,h=Math.sin(t*Math.PI)*rise;if(h<6)continue;const brace=shade(new THREE.Mesh(new THREE.BoxGeometry(AW+0.8,0.5,0.5),toon(0xf2c230)));brace.position.set(0,h,L/2+(t-0.5)*1.4*arcR);g.add(brace);}}}
 }
 
 // 北寧路 sea side between the 濱海 gate and 體育館: stepped terraces up to a long dark-navy block
