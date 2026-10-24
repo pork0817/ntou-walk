@@ -1,7 +1,7 @@
 # 海大漫遊 NTOU Walk
 
-A browser exploration game of National Taiwan Ocean University's main campus (校本部, 基隆市北寧路2號) and the coast east of it:
-碧砂漁港 and 八斗子. Walk, ride a bike, drive any car or scooter, take the bus along 北寧路, discover the campus buildings,
+A browser exploration game of National Taiwan Ocean University's main campus (校本部, 基隆市北寧路2號) and the coast around it:
+碧砂漁港 and 八斗子 to the east, 正濱漁港 (the rainbow houses) and 和平島 to the west. Walk, ride a bike, drive any car or scooter, take the bus along 北寧路, discover the campus buildings,
 browse the fish market, eat at 八斗子夜市 in the evening, and go fishing from the quays.
 
 **Play:** open `index.html` in a browser (it needs an internet connection for three.js and the fonts).

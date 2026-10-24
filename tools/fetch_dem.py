@@ -3,7 +3,7 @@
 import os,json,math,time,urllib.request
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LAT0,LON0=25.15,121.777;KX=math.cos(math.radians(LAT0))*111320;KZ=110574
-X0,X1,Z0,Z1,STEP=-600,2100,-320,1250,30
+X0,X1,Z0,Z1,STEP=-1552,2100,-1520,1250,30   # widened west to 正濱 and 和平島
 xs=list(range(X0,X1+1,STEP));zs=list(range(Z0,Z1+1,STEP))
 pts=[(z,x) for z in zs for x in xs]
 H=[]

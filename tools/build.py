@@ -14,7 +14,7 @@ M=np.linalg.lstsq(A,X,rcond=None)[0];res=X-A@M
 def pred(px,py):
     dd=np.hypot(A[:,0]-px,A[:,1]-py)+1e-3;w=1/dd**2;idx=np.argsort(dd)[:5]
     return np.array([px,py,1])@M+(res[idx]*w[idx,None]).sum(0)/w[idx].sum()
-X0,X1,Z0,Z1=-600,2100,-320,1250
+X0,X1,Z0,Z1=-1552,2100,-1520,1250   # (X0, Z0 stay on the campus grid's 4 m lattice)
 OX0,OX1,OZ0,OZ1=-600,760,-320,400   # the original campus box: its estimated terrain is kept as it was
 # ---------- English names for OSM campus buildings ----------
 EN={'人文大樓':'Humanities Building','綜合研究中心':'Integrated Research Center','綜合三館':'Comprehensive Building 3','會議中心':'Conference Center','行政大樓':'Administration Building','操船模擬機室':'Ship Handling Simulator','育樂館':'Recreation Hall','商船學系系館':'Merchant Marine','機械B館和圖資處':'Mechanical Eng. B & Library IT','延平技術大樓':'Yanping Technology Building','沛華大樓':'Peihua Building','航管大樓':'Shipping & Transportation Mgmt.','海空大樓':'Sea & Air Building','游泳池':'Swimming Pool','男二舍':"Men's Dorm 2",'男三女二舍':"Men's Dorm 3 / Women's Dorm 2",'第一餐廳FRB':'First Cafeteria','男一舍':"Men's Dorm 1",'海事大樓':'Maritime Building','海洋環境化學與生態研究所':'Inst. of Marine Environmental Chemistry & Ecology','綜合一館':'Comprehensive Building 1','海洋環境資訊系系館':'Marine Environmental Informatics','環漁系館':'Environmental Biology & Fisheries','生命科學院館':'College of Life Sciences','食品工程館':'Food Engineering','陸生動物實驗中心':'Terrestrial Animal Lab','食品科學學系館':'Food Science','水生動物實驗中心':'Aquatic Animal Lab','電機二館':'Electrical Engineering 2','工學院':'College of Engineering','海洋工程綜合試驗館':'Ocean Engineering Lab Complex','河工二館':'Hydraulic & Ocean Eng. 2','大型空蝕水槽實驗室':'Cavitation Tunnel Lab','體育館':'Gymnasium','學生活動中心':'Student Activity Center','女一舍':"Women's Dorm 1",'電機一館':'Electrical Engineering 1','電資暨綜合教學大樓':'EECS & Teaching Building','綜合2管':'Comprehensive Building 2','五南文化広場（海洋書坊）':'Wunan Bookstore','機械A館':'Mechanical Eng. A','圖書館':'Library','機械與工程學系系館':'Mechanical & Mechatronic Eng.','7-Eleven':'7-Eleven'}
@@ -61,8 +61,7 @@ print('assigned',[(b['no'],b['name']) for b in d['buildings'] if b.get('assigned
 # ---------- rasters (1 m) ----------
 RX,RZ=X1-X0,Z1-Z0
 def rpath(poly):return Path(np.array([[x-X0,z-Z0] for x,z in poly]))
-yy,xx=np.mgrid[0:RZ,0:RX]+0.5
-P2=np.c_[xx.ravel(),yy.ravel()]
+yy,xx=(np.mgrid[0:RZ,0:RX]+0.5).astype(np.float32)
 def mask(poly):
     # only test the polygon's bounding box (the map is ~4 M cells)
     xs=[q[0]-X0 for q in poly];zs=[q[1]-Z0 for q in poly]
@@ -197,7 +196,7 @@ for r in sorted(d['roads'],key=lambda r:-RK.get(r['k'],0)):   # major roads firs
     DRf,PHf,HWf,RKf=DR.ravel(),PH.ravel(),HW.ravel(),RKC.ravel()
     keep=(dd<DRf[cid])&~((RKf[cid]>rk)&(DRf[cid]<=HWf[cid]+FLAT))
     cid,dd,pp=cid[keep],dd[keep],pp[keep];o=np.argsort(-dd,kind='stable')   # nearest last: it wins
-    DRf[cid[o]]=dd[o];PHf[cid[o]]=pp[o];HWf[cid[o]]=hw;RKf[cid[o]]=rk
+    DRf[cid[o]]=dd[o];PHf[cid[o]]=pp[o];HWf[cid[o]]=(hw-FLAT+1.5 if r.get('bridge') else hw);RKf[cid[o]]=rk   # a bridge: only a narrow causeway, the water stays open beside it
 road_t=np.clip((DR-(HW+FLAT))/EASE,0,1);road_t=road_t*road_t*(3-2*road_t)
 H=np.where(DR<1e8,PH*(1-road_t)+H*road_t,H)
 ROADLAND=(DR<=HW+FLAT)
@@ -215,16 +214,17 @@ CELL=4
 Hs=np.where(sea,H,ndimage.uniform_filter(H,CELL))[::CELL,::CELL].copy();nz,nx=Hs.shape
 CT=json.load(open(os.path.join(ROOT,'data','campus-terrain.json')))
 Hc=np.frombuffer(base64.b64decode(CT['h']),'<i2').reshape(CT['nz'],CT['nx']).astype(float)/10
+OI,OJ=(CT['x0']-X0)//CELL,(CT['z0']-Z0)//CELL      # where the stored campus grid sits in this one
 cz_,cx_=np.mgrid[0:CT['nz'],0:CT['nx']]
 edge=np.minimum((CT['nx']-1-cx_)*CELL,(CT['nz']-1-cz_)*CELL)        # metres in from the east / south edge
 w=np.clip(edge/80,0,1)
-sub=Hs[:CT['nz'],:CT['nx']]
+sub=Hs[OJ:OJ+CT['nz'],OI:OI+CT['nx']]
 blend=w*Hc+(1-w)*sub
 blend=np.where((Hc<0)&(w>0.5),Hc,np.where((sub<0)&(w<=0.5),sub,blend))
-Hs[:CT['nz'],:CT['nx']]=blend
+Hs[OJ:OJ+CT['nz'],OI:OI+CT['nx']]=blend
 # the blend band and everything new: land comes down to the water as a slope (the old map ended in a hill where the
 # wider coastline now has sea)
-seaG=Hs<0;dsg=ndimage.distance_transform_edt(~seaG)*CELL;band=np.ones_like(seaG);band[:CT['nz'],:CT['nx']]=w<1
+seaG=Hs<0;dsg=ndimage.distance_transform_edt(~seaG)*CELL;band=np.ones_like(seaG);band[OJ:OJ+CT['nz'],OI:OI+CT['nx']]=w<1
 RL=(DR<=HW+FLAT+4)[::CELL,::CELL][:Hs.shape[0],:Hs.shape[1]]
 Hs=np.where(band&~seaG&~RL,np.minimum(Hs,2.0+dsg*0.9),Hs)
 Hd=np.round(Hs*10).astype('<i2')
@@ -255,8 +255,8 @@ for x,z in trees:
     gridset[k]=1;keep.append((x,z))
 print('trees',len(keep))
 OLDT=np.frombuffer(base64.b64decode(CT['trees']),'<i2').reshape(-1,2)
-cbx,cbz=X0+(CT['nx']-1)*CELL,Z0+(CT['nz']-1)*CELL
-keep=[tuple(t) for t in OLDT.tolist()]+[(x,z) for x,z in keep if not (x<cbx and z<cbz)]
+cbx,cbz=CT['x0']+(CT['nx']-1)*CELL,CT['z0']+(CT['nz']-1)*CELL
+keep=[tuple(t) for t in OLDT.tolist()]+[(x,z) for x,z in keep if not (CT['x0']<=x<cbx and CT['z0']<=z<cbz)]
 tarr=np.array(keep).round().astype('<i2')
 # ---------- spawn ----------
 # nearest free point to 14 m south of the gate (clear of the bus shelter and its label)
@@ -283,7 +283,7 @@ for n in r.iter('node'):
     nm=t.get('name','')
     if nm.startswith('海大('):
         bus.setdefault(nm,[]).append(((float(n.get('lon'))-LON0)*KX,(LAT0-float(n.get('lat')))*KZ))
-bn=[r for r in d['roads'] if r['name']=='北寧路']
+bn=[r for r in d['roads'] if r['name']=='北寧路' or (r['k'] in ('primary','secondary','tertiary','unclassified') and r['p'][0][0]<-600)]
 def near_bn(x,z):
     for r in bn:
         for (ax,az),(bx,bz) in zip(r['p'],r['p'][1:]):
@@ -294,7 +294,7 @@ for n in r.iter('node'):
     t={x.get('k'):x.get('v') for x in n.iter('tag')}
     if t.get('highway')!='bus_stop' or not t.get('name'): continue
     x,z=(float(n.get('lon'))-LON0)*KX,(LAT0-float(n.get('lat')))*KZ
-    if x>760 and X0<x<X1 and Z0<z<Z1 and near_bn(x,z): bus.setdefault(t['name'],[]).append((x,z))
+    if (x>760 or x<-600 or z<-330) and X0<x<X1 and Z0<z<Z1 and near_bn(x,z): bus.setdefault(t['name'],[]).append((x,z))
 for k,v in bus.items():   # a terminus has many platform nodes: keep one each side (the two farthest apart)
     if len(v)>2:
         best=max(((a,c) for a in v for c in v),key=lambda q:math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1]));bus[k]=list(best)
@@ -322,7 +322,7 @@ if libs:
     big=max(libs,key=lambda b:abs(sum(x1*z2-x2*z1 for (x1,z1),(x2,z2) in zip(b['p'],b['p'][1:]+b['p'][:1]))))
     for b in libs:
         if b is not big: b['n']='';b['d']=0
-ROADS=[{'k':r['k'],'w':r['w'],'p':r['p'],'t':int(r['tunnel']),'nm':r['name'],'ln':r['lanes'],'ow':int(r['oneway']),'fw':r['fw']} for r in d['roads']]
+ROADS=[{'k':r['k'],'w':r['w'],'p':r['p'],'t':int(r['tunnel']),'nm':r['name'],'ln':r['lanes'],'ow':int(r['oneway']),'fw':r['fw'],**({'b':1} if r.get('bridge') else {})} for r in d['roads']]
 AREAS=[{'k':a['k'],'s':a['sport'],'p':a['p'],'no':a.get('no',0)} for a in d['areas']]
 PIERS=[{'k':p['k'],'c':int(p['closed']),'p':p['p']} for p in d['piers']]
 def _old(ps,m):return any(-620-m<q[0]<780+m and -330-m<q[1]<420+m for q in ps)

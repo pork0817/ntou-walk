@@ -477,10 +477,12 @@ const BX0=G.x0+6,BX1=G.x0+GW-6,BZ0=G.z0+6,BZ1=G.z0+GH-6;
 
 /* ---------- campus zones ---------- */
 const CAMPUS={n:{zh:'北寧校區',en:'Beining Campus',color:'#1f9e9a'},x:{zh:'祥豐校區',en:'Xiangfeng Campus',color:'#d0505a'},b:{zh:'濱海校區',en:'Binhai Campus',color:'#7d7f86'},
-  bs:{zh:'碧砂漁港',en:'Bisha Fishing Harbor',color:'#2f7fbf'},bd:{zh:'八斗子',en:'Badouzi',color:'#e0874a'}};
+  bs:{zh:'碧砂漁港',en:'Bisha Fishing Harbor',color:'#2f7fbf'},bd:{zh:'八斗子',en:'Badouzi',color:'#e0874a'},
+  zb:{zh:'正濱漁港',en:'Zhengbin Fishing Harbor',color:'#e05a8a'},hp:{zh:'和平島',en:'Heping Island',color:'#3a9a6a'},zz:{zh:'中正區',en:'Zhongzheng District',color:'#8a8f96'}};
 function zoneOf(no,x,z){
   if(no){return no<=27?'n':no<=54?'x':'b';}
   if(x>760)return x<1300?'bs':'bd';
+  if(x<-600||z<-330)return z<-480?'hp':z<-80?'zb':'zz';
   if(x<-250)return 'x';if(x>150&&z<-60)return 'b';return 'n';
 }
 /* building styles taken from the illustrated school map:
@@ -651,14 +653,18 @@ const cell=(x,z)=>grid.get(gk(Math.floor(x/CELL),Math.floor(z/CELL)))||[];
 /* ---------- ground texture painted from map data ---------- */
 // Painted in tiles: the original campus box at full detail (exactly as before the map grew), the east (碧砂漁港,
 // 八斗子) and the hills south of the campus coarser, so the texture memory stays reasonable on phones.
-const CAMPUS_X1=756,CAMPUS_Z1=396;   // the original map's east / south edges (grid-aligned)
+const CAMPUS_X0=-600,CAMPUS_Z0=-320,CAMPUS_X1=756,CAMPUS_Z1=396;   // the original map's edges (grid-aligned)
 const GT_PPM=(SET.quality==='low'?2048:(SET.quality==='high'&&!isTouch)?6144:4096)/1356;
 const GTILES=(()=>{const mx=renderer.capabilities.maxTextureSize||4096,E=G.x0+GW,S=G.z0+GH,out=[];
   const add=(x0,z0,x1,z1,ppm)=>{if(x1-x0<1||z1-z0<1)return;ppm=Math.min(ppm,mx/(x1-x0),mx/(z1-z0));const c=document.createElement('canvas');
     c.width=Math.round((x1-x0)*ppm);c.height=Math.round((z1-z0)*ppm);out.push({x0,z0,x1,z1,ts:c.width/(x1-x0),c,k:(x1-x0)*(z1-z0)/(1356*716)});};
-  add(G.x0,G.z0,Math.min(E,CAMPUS_X1),Math.min(S,CAMPUS_Z1),GT_PPM);
-  add(CAMPUS_X1,G.z0,E,S,GT_PPM*0.55);
-  add(G.x0,CAMPUS_Z1,Math.min(E,CAMPUS_X1),S,GT_PPM*0.35);
+  add(CAMPUS_X0,CAMPUS_Z0,CAMPUS_X1,CAMPUS_Z1,GT_PPM);              // the campus, exactly as before
+  add(CAMPUS_X1,CAMPUS_Z0,E,S,GT_PPM*0.55);                         // 碧砂漁港 and 八斗子
+  add(CAMPUS_X1,G.z0,E,CAMPUS_Z0,GT_PPM*0.12);                      // open sea north-east
+  add(G.x0,G.z0,CAMPUS_X0,-80,GT_PPM*0.55);                         // 正濱漁港 and 和平島
+  add(G.x0,-80,CAMPUS_X0,S,GT_PPM*0.35);                            // 中正區 south-west
+  add(CAMPUS_X0,G.z0,CAMPUS_X1,CAMPUS_Z0,GT_PPM*0.3);               // north of campus: the sea and 和平島's east end
+  add(CAMPUS_X0,CAMPUS_Z1,CAMPUS_X1,S,GT_PPM*0.35);                 // the hills south of campus
   return out;})();
 let _seaBed=null;
 function paintGround(T){
@@ -671,7 +677,7 @@ function paintGround(T){
   const line=p=>{g.beginPath();p.forEach((q,i)=>i?g.lineTo(X(q[0]),Z(q[1])):g.moveTo(X(q[0]),Z(q[1])));};
   g.fillStyle='#b4d98c';g.fillRect(0,0,TW,TH);
   for(let i=0;i<12000*K;i++){g.fillStyle=['rgba(255,255,255,.10)','rgba(60,120,40,.08)','rgba(200,230,140,.12)'][i%3];g.fillRect(Math.random()*TW,Math.random()*TH,2.5*TS,1.2*TS);}
-  if(T.x0>=CAMPUS_X1){g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(townPave(),X(G.x0)-0.5*G.cell*TS,Z(G.z0)-0.5*G.cell*TS,G.nx*G.cell*TS,G.nz*G.cell*TS);}   // quays and town streets
+  if(!(T.x0===CAMPUS_X0&&T.z0===CAMPUS_Z0)){g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(townPave(),X(G.x0)-0.5*G.cell*TS,Z(G.z0)-0.5*G.cell*TS,G.nx*G.cell*TS,G.nz*G.cell*TS);}   // quays and town streets
   // campus paving, tinted by campus
   const zoneSeeds=D.b.filter(b=>b.c&&b.no).map(b=>{const [x,z]=centroid(b.p);return [x,z,zoneOf(b.no,x,z)];});
   const PAVE={n:'#bfd0d4',x:'#e2c6ad',b:'#c8c9ca'};
@@ -1524,27 +1530,23 @@ function binhaiGate(){
     LM.turbines.push(rotor);const o={kind:'circle',x,z,r:1.3,top:99};gridAdd(o,x-2,z-2,x+2,z+2);}
 }
 
-// 和平橋: yellow twin-arch bridge where the 和平島 road leaves the map, with a glimpse of the island beyond
+// the bridges over 八尺門水道 to 和平島 (OSM bridge pieces). The road crosses on a narrow levelled causeway (build.py), so
+// each gets a deck face down to the water and parapets on both sides; 社寮橋 (和平島聯外道路) also its yellow twin arches.
 function hepingBridge(){
-  const r=ROADS3.find(r=>r.nm==='和平島聯外道路');if(!r)return;
-  const edge=G.z0+2;const s=resample(r.p,4).filter(q=>q[1]<edge+6);if(s.length<3)return;
-  const a=s[0],b=s[Math.min(s.length-1,30)];const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const tx=(b[0]-a[0])/L,tz=(b[1]-a[1])/L,nx=-tz,nz=tx;
-  const deckY=ground(a[0],a[1])+0.1,rot=Math.atan2(tx,tz),W=r.w+2;
-  const g=new THREE.Group();g.position.set(a[0],deckY,a[1]);g.rotation.y=rot;scene.add(g);  // local z along the bridge
-  lmBox(W,1.4,L,0xd8d4ca,0,-0.75,L/2,0,g);                                             // deck girder under the road ribbon
-  for(const sx of [-1,1])lmBox(0.25,1.0,L,0xf2c230,sx*(W/2-0.1),0.5,L/2,0,g);          // yellow parapets
-  for(let k=1;k<4;k++)lmBox(W*0.5,deckY+6,2.2,0xbfbab0,0,-(deckY+6)/2-1,L*k/4,0,g);    // piers into the sea
-  const arcR=L*0.42,rise=16;
-  for(const sx of [-1,1]){
-    const curve=new THREE.CatmullRomCurve3(Array.from({length:17},(_,i)=>{const t=i/16;return new THREE.Vector3(sx*(W/2+0.4),Math.sin(t*Math.PI)*rise,L/2+(t-0.5)*2*arcR);}));
-    const arch=shade(new THREE.Mesh(new THREE.TubeGeometry(curve,40,0.75,8,false),toon(0xf2c230)));g.add(arch);
-    for(let i=1;i<12;i++){const t=i/12,zz=L/2+(t-0.5)*2*arcR,h=Math.sin(t*Math.PI)*rise;
-      const hg=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,h,6),toon(0xf4f4f2));hg.position.set(sx*(W/2+0.4),h/2,zz);g.add(hg);}}
-  for(let i=1;i<6;i++){const t=i/6;const brace=shade(new THREE.Mesh(new THREE.BoxGeometry(W+0.8,0.5,0.5),toon(0xf2c230)));brace.position.set(0,Math.sin(t*Math.PI)*rise,L/2+(t-0.5)*1.4*arcR);if(Math.sin(t*Math.PI)*rise>6)g.add(brace);}
-  // 和平島 beyond: low green hills with a few white houses where the road lands
-  const e=r.p[r.p.length-1];const ix=(b[0]+e[0])/2+nx*10,iz=(b[1]+e[1])/2+nz*10;
-  const isl=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),toon(0x6fae55));isl.scale.set(140,14,90);isl.position.set(ix-40,-6,iz-20);scene.add(isl);
-  for(let k=0;k<14;k++){const hx=ix-80+((k*37)%120),hz=iz-40+((k*53)%60);lmBox(8+(k%3)*3,6+(k%4)*3,8,[0xf2efe6,0xe6e1d4,0xdfe6ea][k%3],hx,7,hz,(k%5)*0.3);}
+  for(const r of D.r){if(!r.b||r.t||(RANK[r.k]??0)<1)continue;const [bx0,bz0]=centroid(r.p);if(bx0>CAMPUS_X0&&bx0<CAMPUS_X1&&bz0>CAMPUS_Z0&&bz0<CAMPUS_Z1)continue;   // road bridges outside the campus
+    const s=resample(r.p,6);if(s.length<2)continue;
+    const yellow=r.nm==='社寮橋'||r.nm==='和平島聯外道路',W=r.w+0.6,col=yellow?0xf2c230:0xd9d4ca;
+    for(let i=0;i<s.length-1;i++){const [ax,az]=s[i],[bx,bz]=s[i+1],L=Math.hypot(bx-ax,bz-az);if(L<0.2)continue;const tx=(bx-ax)/L,tz=(bz-az)/L,nx=-tz,nz=tx,mx=(ax+bx)/2,mz=(az+bz)/2,y=ground(mx,mz)+0.1,rot=Math.atan2(tx,tz);
+      for(const sg of [-1,1]){const px=mx+nx*sg*W/2,pz=mz+nz*sg*W/2;lmBox(0.25,1.0,L+0.05,col,px,y+0.5,pz,rot);lmBox(0.5,y+5.5,L+0.05,0xbfbab0,mx+nx*sg*(W/2+0.3),(y-5.5)/2,mz+nz*sg*(W/2+0.3),rot);}
+      if(i%4===2)lmBox(W*0.6,y+6,2.2,0xbfbab0,mx,(y-6)/2-0.5,mz,rot);}
+    if(yellow){const a=s[0],b=s[s.length-1],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<30)continue;const tx=(b[0]-a[0])/L,tz=(b[1]-a[1])/L;
+      const g=new THREE.Group();g.position.set(a[0],ground((a[0]+b[0])/2,(a[1]+b[1])/2)+0.1,a[1]);g.rotation.y=Math.atan2(tx,tz);scene.add(g);
+      const arcR=L*0.42,rise=Math.min(16,L*0.2);
+      for(const sx of [-1,1]){
+        const curve=new THREE.CatmullRomCurve3(Array.from({length:17},(_,i)=>{const t=i/16;return new THREE.Vector3(sx*(W/2+0.4),Math.sin(t*Math.PI)*rise,L/2+(t-0.5)*2*arcR);}));
+        g.add(shade(new THREE.Mesh(new THREE.TubeGeometry(curve,40,0.75,8,false),toon(0xf2c230))));
+        for(let i=1;i<12;i++){const t=i/12,zz=L/2+(t-0.5)*2*arcR,h=Math.sin(t*Math.PI)*rise;const hg=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,h,6),toon(0xf4f4f2));hg.position.set(sx*(W/2+0.4),h/2,zz);g.add(hg);}}
+      for(let i=1;i<6;i++){const t=i/6,h=Math.sin(t*Math.PI)*rise;if(h<6)continue;const brace=shade(new THREE.Mesh(new THREE.BoxGeometry(W+0.8,0.5,0.5),toon(0xf2c230)));brace.position.set(0,h,L/2+(t-0.5)*1.4*arcR);g.add(brace);}}}
 }
 
 // 北寧路 sea side between the 濱海 gate and 體育館: stepped terraces up to a long dark-navy block
@@ -1969,7 +1971,7 @@ function buildTerrain(){
   const near=new THREE.Mesh(new THREE.PlaneGeometry(GW,GH),seaM.material);near.rotation.x=-Math.PI/2;near.position.set(G.x0+GW/2,0,G.z0+GH/2);scene.add(near);
   // distant hills behind the south edge and the sides
   const hm=[toon(0x5fae4c),toon(0x4b9a3f),toon(0x569f45)];
-  [[-400,1460,260,90],[250,1480,280,100],[900,1470,260,90],[1550,1460,240,80],[2150,1420,220,70],[2380,800,240,90],[2330,250,160,50],[-820,150,220,70],[-760,-200,160,50],[-800,700,260,90]].forEach(([x,z,r,h],i)=>{const s=new THREE.Mesh(new THREE.SphereGeometry(1,20,12),hm[i%3]);s.scale.set(r,h,r*0.7);s.position.set(x,-10,z);scene.add(s);});
+  [[-400,1460,260,90],[250,1480,280,100],[900,1470,260,90],[1550,1460,240,80],[2150,1420,220,70],[2380,800,240,90],[2330,250,160,50],[-1800,-200,220,70],[-1820,500,260,90],[-1760,1250,240,80]].forEach(([x,z,r,h],i)=>{const s=new THREE.Mesh(new THREE.SphereGeometry(1,20,12),hm[i%3]);s.scale.set(r,h,r*0.7);s.position.set(x,-10,z);scene.add(s);});
 }
 
 function buildingMesh(b,idx){
@@ -1984,8 +1986,9 @@ function buildingMesh(b,idx){
   const sp=(b.c&&SPECIAL[b.no])||{};
   const st=Object.assign({},STYLE[zone]);if(sp.trim)st.trim=sp.trim;
   const kind=sp.kind||st.kind;
-  const color=sp.wall||st.walls[(b.no||idx)%st.walls.length];
-  const roofCol=sp.roof||st.roof;
+  const temple=!b.c&&(b.t==='temple'||b.t==='shrine'),rainbow=!b.c&&isRainbow(cx,cz);
+  const color=sp.wall||(temple?0xc8352a:rainbow?RAINBOW[idx%RAINBOW.length]:st.walls[(b.no||idx)%st.walls.length]);
+  const roofCol=sp.roof||(temple?0xe8822a:st.roof);
   const area=polyArea(p);
   // stone plinth, main body, parapet trim
   const plinthTop=gmax+(b.c?1.1:0.6);
@@ -2475,7 +2478,7 @@ function buildWorld(){
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
-  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();buildEast();buildMission();setupSeason();buildRain();pickWeather(true);
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();buildEast();buildWest();buildMission();setupSeason();buildRain();pickWeather(true);
 }
 
 /* ---------- interiors: the library (圖書館, 圖書一館) and the 7-ELEVEN X-STORE 8 in its south corner.
@@ -3140,18 +3143,19 @@ function openMissions(){const ol=$('#msList');ol.innerHTML='';
 const EAST={boats:[],stalls:[],vendors:[],crowd:[],market:null,night:null,fisher:null,open:{fish:null,night:null},crowdT:0};
 // town and quay paving for the ground texture (east of the campus only), one 4 m cell per pixel
 let _town=null;
-function townPave(){if(_town)return _town;const nx=G.nx,nz=G.nz,N=nx*nz,cell=G.cell,ix0=Math.ceil((CAMPUS_X1+4-G.x0)/cell);
+function townPave(){if(_town)return _town;const nx=G.nx,nz=G.nz,N=nx*nz,cell=G.cell;
+  const inCampusBox=(x,z)=>{const X=G.x0+x*cell,Z=G.z0+z*cell;return X>CAMPUS_X0-4&&X<CAMPUS_X1+4&&Z>CAMPUS_Z0-4&&Z<CAMPUS_Z1+4;};
   const INF=255,dSea=new Uint8Array(N).fill(INF),dB=new Uint8Array(N).fill(INF),q=[];
   const bfs=(d,lim)=>{let h=0;while(h<q.length){const i=q[h++],x=i%nx,z=(i/nx)|0,nd=d[i]+1;if(nd>lim)continue;
     for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const X=x+dx,Z=z+dz;if(X<0||Z<0||X>=nx||Z>=nz)continue;const j=Z*nx+X;if(d[j]>nd){d[j]=nd;q.push(j);}}}q.length=0;};
   for(let i=0;i<N;i++)if(HT[i]<0){dSea[i]=0;q.push(i);}bfs(dSea,8);
   const mark=(x,z)=>{const X=Math.round((x-G.x0)/cell),Z=Math.round((z-G.z0)/cell);if(X>=0&&Z>=0&&X<nx&&Z<nz&&dB[Z*nx+X]){dB[Z*nx+X]=0;q.push(Z*nx+X);}};
-  for(const b of D.b){const [cx]=centroid(b.p);if(cx<CAMPUS_X1)continue;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of b.p){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
+  for(const b of D.b){const [cx,cz]=centroid(b.p);if(cx>CAMPUS_X0&&cx<CAMPUS_X1&&cz>CAMPUS_Z0&&cz<CAMPUS_Z1)continue;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of b.p){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
     for(let x=x0;x<=x1;x+=cell)for(let z=z0;z<=z1;z+=cell)if(pip(b.p,x,z))mark(x,z);for(const p of b.p)mark(p[0],p[1]);}
   for(const r of D.r){if((RANK[r.k]??0)<1||r.t)continue;for(let i=0;i<r.p.length-1;i++){const [ax,az]=r.p[i],[bx,bz]=r.p[i+1],L=Math.hypot(bx-ax,bz-az);for(let s=0;s<=L;s+=2){const t=s/(L||1);mark(ax+(bx-ax)*t,az+(bz-az)*t);}}}
   bfs(dB,5);
   const c=document.createElement('canvas');c.width=nx;c.height=nz;const g=c.getContext('2d');
-  for(let z=0;z<nz;z++)for(let x=ix0;x<nx;x++){const i=z*nx+x,h=HT[i];if(h<0||h>30)continue;
+  for(let z=0;z<nz;z++)for(let x=0;x<nx;x++){const i=z*nx+x,h=HT[i];if(h<0||h>30||inCampusBox(x,z))continue;
     if(dSea[i]<=7){g.fillStyle='#cdcac2';g.fillRect(x,z,1,1);}else if(dB[i]<=5&&h<26){g.fillStyle='#d6d2ca';g.fillRect(x,z,1,1);}}
   return _town=c;}
 // a market stall: counter, striped awning, a sign, and what's on sale
@@ -3187,7 +3191,7 @@ function buildEast(){
     ['e_yushi','漁師新村','Fishermen\'s Village',1224,899],['e_bdhs','八斗高中','Badou High School',1091,1204],['e_pier','八斗子釣魚區','Badouzi Fishing Pier',1530,350]])lmSpot(id,zh,en,x,z);
   // moored boats along the quays of both harbours
   const cols=[0x2f6fb8,0xd8463c,0xf4f4f2,0x4f9a72,0xf2c230];let n=0;
-  for(const [x0,x1,z0,z1,want] of [[850,1150,200,620,10],[1420,1900,350,1000,16]]){let got=0;
+  for(const [x0,x1,z0,z1,want] of [[850,1150,200,620,10],[1420,1900,350,1000,16],[-1100,-620,-560,-180,16]]){let got=0;
     for(let tries=0;tries<4000&&got<want;tries++){const x=x0+Math.random()*(x1-x0),z=z0+Math.random()*(z1-z0);if(ground(x,z)>-1)continue;
       let land=null;for(let a=0;a<TAU;a+=0.4){const lx=x+Math.cos(a)*7,lz=z+Math.sin(a)*7;if(ground(lx,lz)>0.5){land=[Math.cos(a),Math.sin(a)];break;}}
       if(!land)continue;let close=false;for(let a=0;a<TAU;a+=0.6)if(ground(x+Math.cos(a)*3.2,z+Math.sin(a)*3.2)>-1)close=true;if(close)continue;
@@ -3303,6 +3307,76 @@ function updateEast(dt){
   const F=EAST.fisher;if(F){const d=Math.hypot(F.x-WPOS.x,F.z-WPOS.z);if(d<5&&(F.talkT-=dt)<=0){F.talkT=25;say(F,F.told?pick(['今天魚況不錯喔','晚上白帶魚比較多','耐心一點啦']):(isTouch?'要釣魚嗎？岸邊按「釣魚」，浮標一沉就拉！':'要釣魚嗎？岸邊按 C，浮標一沉再按一次！'),F.told?2.6:5.5);F.told=true;}
     if(d<80)tickBubble(F,dt,F.x,F.g.position.y+2.5,F.z);}
   updateFishing(dt);refreshFishUI();
+}
+
+/* ---------- west of campus (user request): 正濱漁港 and its rainbow houses (彩虹屋), the 阿根納造船廠 ruins, 和平橋 and
+   社寮橋 over 八尺門水道 to 和平島: 天后宮, the fish market, 社寮東砲台, and the park's 萬人堆 mushroom rocks and the
+   千疊敷 rock terraces. ---------- */
+const RAINBOW=[0xf06a8a,0xf2c230,0x4fb3e6,0x7cc36a,0xff8a3d,0xb58ad8,0x5fd1c8,0xf4a7c0];
+const isRainbow=(x,z)=>Math.hypot(x+807,z+277)<110;
+// a market row along the side of the building nearest (x,z) that faces a road (used at 碧砂 and 和平島)
+function marketNear(x0,z0,labels,cols,lines){
+  const B=D.b.slice().sort((a,b)=>Math.hypot(centroid(a.p)[0]-x0,centroid(a.p)[1]-z0)-Math.hypot(centroid(b.p)[0]-x0,centroid(b.p)[1]-z0))[0];if(!B)return [];
+  const [cx,cz]=centroid(B.p);let best=null;
+  for(let i=0;i<B.p.length;i++){const a=B.p[i],b=B.p[(i+1)%B.p.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<12)continue;const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;
+    let nx=-(b[1]-a[1])/L,nz=(b[0]-a[0])/L;if(nx*(mx-cx)+nz*(mz-cz)<0){nx=-nx;nz=-nz;}const nr=nearestRoadAt(mx+nx*8,mz+nz*8,1);const sc=L-(nr?nr.d:50)*0.8;if(!best||sc>best.sc)best={a,b,L,nx,nz,sc};}
+  if(!best)return [];const tx=(best.b[0]-best.a[0])/best.L,tz=(best.b[1]-best.a[1])/best.L,n=Math.min(9,Math.floor((best.L-4)/3.4));
+  return stallRow(best.a[0]+tx*2.5+best.nx*3.2,best.a[1]+tz*2.5+best.nz*3.2,tx,tz,[best.nx,best.nz],n,3.4,'fish',labels,cols,lines);}
+// the shore direction at (x,z): a unit vector toward the nearest water (or null)
+function toWater(x,z){for(let r=4;r<80;r+=4)for(let a=0;a<TAU;a+=0.25){const px=x+Math.cos(a)*r,pz=z+Math.sin(a)*r;if(ground(px,pz)<-1)return [Math.cos(a),Math.sin(a)];}return null;}
+function buildWest(){
+  for(const [id,zh,en,x,z] of [['w_rainbow','正濱漁港彩虹屋','Zhengbin Rainbow Houses',-807,-277],['w_zhengbin','正濱漁港','Zhengbin Fishing Harbor',-944,-430],
+    ['w_heping','和平橋','Heping Bridge',-830,-476],['w_sheliao','社寮橋','Sheliao Bridge',-418,-747],['w_aguna','阿根納造船廠遺址','Agenna Shipyard Ruins',-721,-390],
+    ['w_badouzi8','八尺門漁港','Bachimen Fishing Harbor',-727,-247],['w_culture','原住民文化會館','Indigenous Culture Hall',-522,-409],['w_tianhou','天后宮','Tianhou Temple',-1026,-662],
+    ['w_market','和平島觀光魚市','Heping Island Fish Market',-732,-616],['w_fort','社寮東砲台','Sheliao East Fort',-486,-990],['w_park','和平島公園','Heping Island Park',-1329,-1309],
+    ['w_mushroom','萬人堆蕈狀岩','Wanrendui Mushroom Rocks',-1261,-1420],['w_tatami','千疊敷','Thousand-Tatami Rocks',-1083,-1357]])lmSpot(id,zh,en,x,z);
+  // 正濱漁港彩虹屋: OSM has no footprints for them, so a row of narrow 3–4 storey houses in rainbow colours along the
+  // quay, backs to the road, faces to the water, white-framed windows and a balcony line on each floor
+  {const w=toWater(-807,-277);if(w){const tx=-w[1],tz=w[0];const winTex=tileTex('rbwin',64,64,(g,W,H)=>{g.fillStyle='#ffffff';g.fillRect(0,0,W,H);g.fillStyle='#3d6f8f';g.fillRect(10,12,44,34);g.fillStyle='#f4f4f2';g.fillRect(30,12,4,34);g.fillRect(10,27,44,3);});
+    const winM=new THREE.MeshBasicMaterial({map:winTex});
+    for(let i=-8;i<=8;i++){let cx=-807+tx*i*5.2,cz=-277+tz*i*5.2,sx=null;
+      for(let d=-20;d<40;d+=0.5){const x=cx+w[0]*d,z=cz+w[1]*d;if(ground(x,z)<0.3){sx=[x-w[0]*1.2,z-w[1]*1.2];break;}}
+      if(!sx)continue;const dep=9,wid=4.8,fl=3+((i*7+20)%3===0?1:0),h=fl*3.1;const hx=sx[0]-w[0]*dep/2,hz=sx[1]-w[1]*dep/2;
+      if(!free(hx,hz,2))continue;let y=-1e9;for(const [u,v] of [[-1,-1],[1,-1],[1,1],[-1,1]])y=Math.max(y,ground(hx+tx*u*wid/2+w[0]*v*dep/2,hz+tz*u*wid/2+w[1]*v*dep/2));y=Math.max(y,1.5);
+      const g=new THREE.Group();g.position.set(hx,0,hz);g.rotation.y=Math.atan2(w[0],w[1]);scene.add(g);   // local +z faces the water
+      const col=RAINBOW[(i+16)%RAINBOW.length];
+      const body=shade(new THREE.Mesh(new THREE.BoxGeometry(wid,h+y+4,dep),toon(col)),true,true);body.position.y=(h+y-4)/2;g.add(body);
+      const cap=new THREE.Mesh(new THREE.BoxGeometry(wid+0.2,0.35,dep+0.2),toon(0xf4f4f2));cap.position.y=y+h+0.15;g.add(cap);
+      for(let f=0;f<fl;f++){const wy=y+1.6+f*3.1;const win=new THREE.Mesh(new THREE.PlaneGeometry(wid*0.62,1.5),winM);win.position.set(0,wy,dep/2+0.02);g.add(win);
+        if(f>0){const bal=new THREE.Mesh(new THREE.BoxGeometry(wid*0.9,0.12,0.7),toon(0xf4f4f2));bal.position.set(0,wy-0.95,dep/2+0.35);g.add(bal);
+          const rail=new THREE.Mesh(new THREE.BoxGeometry(wid*0.9,0.5,0.06),toon(0xf4f4f2));rail.position.set(0,wy-0.65,dep/2+0.68);g.add(rail);}}
+      lmSolid(hx,hz,wid,dep,Math.atan2(w[0],w[1]),y+h);}}}
+  // 阿根納造船廠遺址: the roofless concrete shell by the water, long walls pierced by tall arches, weeds on the top
+  {const x=-721,z=-390,w=toWater(x,z)||[0,-1],rot=Math.atan2(-w[1],w[0]),y=ground(x,z);const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=rot;scene.add(g);
+    const conc=0xb9b4a8,dark=0x8f8a80;
+    for(const sz of [-8,8]){for(let i=0;i<7;i++){const u=-18+i*6;lmBox(1.4,10,0.9,conc,u,5,sz,0,g);lmBox(4.6,2.6,0.9,conc,u+3,8.7,sz,0,g);}
+      lmBox(38,0.6,1.1,0x6f9a55,0,10.3,sz,0,g);}
+    for(const su of [-19,19]){lmBox(0.9,10,16,dark,su,5,0,0,g);}
+    for(let i=0;i<6;i++)lmBox(0.5,0.4,16,conc,-15+i*6,9.6,0,0,g);
+    lmSolid(x,z,38,1.2,rot,y+10);}
+  // 萬人堆: mushroom rocks, a pale stalk under a wide brown cap
+  {let n=0;const rnd=(()=>{let s=29;return()=>(s=(s*16807)%2147483647)/2147483647;})();
+    for(let k=0;k<400&&n<30;k++){const a=rnd()*TAU,r=8+rnd()*55,x=-1261+Math.cos(a)*r,z=-1420+Math.sin(a)*r;const y=ground(x,z);if(y<0.6||y>25||!free(x,z,2.5))continue;
+      const s=0.7+rnd()*0.9,g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=rnd()*TAU;scene.add(g);
+      const st=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.45*s,0.8*s,1.6*s,9),toon(0xd9c9a3)));st.position.y=0.8*s;g.add(st);
+      const cap=shade(new THREE.Mesh(new THREE.SphereGeometry(1.5*s,12,8),toon(0xa77a4f)));cap.scale.set(1,0.5,0.85);cap.position.y=1.9*s;g.add(cap);
+      const band=new THREE.Mesh(new THREE.TorusGeometry(1.3*s,0.12*s,6,16),toon(0x7d5a3b));band.rotation.x=Math.PI/2;band.position.y=1.75*s;band.scale.set(1,0.85,1);g.add(band);
+      const o={kind:'circle',x,z,r:1.4*s,top:y+2.6*s,mat:'wall'};gridAdd(o,x-3,z-3,x+3,z+3);n++;}}
+  // 千疊敷: flat stepped rock slabs along the shore
+  {let n=0;const rnd=(()=>{let s=53;return()=>(s=(s*16807)%2147483647)/2147483647;})();
+    for(let k=0;k<500&&n<26;k++){const a=rnd()*TAU,r=rnd()*60,x=-1083+Math.cos(a)*r,z=-1357+Math.sin(a)*r;const y=ground(x,z);if(y<0.3||y>8)continue;
+      const w=3+rnd()*6,d=2.5+rnd()*5,h=0.35+rnd()*0.4;const m=shade(new THREE.Mesh(new THREE.BoxGeometry(w,h,d),toon([0xc9c0ad,0xb8ae98,0xd4ccb8][n%3])),true,true);
+      m.position.set(x,y+h/2-0.05,z);m.rotation.y=rnd()*TAU;scene.add(m);lmSolid(x,z,w,d,m.rotation.y,y+h-0.05,true);n++;}}
+  // 社寮東砲台: a round emplacement wall and an old cannon looking out to sea
+  {const x=-486,z=-990,y=ground(x,z);if(y>0.5){const g=new THREE.Group();g.position.set(x,y,z);scene.add(g);
+    const ring=shade(new THREE.Mesh(new THREE.CylinderGeometry(5,5.4,1.4,24,1,true),toon(0x9a9486)));ring.material.side=THREE.DoubleSide;ring.position.y=0.7;g.add(ring);
+    const w=toWater(x,z)||[0,-1];const gun=new THREE.Group();gun.rotation.y=Math.atan2(w[0],w[1]);g.add(gun);
+    const base=shade(new THREE.Mesh(new THREE.BoxGeometry(1.6,0.8,2.2),toon(0x4a4f55)));base.position.y=0.4;gun.add(base);
+    const barrel=shade(new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.32,3.6,10),toon(0x2b2f36)));barrel.rotation.x=Math.PI/2-0.12;barrel.position.set(0,1.1,1.3);gun.add(barrel);
+    const o={kind:'circle',x,z,r:1.4,top:y+1.4};gridAdd(o,x-2,z-2,x+2,z+2);}}
+  // 和平島觀光魚市
+  EAST.market=(EAST.market||[]).concat(marketNear(-732,-616,['現撈海鮮','鮮魚','透抽','九孔','海膽','龍蝦'],[['#1f6fa8','#f4f4f2'],['#d8463c','#f4f4f2'],['#2f9e7a','#f4f4f2']],
+    ['來喔！現撈的！','九孔要不要？','今天的海膽很肥喔','帥哥美女看看喔！']));
 }
 
 /* ---------- characters ---------- */
@@ -3908,7 +3982,7 @@ function updateZone(){
   let key;
   let dmin=1e9;for(const r of BEINING)for(let i=0;i<r.p.length-1;i++)dmin=Math.min(dmin,segDist(WPOS.x,WPOS.z,...r.p[i],...r.p[i+1]));
   if(dmin<9)key='road';
-  else if(!onCampus(WPOS.x,WPOS.z)&&WPOS.x>760&&!INT.inside)key=zoneOf(0,WPOS.x,WPOS.z);
+  else if(!onCampus(WPOS.x,WPOS.z)&&(WPOS.x>760||WPOS.x<-600||WPOS.z<-330)&&!INT.inside)key=zoneOf(0,WPOS.x,WPOS.z);
   else if(!onCampus(WPOS.x,WPOS.z)){
     let best=null,bd=1e9;for(const s of spots){const d=Math.hypot(s.x-WPOS.x,s.z-WPOS.z);if(d<bd){bd=d;best=s;}}
     key=bd<60&&best?best.zone:'out';}
@@ -4065,6 +4139,7 @@ function updateSky(){
   if(fl>0)c.lerp(_wxGrey.setHex(0xdfe8ff),fl*0.6);
   scene.background.copy(c);scene.fog.color.copy(c);
   scene.fog.near=220*(1-0.8*fg)*(1-0.4*rn);scene.fog.far=700*(1-0.72*Math.max(fg,rn*0.55));
+  {const far=Math.round(scene.fog.far+60);if(Math.abs(camera.far-far)>8){camera.far=far;camera.updateProjectionMatrix();}}   // nothing past the fog is drawn (the map is big now)
   sun.intensity=(0.08+0.85*day)*(1-0.68*cl)+fl*1.2;sun.color.setHex(dusk>0.3?0xffc89a:0xfff4e0);
   if(hemi)hemi.intensity=(0.32+0.32*day)*(1-0.2*cl)+fl*0.8;
   nightLevel=Math.max(1-day,Math.min(0.75,cl*0.45+rn*0.35));   // lamps and headlights come on in dark weather

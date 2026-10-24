@@ -14,7 +14,7 @@ cartoon (toon-shaded) style. It is an exploration game only: no photo-viewer spo
 - `tools/assemble.py`: writes `index.html` from the template + data.
 - `tools/godmap.py`: renders `docs/ntou-game-map.png`, the top-down annotation map with a 50 m lettered grid.
 - `data/map.osm`: OpenStreetMap data of the area (ODbL; credit "© OpenStreetMap contributors" stays on the map screen).
-  Since the map was widened east it is an Overpass download of lat 25.13835–25.16325, lon 121.75815–121.7985
+  Since the map was widened it is an Overpass download of lat 25.13835–25.16325, lon 121.75815–121.7985
   (nodes, ways and multipolygon relations, with their members).
 - `tools/fetch_dem.py` → `data/dem.json`: SRTM 30 m heights (api.opentopodata.org) on a 30 m grid over the game area.
 - `data/campus-terrain.json`: the original campus box's terrain and trees (x −600..756, z −320..396), frozen when the
@@ -507,3 +507,38 @@ could only speed up the way they were facing, so a police car chasing the player
 5. Moving cancels.
 6. The old fisherman on the 八斗子 fishing pier explains it once when you walk up; that keeps it diegetic, with no
    on-screen hint.
+
+
+## West: 正濱漁港 and 和平島 (user request; `buildWest`, `hepingBridge`)
+
+**Map.**
+- **Bounds:** the map is now x −1552..2100, z −1520..1250. X0 and Z0 sit on the campus grid's 4 m lattice; the
+  stored campus grid is placed at offset (238, 300) cells.
+- **DEM:** `fetch_dem.py` covers the whole box.
+- **Build:** about 2.6 GB peak memory and about 10 s.
+- **Ground tiles (7):** campus (as before), 碧砂/八斗子, 正濱/和平島 (x < −600, z < −80), the 中正區 south-west, the
+  hills south of campus, and two mostly-sea tiles (north of campus, north-east).
+- **Paving:** `townPave` paints quays and town everywhere outside the campus box.
+- **Zones:** `hp` 和平島 (z < −480), `zb` 正濱漁港, `zz` 中正區 (z > −80, x < −600).
+- **Draw distance:** `camera.far` follows the fog (`fog.far + 60`). Nothing fully fogged is drawn; this took campus from
+  ~2300 to ~1350 draw calls (8–9 ms).
+
+**Bridges.** OSM `bridge=yes` road pieces carry `b:1` in the game data.
+- In `build.py` a bridge is levelled as a narrow causeway (land only within half-width + 1.5 m), so the channel stays
+  open water.
+- `hepingBridge` dresses drivable bridges outside the campus with parapets, a girder face down to the water and piers.
+  社寮橋 (和平島聯外道路) gets the yellow twin arches.
+- The old stand-in at the map edge (fake island and houses) is gone.
+
+**Landmarks.**
+- **正濱漁港彩虹屋:** OSM has no footprints there, so the row is built by hand: 17 narrow 3–4 storey houses along the
+  quay, facing the water.
+- **Rainbow colours and temples:** town buildings within 110 m of the spot also take rainbow colours. Temples
+  (`building=temple|shrine`) get red walls and orange roofs.
+- **阿根納造船廠遺址:** roofless arched walls.
+- **萬人堆:** 30 mushroom rocks.
+- **千疊敷:** 26 rock slabs.
+- **社寮東砲台:** a ring wall and a cannon.
+- **和平島觀光魚市:** stalls via `marketNear`, opening and closing with 碧砂's.
+- **Boats:** 16 moored in 正濱漁港 and 八尺門.
+- **Places:** 13 new ones (`w_*`).
