@@ -137,10 +137,51 @@ dem=json.load(open(os.path.join(ROOT,'data','dem.json')))
 DH=np.array(dem['h'],float).reshape(dem['nz'],dem['nx'])
 Hd=ndimage.map_coordinates(DH,[(gz-dem['z0'])/dem['step'],(gx-dem['x0'])/dem['step']],order=1,mode='nearest')
 Hd=ndimage.gaussian_filter(Hd,4)
-out_d=np.maximum.reduce([OX0-gx,gx-OX1,OZ0-gz,gz-OZ1,np.zeros_like(gx)])
-wold=np.clip(1-out_d/80,0,1)
-H=wold*H+(1-wold)*Hd
-DEMHILL=(wold<0.5)&(Hd>22)
+inbox=(gx>=OX0)&(gx<=OX1)&(gz>=OZ0)&(gz<=OZ1)
+wold=inbox.astype(float)          # (the box itself is replaced by the stored campus terrain further down)
+H=Hd.copy()   # real heights everywhere; inside the box the stored campus terrain replaces them later (blend band included)
+DEMHILL=(~inbox)&(Hd>22)
+# Roads outside the box get their own level: at 30 m the DEM smears hillsides onto roads that really run flat along
+# their foot (北寧路 by 碧砂 came out climbing to 57 m). Profile = the lowest ground within the road's width + 8 m,
+# smoothed along it and held to a road gradient; the ground is flattened across the road and eased back over 12 m.
+DR=np.full(H.shape,1e9);PH=np.zeros(H.shape);HW=np.zeros(H.shape);RKC=np.zeros(H.shape,np.int8)
+RK={'trunk':5,'primary':5,'secondary':4,'tertiary':3,'tertiary_link':3,'unclassified':2,'residential':2,'living_street':2,'service':1}
+for r in sorted(d['roads'],key=lambda r:-RK.get(r['k'],0)):   # major roads first: they claim their ground
+    if r['tunnel'] or r['k'] not in RK: continue
+    rk=RK[r['k']]
+    pts=r['p']
+    if all(OX0+100<=x<=OX1-100 and OZ0<=z<=OZ1-100 for x,z in pts): continue   # (deep inside the campus box: replaced anyway)
+    S=[];cum=0
+    for (ax,az),(bx,bz) in zip(pts,pts[1:]):
+        L=math.hypot(bx-ax,bz-az)
+        if L<1e-6: continue
+        tx,tz=(bx-ax)/L,(bz-az)/L
+        for t in np.arange(0,L,2.0): S.append((ax+tx*t,az+tz*t,-tz,tx))
+    S.append((pts[-1][0],pts[-1][1],S[-1][2] if S else 0,S[-1][3] if S else 1))
+    if len(S)<2: continue
+    S=np.array(S);hw=r['w']/2
+    offs=np.arange(-(hw+8),hw+8.01,2.0)
+    lx=S[:,0,None]+S[:,2,None]*offs[None,:];lz=S[:,1,None]+S[:,3,None]*offs[None,:]
+    ix=np.clip((lx-X0).astype(int),0,RX-1);iz=np.clip((lz-Z0).astype(int),0,RZ-1)
+    prof=np.maximum(Hd[iz,ix],2.5).min(axis=1)   # (the DEM reads the sea beside a quay as below zero: not a road level)
+    prof=ndimage.gaussian_filter1d(prof,8,mode='nearest')
+    g=(0.07 if rk>=4 else 0.12)*2.0
+    for i in range(1,len(prof)): prof[i]=min(prof[i],prof[i-1]+g)
+    for i in range(len(prof)-2,-1,-1): prof[i]=min(prof[i],prof[i+1]+g)
+    # where it runs on (or meets) a road already levelled, it takes that road's level and eases away from it
+    cx=np.clip((S[:,0]-X0).astype(int),0,RX-1);cz=np.clip((S[:,1]-Z0).astype(int),0,RZ-1)
+    pin=(DR[cz,cx]<=HW[cz,cx]+3)&(RKC[cz,cx]>=rk)
+    if pin.any():
+        pv=PH[cz,cx]
+        for _ in range(40):prof=ndimage.gaussian_filter1d(prof,3,mode='nearest');prof[pin]=pv[pin]
+    offs2=np.arange(-(hw+14),hw+14.01,0.7)
+    lx=S[:,0,None]+S[:,2,None]*offs2[None,:];lz=S[:,1,None]+S[:,3,None]*offs2[None,:]
+    ix=(lx-X0).astype(int);iz=(lz-Z0).astype(int);ok=(ix>=0)&(iz>=0)&(ix<RX)&(iz<RZ)
+    dd=np.abs(np.broadcast_to(offs2[None,:],lx.shape));pp=np.broadcast_to(prof[:,None],lx.shape)
+    for a,b,dv,pv in zip(iz[ok],ix[ok],dd[ok],pp[ok]):
+        if dv<DR[a,b] and not (RKC[a,b]>rk and DR[a,b]<=HW[a,b]+3): DR[a,b]=dv;PH[a,b]=pv;HW[a,b]=hw;RKC[a,b]=rk
+road_t=np.clip((DR-(HW+2))/12,0,1);road_t=road_t*road_t*(3-2*road_t)
+H=np.where(DR<1e8,PH*(1-road_t)+H*road_t,H)
 # keep campus/roads area flat-ish: no change needed (wood excluded)
 # coast: land near sea a bit lower toward seawall
 dsea=ndimage.distance_transform_edt(~sea)
@@ -151,7 +192,7 @@ H[sea]=-5.0
 for p in d['piers']:
     if p['closed']: H[mask(p['p'])&sea0]=2.6
 CELL=4
-Hs=H[::CELL,::CELL].copy();nz,nx=Hs.shape
+Hs=np.where(sea,H,ndimage.uniform_filter(H,CELL))[::CELL,::CELL].copy();nz,nx=Hs.shape
 CT=json.load(open(os.path.join(ROOT,'data','campus-terrain.json')))
 Hc=np.frombuffer(base64.b64decode(CT['h']),'<i2').reshape(CT['nz'],CT['nx']).astype(float)/10
 cz_,cx_=np.mgrid[0:CT['nz'],0:CT['nx']]
