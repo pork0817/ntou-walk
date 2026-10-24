@@ -13,7 +13,14 @@ cartoon (toon-shaded) style. It is an exploration game only: no photo-viewer spo
 - `tools/build.py`: builds `data/game-data.json`: terrain height grid, sea mask, trees, school-map numbers, signposts for places OSM lacks, bus stops, spawn point.
 - `tools/assemble.py`: writes `index.html` from the template + data.
 - `tools/godmap.py`: renders `docs/ntou-game-map.png`, the top-down annotation map with a 50 m lettered grid.
-- `data/map.osm`: OpenStreetMap export of the area (ODbL; credit "© OpenStreetMap contributors" stays on the map screen).
+- `data/map.osm`: OpenStreetMap data of the area (ODbL; credit "© OpenStreetMap contributors" stays on the map screen).
+  Since the map was widened east it is an Overpass download of lat 25.13835–25.16325, lon 121.75815–121.7985
+  (nodes, ways and multipolygon relations, with their members).
+- `tools/fetch_dem.py` → `data/dem.json`: SRTM 30 m heights (api.opentopodata.org) on a 30 m grid over the game area.
+- `data/campus-terrain.json`: the original campus box's terrain and trees (x −600..756, z −320..396), frozen when the
+  map was widened so the campus stays exactly as it was. `build.py` uses it inside that box, blends to the real
+  heights over the last 80 m of its east and south edges, and keeps the box's buildings, roads, areas etc. first and in
+  their old order (some looks are picked by index).
 
 Rebuild everything:
 
@@ -23,6 +30,7 @@ python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
 Needs Python 3 with numpy, scipy, matplotlib (godmap.py uses the Noto Sans CJK font; adjust the path on macOS).
+On this Mac the system Python has none of them: make a venv (`python3 -m venv venv && venv/bin/pip install numpy scipy matplotlib`).
 
 ## Coordinates
 
@@ -450,3 +458,36 @@ could only speed up the way they were facing, so a police car chasing the player
 6. **After the ticket** (`mode 'leave'`) it drives to a far road node and is removed once out of sight.
 
 `removeVehicle` tolerates vehicles that are no longer in a lane.
+
+
+## East: 碧砂漁港 and 八斗子 (user request; `EAST`, `buildEast`, `updateEast`, `townPave`, `FISH`)
+
+**Map.**
+- **Bounds:** the map is now x −600..2100, z −320..1250 (it was −600..760 × −320..400).
+- **Ground texture tiles:** the ground is painted in three tiles (`GTILES`). The campus box is at its old resolution,
+  so its texture is identical. The east strip is at 0.55× and the south hills at 0.35×. Each tile has its own canvas
+  and terrain mesh.
+- **Paving:** east of the campus, `townPave` paints quay concrete within 28 m of water and town paving within 20 m of
+  buildings and streets.
+- **Coast:** heights there are capped near the sea (`2 + 0.9·distance`), so real cliffs end as slopes, not walls.
+- **Zones:** `bs` (碧砂漁港, x < 1300) and `bd` (八斗子).
+- **Places:** 11 new ones (`e_*` ids).
+- **Traffic and buses:** they run the whole way to 八斗子 and 海科館 by themselves. The new bus stops come from OSM
+  stops within 25 m of 北寧路; a terminus keeps its two farthest-apart nodes.
+
+**Life there.**
+- **Boats:** 26 fishing boats are moored in the two basins and bob.
+- **碧砂 fish market:** a row of fish stalls along the market hall's long side that faces a road, open 06:30–19:30,
+  with vendors calling out.
+- **八斗子夜市:** 18 food stalls with glowing lanterns on both sides of the side street by the harbour (not 北寧路
+  itself), open 17:00–00:30. A strolling crowd of 16 (8 on phones) walks along the street's curve while you're near.
+
+**Fishing.**
+1. You can fish standing on land with open water 1.5–7 m ahead (`fishWater`): on foot, outdoors, not racing.
+2. Press C (or `#fishBtn` on touch) to cast. The bobber floats while you wait 4–14 s (shorter at dawn, at dusk and in
+   the rain). Then it dips: 1.3 s to press again.
+3. Fish are chosen by weight; 白帶魚 and 透抽 are mostly at night. Sizes skew small.
+4. The catch log is in localStorage `ntou-walk-fish` and shown under 魚獲 in the pause menu.
+5. Moving cancels.
+6. The old fisherman on the 八斗子 fishing pier explains it once when you walk up; that keeps it diegetic, with no
+   on-screen hint.

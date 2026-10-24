@@ -21,7 +21,7 @@ for rl in r.iter('relation'):
     rels[rl.get('id')]=([(m.get('type'),m.get('ref'),m.get('role')) for m in rl.iter('member')],{t.get('k'):t.get('v') for t in rl.iter('tag')})
 def pts(wid): return [nodes[n] for n in ways[wid][0] if n in nodes]
 # region of the game (m)
-X0,X1,Z0,Z1=-620,780,-330,420
+X0,X1,Z0,Z1=-620,2120,-330,1270   # campus box was -620..780 × -330..420; widened east to 碧砂漁港 and 八斗子
 def inreg(p,m=0): return X0-m<p[0]<X1+m and Z0-m<p[1]<Z1+m
 campus=[pts(ref) for t,ref,role in rels['5473923'][0] if ref in ways]
 cp=[Path(np.array(c)) for c in campus]

@@ -73,6 +73,7 @@ body.touch #lift{right:auto;left:calc(12px + env(safe-area-inset-left,0px));top:
 #emoteBar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(120px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;padding:8px;pointer-events:auto;z-index:5}
 #emoteBar .btn{padding:10px 12px;font-size:.9rem}
 #bikeBtn{background:#7fd1c4;font-size:.9rem}
+#fishBtn{background:#8fc7ea;font-size:.9rem}#fishBtn.hot{background:#ff8a3d;color:#fff}
 #runBtn{width:60px;height:60px;font-size:.85rem}
 #driveBtn{background:#f2c230;font-size:.9rem}
 #rideBtn{background:#7fb8e6;font-size:.9rem}
@@ -115,7 +116,7 @@ body.touch #lift{right:auto;left:calc(12px + env(safe-area-inset-left,0px));top:
 .modal{position:fixed;inset:0;display:grid;place-items:center;background:rgba(11,28,44,.55);z-index:30;padding:16px}
 .mCard{background:var(--navy);width:min(440px,100%);padding:20px 22px 22px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
 .mCard .mBtn{min-width:0}
-#missions .mCard{width:min(560px,100%)}
+#missions .mCard,#fishlog .mCard{width:min(560px,100%)}
 .msList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .msList li{display:grid;grid-template-columns:1.6em 1fr auto;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(255,248,236,.06)}
 .msList li>i{font:900 1rem/1 var(--display);font-style:normal;color:var(--muted);text-align:center}
@@ -269,6 +270,7 @@ body.touch #toast b{font-size:1rem}
       <button class="btn round" id="bikeBtn" type="button" hidden>騎車</button>
       <button class="btn round" id="driveBtn" type="button" hidden>開車</button>
       <button class="btn round" id="rideBtn" type="button" hidden>搭車</button>
+      <button class="btn round" id="fishBtn" type="button" hidden>釣魚</button>
     </div>
     <button class="btn round" id="emoteBtn" type="button">表情</button>
     <button class="btn round" id="runBtn" type="button" aria-pressed="false">跑</button>
@@ -321,6 +323,7 @@ body.touch #toast b{font-size:1rem}
     <div class="tMenu">
       <button class="btn mBtn primary" id="mResume" type="button"><b>繼續遊戲</b><span>Resume · Esc</span></button>
       <button class="btn mBtn" id="mMis" type="button"><b>任務</b><span>Missions · <span id="mMisN">0 / 10</span></span></button>
+      <button class="btn mBtn" id="mFish" type="button"><b>魚獲</b><span>Fish log</span></button>
       <button class="btn mBtn" id="mQuitRace" type="button" hidden><b>放棄比賽</b><span>Quit the race</span></button>
       <button class="btn mBtn" id="mSet" type="button"><b>設定</b><span>Settings</span></button>
       <div class="mTime"><span>時間 <small>Time</small></span><button class="btn sm" id="mtMinus" type="button">−1h</button><button class="btn sm" id="mtFast" type="button" aria-pressed="false">×60</button><button class="btn sm" id="mtPlus" type="button">+1h</button><button class="btn sm" id="mtNow" type="button">現在</button></div>
@@ -351,6 +354,14 @@ body.touch #toast b{font-size:1rem}
     <h2 id="msH">任務 <span>Missions</span></h2>
     <ol id="msList" class="msList"></ol>
     <div class="startRow"><button class="btn" id="msDrop" type="button" hidden>放棄目前任務 Drop current</button><button class="btn mDone" id="msDone" type="button">完成 Done</button></div>
+  </div>
+</div>
+
+<div id="fishlog" class="modal" hidden>
+  <div class="mCard panel" role="dialog" aria-labelledby="fishH">
+    <h2 id="fishH">魚獲 <span>Fish log</span></h2>
+    <ol id="fishList" class="msList"></ol>
+    <div class="startRow"><button class="btn mDone" id="fishDone" type="button">完成 Done</button></div>
   </div>
 </div>
 
@@ -465,9 +476,11 @@ function ground(x,z){
 const BX0=G.x0+6,BX1=G.x0+GW-6,BZ0=G.z0+6,BZ1=G.z0+GH-6;
 
 /* ---------- campus zones ---------- */
-const CAMPUS={n:{zh:'北寧校區',en:'Beining Campus',color:'#1f9e9a'},x:{zh:'祥豐校區',en:'Xiangfeng Campus',color:'#d0505a'},b:{zh:'濱海校區',en:'Binhai Campus',color:'#7d7f86'}};
+const CAMPUS={n:{zh:'北寧校區',en:'Beining Campus',color:'#1f9e9a'},x:{zh:'祥豐校區',en:'Xiangfeng Campus',color:'#d0505a'},b:{zh:'濱海校區',en:'Binhai Campus',color:'#7d7f86'},
+  bs:{zh:'碧砂漁港',en:'Bisha Fishing Harbor',color:'#2f7fbf'},bd:{zh:'八斗子',en:'Badouzi',color:'#e0874a'}};
 function zoneOf(no,x,z){
   if(no){return no<=27?'n':no<=54?'x':'b';}
+  if(x>760)return x<1300?'bs':'bd';
   if(x<-250)return 'x';if(x>150&&z<-60)return 'b';return 'n';
 }
 /* building styles taken from the illustrated school map:
@@ -636,17 +649,29 @@ function gridAdd(o,x0,z0,x1,z1){for(let i=Math.floor(x0/CELL);i<=Math.floor(x1/C
 const cell=(x,z)=>grid.get(gk(Math.floor(x/CELL),Math.floor(z/CELL)))||[];
 
 /* ---------- ground texture painted from map data ---------- */
-const TW=SET.quality==='low'?2048:(SET.quality==='high'&&!isTouch)?6144:4096,TS=TW/GW,TH=Math.round(GH*TS);
-const groundCanvas=document.createElement('canvas');groundCanvas.width=TW;groundCanvas.height=TH;
-function paintGround(){
+// Painted in tiles: the original campus box at full detail (exactly as before the map grew), the east (碧砂漁港,
+// 八斗子) and the hills south of the campus coarser, so the texture memory stays reasonable on phones.
+const CAMPUS_X1=756,CAMPUS_Z1=396;   // the original map's east / south edges (grid-aligned)
+const GT_PPM=(SET.quality==='low'?2048:(SET.quality==='high'&&!isTouch)?6144:4096)/1356;
+const GTILES=(()=>{const mx=renderer.capabilities.maxTextureSize||4096,E=G.x0+GW,S=G.z0+GH,out=[];
+  const add=(x0,z0,x1,z1,ppm)=>{if(x1-x0<1||z1-z0<1)return;ppm=Math.min(ppm,mx/(x1-x0),mx/(z1-z0));const c=document.createElement('canvas');
+    c.width=Math.round((x1-x0)*ppm);c.height=Math.round((z1-z0)*ppm);out.push({x0,z0,x1,z1,ts:c.width/(x1-x0),c,k:(x1-x0)*(z1-z0)/(1356*716)});};
+  add(G.x0,G.z0,Math.min(E,CAMPUS_X1),Math.min(S,CAMPUS_Z1),GT_PPM);
+  add(CAMPUS_X1,G.z0,E,S,GT_PPM*0.55);
+  add(G.x0,CAMPUS_Z1,Math.min(E,CAMPUS_X1),S,GT_PPM*0.35);
+  return out;})();
+let _seaBed=null;
+function paintGround(T){
+  const TS=T.ts,TW=T.c.width,TH=T.c.height,K=T.k;
   // colours follow the illustrated school map: pale roads with soft outlines,
   // blue-grey plazas in 北寧, peach in 祥豐, grey along the 濱海 waterfront
-  const g=groundCanvas.getContext('2d');
-  const X=x=>(x-G.x0)*TS,Z=z=>(z-G.z0)*TS;
+  const g=T.c.getContext('2d');
+  const X=x=>(x-T.x0)*TS,Z=z=>(z-T.z0)*TS;
   const path=p=>{g.beginPath();p.forEach((q,i)=>i?g.lineTo(X(q[0]),Z(q[1])):g.moveTo(X(q[0]),Z(q[1])));g.closePath();};
   const line=p=>{g.beginPath();p.forEach((q,i)=>i?g.lineTo(X(q[0]),Z(q[1])):g.moveTo(X(q[0]),Z(q[1])));};
   g.fillStyle='#b4d98c';g.fillRect(0,0,TW,TH);
-  for(let i=0;i<12000;i++){g.fillStyle=['rgba(255,255,255,.10)','rgba(60,120,40,.08)','rgba(200,230,140,.12)'][i%3];g.fillRect(Math.random()*TW,Math.random()*TH,2.5*TS,1.2*TS);}
+  for(let i=0;i<12000*K;i++){g.fillStyle=['rgba(255,255,255,.10)','rgba(60,120,40,.08)','rgba(200,230,140,.12)'][i%3];g.fillRect(Math.random()*TW,Math.random()*TH,2.5*TS,1.2*TS);}
+  if(T.x0>=CAMPUS_X1){g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(townPave(),X(G.x0)-0.5*G.cell*TS,Z(G.z0)-0.5*G.cell*TS,G.nx*G.cell*TS,G.nz*G.cell*TS);}   // quays and town streets
   // campus paving, tinted by campus
   const zoneSeeds=D.b.filter(b=>b.c&&b.no).map(b=>{const [x,z]=centroid(b.p);return [x,z,zoneOf(b.no,x,z)];});
   const PAVE={n:'#bfd0d4',x:'#e2c6ad',b:'#c8c9ca'};
@@ -665,13 +690,13 @@ function paintGround(){
   for(const a of areas){
     const k=a.k;
     if(k==='natural=wood'){g.fillStyle='#6fb35a';path(a.p);g.fill();g.save();path(a.p);g.clip();
-      for(let i=0;i<5000;i++){g.fillStyle=['#5aa463','#7cbf5a','#4f9a6e','#8cc76a'][i%4];const cx=Math.random()*TW,cy=Math.random()*TH;g.beginPath();g.arc(cx,cy,(2+Math.random()*3)*TS,0,TAU);g.fill();}g.restore();}
+      for(let i=0;i<5000*K;i++){g.fillStyle=['#5aa463','#7cbf5a','#4f9a6e','#8cc76a'][i%4];const cx=Math.random()*TW,cy=Math.random()*TH;g.beginPath();g.arc(cx,cy,(2+Math.random()*3)*TS,0,TAU);g.fill();}g.restore();}
     else if(k==='landuse=residential'||k==='landuse=military'){g.fillStyle='#d2cfc8';path(a.p);g.fill();}
     else if(k==='amenity=school'||k==='landuse=construction'){g.fillStyle='#d6d2c9';path(a.p);g.fill();}
     else if(k==='amenity=parking'){g.fillStyle='#d3d8db';path(a.p);g.fill();g.save();path(a.p);g.clip();g.strokeStyle='rgba(255,255,255,.9)';g.lineWidth=0.15*TS;
       for(let x=0;x<TW;x+=2.6*TS){g.beginPath();g.moveTo(x,0);g.lineTo(x,TH);g.stroke();}g.restore();g.strokeStyle='#a9b3b8';g.lineWidth=0.3*TS;path(a.p);g.stroke();}
     else if(k==='leisure=park'||k==='landuse=recreation_ground'||k==='landuse=grass'){g.fillStyle='#a6d47e';path(a.p);g.fill();
-      g.save();path(a.p);g.clip();for(let i=0;i<1500;i++){g.fillStyle=['#f6c1d0','#fff3a8','#ffffff'][i%3];g.beginPath();g.arc(Math.random()*TW,Math.random()*TH,0.25*TS,0,TAU);g.fill();}g.restore();}
+      g.save();path(a.p);g.clip();for(let i=0;i<1500*K;i++){g.fillStyle=['#f6c1d0','#fff3a8','#ffffff'][i%3];g.beginPath();g.arc(Math.random()*TW,Math.random()*TH,0.25*TS,0,TAU);g.fill();}g.restore();}
     else if(k==='natural=bare_rock'){g.fillStyle='#c9c2b4';path(a.p);g.fill();}
     else if(k==='leisure=swimming_pool'){g.fillStyle='#eef2f2';path(a.p);g.fill();g.fillStyle='#4fb3e6';const [cx,cz]=centroid(a.p);g.save();g.translate(X(cx),Z(cz));g.scale(.85,.85);g.translate(-X(cx),-Z(cz));path(a.p);g.fill();g.restore();}
     else if(k==='leisure=pitch'){
@@ -703,12 +728,12 @@ function paintGround(){
   g.save();g.strokeStyle='#f2c230';g.lineWidth=0.5*TS;g.lineCap='butt';
   for(const r of R)if((rank[r.k]??0)>=4&&!r.ow)line(r.p),g.stroke();g.restore();
   // sea bed and the grey seawall promenade
-  {const sc=document.createElement('canvas');sc.width=G.nx;sc.height=G.nz;const sg=sc.getContext('2d');
+  {const sc=_seaBed||(_seaBed=document.createElement('canvas'));if(!sc.width||sc.width!==G.nx){sc.width=G.nx;sc.height=G.nz;}const sg=sc.getContext('2d');if(!sc.done){sc.done=true;
     for(let iz=0;iz<G.nz;iz++)for(let ix=0;ix<G.nx;ix++){const h=HT[iz*G.nx+ix];
       if(h<0){sg.fillStyle='#5aa9d6';sg.fillRect(ix,iz,1,1);}
       else{let nearSea=false;for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const jx=ix+dx,jz=iz+dz;if(jx>=0&&jz>=0&&jx<G.nx&&jz<G.nz&&HT[jz*G.nx+jx]<0)nearSea=true;}
-        if(nearSea&&h>1){sg.fillStyle='#d2d2cd';sg.fillRect(ix,iz,1,1);}}}
-    g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(sc,-0.5*G.cell*TS,-0.5*G.cell*TS,G.nx*G.cell*TS,G.nz*G.cell*TS);}
+        if(nearSea&&h>1){sg.fillStyle='#d2d2cd';sg.fillRect(ix,iz,1,1);}}}}
+    g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(sc,X(G.x0)-0.5*G.cell*TS,Z(G.z0)-0.5*G.cell*TS,G.nx*G.cell*TS,G.nz*G.cell*TS);}
 }
 
 /* ---------- streets: asphalt ribbons with Taiwanese lane markings ---------- */
@@ -1915,34 +1940,36 @@ function rideBusStep(dt){
 const spots=[];
 let seaTex;
 function buildTerrain(){
-  paintGround();
-  const tex=new THREE.CanvasTexture(groundCanvas);tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+
   const detail=canvasTex(256,256,g=>{g.fillStyle='#808080';g.fillRect(0,0,256,256);
     for(let i=0;i<14000;i++){const v=(104+Math.random()*48)|0;g.fillStyle=`rgb(${v},${v},${v})`;g.fillRect(Math.random()*256,Math.random()*256,1+Math.random()*2.2,1+Math.random()*1.4);}
     for(let i=0;i<900;i++){const v=(90+Math.random()*25)|0;g.fillStyle=`rgba(${v},${v},${v},.6)`;g.beginPath();g.arc(Math.random()*256,Math.random()*256,1+Math.random()*3,0,TAU);g.fill();}});
   detail.wrapS=detail.wrapT=THREE.RepeatWrapping;detail.anisotropy=renderer.capabilities.getMaxAnisotropy();
-  const geo=new THREE.PlaneGeometry(GW,GH,G.nx-1,G.nz-1);geo.rotateX(-Math.PI/2);
+  for(const T of GTILES){paintGround(T);
+  const tex=new THREE.CanvasTexture(T.c);tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  const i0=Math.round((T.x0-G.x0)/G.cell),j0=Math.round((T.z0-G.z0)/G.cell),ni=Math.round((T.x1-T.x0)/G.cell),nj=Math.round((T.z1-T.z0)/G.cell);
+  const geo=new THREE.PlaneGeometry(T.x1-T.x0,T.z1-T.z0,ni,nj);geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position;
-  for(let i=0;i<pos.count;i++)pos.setY(i,HT[i]);
+  for(let j=0;j<=nj;j++)for(let i=0;i<=ni;i++)pos.setY(j*(ni+1)+i,HT[Math.min(G.nz-1,j0+j)*G.nx+Math.min(G.nx-1,i0+i)]);
   geo.computeVertexNormals();
   const tm=toon(0xffffff,tex);
   tm.onBeforeCompile=sh=>{sh.uniforms.detailMap={value:detail};sh.uniforms.wxWet=WX.u.wet;sh.uniforms.wxTint=WX.u.tint;
     sh.vertexShader='varying vec2 vDUv;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vDUv=(modelMatrix*vec4(position,1.0)).xz/4.0;');
     sh.fragmentShader='uniform sampler2D detailMap;\nuniform float wxWet;\nuniform vec3 wxTint;\nvarying vec2 vDUv;\n'+sh.fragmentShader.replace('#include <map_fragment>',
       '#include <map_fragment>\n  diffuseColor.rgb*=mix(vec3(1.0),texture2D(detailMap,vDUv).rgb*2.0,0.42);\n  diffuseColor.rgb*=mix(vec3(1.0),texture2D(detailMap,vDUv*0.13+0.37).rgb*2.0,0.3);\n  diffuseColor.rgb*=0.8*wxTint*(1.0-0.25*wxWet);');};   // the sun + sky add up to ~1.5x: keep pale paving below white so its texture still shows
-  const m=new THREE.Mesh(geo,tm);m.position.set(G.x0+GW/2,0,G.z0+GH/2);m.receiveShadow=true;scene.add(m);
+  const m=new THREE.Mesh(geo,tm);m.position.set((T.x0+T.x1)/2,0,(T.z0+T.z1)/2);m.receiveShadow=true;scene.add(m);}
   // outer land skirt so the world does not end in a cliff edge
-  const skirt=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),toon(0x6fae55));skirt.rotation.x=-Math.PI/2;skirt.position.y=-8;scene.add(skirt);
+  const skirt=new THREE.Mesh(new THREE.PlaneGeometry(9000,9000),toon(0x6fae55));skirt.rotation.x=-Math.PI/2;skirt.position.set(G.x0+GW/2,-8,G.z0+GH/2);scene.add(skirt);
   // sea
   seaTex=canvasTex(256,256,g=>{g.fillStyle='#6fbde6';g.fillRect(0,0,256,256);g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=5;
     for(let i=0;i<6;i++){const y=20+i*42,x=(i*71)%256;g.beginPath();g.arc(x,y,16,Math.PI*1.1,Math.PI*1.9);g.stroke();g.beginPath();g.arc(x+128,y+20,14,Math.PI*1.1,Math.PI*1.9);g.stroke();}});
-  seaTex.repeat.set(120,120);
-  const seaM=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),new THREE.MeshToonMaterial({color:0xffffff,map:seaTex,gradientMap:grad,transparent:true,opacity:.9}));
-  seaM.rotation.x=-Math.PI/2;seaM.position.set(0,0,-1700);scene.add(seaM);
+  seaTex.repeat.set(240,120);
+  const seaM=new THREE.Mesh(new THREE.PlaneGeometry(8000,4000),new THREE.MeshToonMaterial({color:0xffffff,map:seaTex,gradientMap:grad,transparent:true,opacity:.9}));
+  seaM.rotation.x=-Math.PI/2;seaM.position.set(G.x0+GW/2,0,G.z0-2000+30);scene.add(seaM);
   const near=new THREE.Mesh(new THREE.PlaneGeometry(GW,GH),seaM.material);near.rotation.x=-Math.PI/2;near.position.set(G.x0+GW/2,0,G.z0+GH/2);scene.add(near);
   // distant hills behind the south edge and the sides
   const hm=[toon(0x5fae4c),toon(0x4b9a3f),toon(0x569f45)];
-  [[0,560,260,90],[-450,520,220,70],[450,540,240,80],[-820,150,220,70],[-760,-200,160,50],[980,250,220,70],[1000,-60,140,30]].forEach(([x,z,r,h],i)=>{const s=new THREE.Mesh(new THREE.SphereGeometry(1,20,12),hm[i%3]);s.scale.set(r,h,r*0.7);s.position.set(x,-10,z);scene.add(s);});
+  [[-400,1460,260,90],[250,1480,280,100],[900,1470,260,90],[1550,1460,240,80],[2150,1420,220,70],[2380,800,240,90],[2330,250,160,50],[-820,150,220,70],[-760,-200,160,50],[-800,700,260,90]].forEach(([x,z,r,h],i)=>{const s=new THREE.Mesh(new THREE.SphereGeometry(1,20,12),hm[i%3]);s.scale.set(r,h,r*0.7);s.position.set(x,-10,z);scene.add(s);});
 }
 
 function buildingMesh(b,idx){
@@ -2448,7 +2475,7 @@ function buildWorld(){
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
-  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();buildMission();setupSeason();buildRain();pickWeather(true);
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();buildEast();buildMission();setupSeason();buildRain();pickWeather(true);
 }
 
 /* ---------- interiors: the library (圖書館, 圖書一館) and the 7-ELEVEN X-STORE 8 in its south corner.
@@ -3107,6 +3134,177 @@ function openMissions(){const ol=$('#msList');ol.innerHTML='';
     li.querySelector('b').textContent=m.zh;li.querySelector('span').textContent=m.en;li.querySelector('small').textContent=m.who;li.querySelector('em').textContent=st[0];ol.appendChild(li);});
   $('#msDrop').hidden=!MS.act;show('#missions',true);$('#msDone').focus();}
 
+/* ---------- east of campus (user request): 碧砂漁港 and 八斗子. Paved quays and town streets, moored fishing boats,
+   the fish market at 碧砂 (stalls by day), 八斗子夜市 (food stalls with lanterns, 17:00–24:00) and fishing from any
+   quay or seawall: C (or the 釣魚 button) to cast, wait for the bobber to dip, C again to reel in. ---------- */
+const EAST={boats:[],stalls:[],vendors:[],crowd:[],market:null,night:null,fisher:null,open:{fish:null,night:null},crowdT:0};
+// town and quay paving for the ground texture (east of the campus only), one 4 m cell per pixel
+let _town=null;
+function townPave(){if(_town)return _town;const nx=G.nx,nz=G.nz,N=nx*nz,cell=G.cell,ix0=Math.ceil((CAMPUS_X1+4-G.x0)/cell);
+  const INF=255,dSea=new Uint8Array(N).fill(INF),dB=new Uint8Array(N).fill(INF),q=[];
+  const bfs=(d,lim)=>{let h=0;while(h<q.length){const i=q[h++],x=i%nx,z=(i/nx)|0,nd=d[i]+1;if(nd>lim)continue;
+    for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const X=x+dx,Z=z+dz;if(X<0||Z<0||X>=nx||Z>=nz)continue;const j=Z*nx+X;if(d[j]>nd){d[j]=nd;q.push(j);}}}q.length=0;};
+  for(let i=0;i<N;i++)if(HT[i]<0){dSea[i]=0;q.push(i);}bfs(dSea,8);
+  const mark=(x,z)=>{const X=Math.round((x-G.x0)/cell),Z=Math.round((z-G.z0)/cell);if(X>=0&&Z>=0&&X<nx&&Z<nz&&dB[Z*nx+X]){dB[Z*nx+X]=0;q.push(Z*nx+X);}};
+  for(const b of D.b){const [cx]=centroid(b.p);if(cx<CAMPUS_X1)continue;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of b.p){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
+    for(let x=x0;x<=x1;x+=cell)for(let z=z0;z<=z1;z+=cell)if(pip(b.p,x,z))mark(x,z);for(const p of b.p)mark(p[0],p[1]);}
+  for(const r of D.r){if((RANK[r.k]??0)<1||r.t)continue;for(let i=0;i<r.p.length-1;i++){const [ax,az]=r.p[i],[bx,bz]=r.p[i+1],L=Math.hypot(bx-ax,bz-az);for(let s=0;s<=L;s+=2){const t=s/(L||1);mark(ax+(bx-ax)*t,az+(bz-az)*t);}}}
+  bfs(dB,5);
+  const c=document.createElement('canvas');c.width=nx;c.height=nz;const g=c.getContext('2d');
+  for(let z=0;z<nz;z++)for(let x=ix0;x<nx;x++){const i=z*nx+x,h=HT[i];if(h<0||h>30)continue;
+    if(dSea[i]<=7){g.fillStyle='#cdcac2';g.fillRect(x,z,1,1);}else if(dB[i]<=5&&h<26){g.fillStyle='#d6d2ca';g.fillRect(x,z,1,1);}}
+  return _town=c;}
+// a market stall: counter, striped awning, a sign, and what's on sale
+const stallSignTex=(txt,bg,fg)=>tileTex('stall'+txt+bg,256,64,(g,w,h)=>{g.fillStyle=bg;g.fillRect(0,0,w,h);g.fillStyle=fg;g.font='900 34px "Noto Sans TC",sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(txt,w/2,h/2+2);});
+const awningTex=(a,b)=>tileTex('awn'+a+b,64,16,(g,w,h)=>{for(let i=0;i<8;i++){g.fillStyle=i%2?a:b;g.fillRect(i*8,0,8,h);}});
+function makeStall(x,z,rot,kind,label,cols){
+  const g=new THREE.Group();const y=surf(x,z);g.position.set(x,y,z);g.rotation.y=rot;   // local +z faces the customers
+  const counter=shade(new THREE.Mesh(new THREE.BoxGeometry(2.2,0.95,0.9),toon(kind==='fish'?0xd9dde0:0x8a5a3a)),true,true);counter.position.y=0.48;g.add(counter);
+  for(const sx of [-1.05,1.05])for(const sz of [-0.9,0.45]){const p=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,2.4,5),toon(0x6b6f74));p.position.set(sx,1.2,sz);g.add(p);}
+  const awn=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.06,1.8),new THREE.MeshToonMaterial({map:awningTex(cols[0],cols[1]),gradientMap:grad}));awn.position.set(0,2.4,-0.15);awn.rotation.x=-0.12;g.add(awn);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.2,0.55),new THREE.MeshBasicMaterial({map:stallSignTex(label,cols[0],'#ffffff')}));sign.position.set(0,2.1,0.78);g.add(sign);
+  const goods=new THREE.Group();g.add(goods);
+  if(kind==='fish'){const ice=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.08,0.75),toon(0xf4f8fb));ice.position.set(0,0.98,0);goods.add(ice);
+    const fc=[0x8fa3b0,0xc75b4a,0xb9c4cc,0xe2a24c,0x6d7f8c];for(let i=0;i<9;i++){const f=new THREE.Mesh(new THREE.SphereGeometry(0.12,8,6),toon(fc[i%5]));f.scale.set(2.2,0.55,0.9);f.position.set(-0.85+i*0.21,1.05,(i%2?0.15:-0.15));f.rotation.y=(i%3-1)*0.3;goods.add(f);}}
+  else{for(let i=0;i<5;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.18,0.28),toon(pick([0xf2c230,0xd9744f,0xffffff,0x9a6f4a])));b.position.set(-0.8+i*0.4,1.05,0.1);goods.add(b);}
+    const lan=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,8),new THREE.MeshBasicMaterial({color:0xff5a3a}));lan.position.set(0.9,2.15,0.85);g.add(lan);
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:LAMP.glow,color:0xffb060,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,opacity:0.85}));gl.scale.set(2.6,2.6,1);lan.add(gl);g.userData.lan=[lan,gl];}
+  scene.add(g);const c=Math.cos(rot),s=Math.sin(rot);lmSolid(x,z,2.2,0.9,rot,y+0.95);
+  const st={g,goods,kind,x,z,rot};EAST.stalls.push(st);return st;}
+function stallVendor(st,lines){const bx=st.x-Math.sin(st.rot)*0.95,bz=st.z-Math.cos(st.rot)*0.95;const m=makeStudent();m.g.position.set(bx,surf(bx,bz)+0.02,bz);m.g.rotation.y=st.rot;
+  const v=Object.assign(m,{x:bx,z:bz,bubbleT:0,lines,talkT:Math.random()*6,st});EAST.vendors.push(v);return v;}
+// stalls along a line (from a, every `gap` m, `n` of them), facing `face` (unit vector toward the customers)
+function stallRow(ax,az,tx,tz,face,n,gap,kind,labels,cols,lines){const out=[];
+  for(let i=0;i<n;i++){const x=ax+tx*i*gap,z=az+tz*i*gap;if(!free(x,z,1.2)||ground(x,z)<0.5)continue;
+    const st=makeStall(x,z,Math.atan2(face[0],face[1]),kind,labels[i%labels.length],cols[i%cols.length]);if(lines)stallVendor(st,lines);out.push(st);}
+  return out;}
+function nearestRoadAt(x,z,minRank){let best=null,bd=1e9;for(const r of D.r){if((RANK[r.k]??0)<minRank||r.t)continue;for(let i=0;i<r.p.length-1;i++){const d=segDist(x,z,...r.p[i],...r.p[i+1]);if(d<bd){bd=d;best={r,i,d};}}}return best;}
+function buildEast(){
+  // places to discover
+  for(const [id,zh,en,x,z] of [['e_bsmarket','碧砂漁港觀光漁市','Bisha Fish Market',935,517],['e_bsfood','碧砂漁港飲食街','Bisha Seafood Street',952,554],
+    ['e_bsyacht','碧砂遊艇碼頭','Bisha Marina',866,418],['e_haigong','海功號','Haigong (research ship)',974,590],['e_bdharbor','八斗子漁港','Badouzi Fishing Harbor',1690,690],
+    ['e_bdfishmkt','八斗子魚市場','Badouzi Fish Market',1470,782],['e_night','八斗子夜市','Badouzi Night Market',1339,846],['e_fuquan','福泉寺','Fuquan Temple',1235,859],
+    ['e_yushi','漁師新村','Fishermen\'s Village',1224,899],['e_bdhs','八斗高中','Badou High School',1091,1204],['e_pier','八斗子釣魚區','Badouzi Fishing Pier',1530,350]])lmSpot(id,zh,en,x,z);
+  // moored boats along the quays of both harbours
+  const cols=[0x2f6fb8,0xd8463c,0xf4f4f2,0x4f9a72,0xf2c230];let n=0;
+  for(const [x0,x1,z0,z1,want] of [[850,1150,200,620,10],[1420,1900,350,1000,16]]){let got=0;
+    for(let tries=0;tries<4000&&got<want;tries++){const x=x0+Math.random()*(x1-x0),z=z0+Math.random()*(z1-z0);if(ground(x,z)>-1)continue;
+      let land=null;for(let a=0;a<TAU;a+=0.4){const lx=x+Math.cos(a)*7,lz=z+Math.sin(a)*7;if(ground(lx,lz)>0.5){land=[Math.cos(a),Math.sin(a)];break;}}
+      if(!land)continue;let close=false;for(let a=0;a<TAU;a+=0.6)if(ground(x+Math.cos(a)*3.2,z+Math.sin(a)*3.2)>-1)close=true;if(close)continue;
+      if(EAST.boats.some(b=>Math.hypot(b.x-x,b.z-z)<9))continue;
+      const b=makeSmallBoat(cols[(n++)%cols.length]);b.position.set(x,0.25,z);b.rotation.y=Math.atan2(-land[1],land[0]);scene.add(b);EAST.boats.push({g:b,x,z,ph:Math.random()*6});got++;}}
+  // 碧砂 fish market: a row of stalls along the market hall's front (the side facing the car park and the road)
+  {const B=D.b.slice().sort((a,b)=>Math.hypot(centroid(a.p)[0]-935,centroid(a.p)[1]-517)-Math.hypot(centroid(b.p)[0]-935,centroid(b.p)[1]-517))[0];
+    if(B){const [cx,cz]=centroid(B.p);let best=null;
+      for(let i=0;i<B.p.length;i++){const a=B.p[i],b=B.p[(i+1)%B.p.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<12)continue;const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;
+        let nx=-(b[1]-a[1])/L,nz=(b[0]-a[0])/L;if(nx*(mx-cx)+nz*(mz-cz)<0){nx=-nx;nz=-nz;}const nr=nearestRoadAt(mx+nx*8,mz+nz*8,1);const sc=L-(nr?nr.d:50)*0.8;if(!best||sc>best.sc)best={a,b,L,nx,nz,sc};}
+      if(best){const tx=(best.b[0]-best.a[0])/best.L,tz=(best.b[1]-best.a[1])/best.L,off=3.2,n=Math.min(9,Math.floor((best.L-4)/3.4));
+        const sx=best.a[0]+tx*2.5+best.nx*off,sz=best.a[1]+tz*2.5+best.nz*off;
+        EAST.market=stallRow(sx,sz,tx,tz,[best.nx,best.nz],n,3.4,'fish',['現流海鮮','活蝦','小卷','鮮魚','透抽','螃蟹'],[['#1f6fa8','#f4f4f2'],['#2f9e7a','#f4f4f2'],['#d8463c','#f4f4f2']],
+          ['來喔！新鮮的魚！','小卷一斤三百啦','今天早上剛上岸的！','要不要看看？','現撈的喔！']);}}}
+  // 八斗子夜市: two facing rows along the street there
+  // (a side street off 北寧路 by the harbour, not the highway itself: no through traffic there)
+  {let nr=null,bd=1e9;for(const r of D.r){if(r.t||r.nm==='北寧路'||(RANK[r.k]??0)<1||(RANK[r.k]??0)>3)continue;let len=0;for(let i=0;i<r.p.length-1;i++)len+=Math.hypot(r.p[i+1][0]-r.p[i][0],r.p[i+1][1]-r.p[i][1]);if(len<60)continue;
+      for(let i=0;i<r.p.length-1;i++){const d=segDist(1339,846,...r.p[i],...r.p[i+1]);if(d<bd){bd=d;nr={r,i,d};}}}
+    if(nr){const r=nr.r,pts=r.p,cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+    const at=s=>{s=Math.max(0,Math.min(cum.at(-1),s));let i=1;while(i<cum.length-1&&cum[i]<s)i++;const L=cum[i]-cum[i-1]||1,f=(s-cum[i-1])/L,tx=(pts[i][0]-pts[i-1][0])/L,tz=(pts[i][1]-pts[i-1][1])/L;return {x:pts[i-1][0]+(pts[i][0]-pts[i-1][0])*f,z:pts[i-1][1]+(pts[i][1]-pts[i-1][1])*f,tx,tz};};
+    let s0=0,b2=1e9;for(let s=0;s<=cum.at(-1);s+=1){const q=at(s),d=Math.hypot(q.x-1339,q.z-846);if(d<b2){b2=d;s0=s;}}
+    s0=Math.max(17,Math.min(cum.at(-1)-17,s0));const c0=at(s0),half=r.w/2+1.6;EAST.night={x:c0.x,z:c0.z,tx:c0.tx,tz:c0.tz,len:30,at,s0};
+    const foods=['雞排','臭豆腐','烤魷魚','蚵仔煎','珍珠奶茶','大腸包小腸','鹽酥雞','烤玉米','炸魷魚','地瓜球','花枝丸','甘蔗汁'];
+    const nc=[['#d8463c','#f2c230'],['#2f6fb8','#f4f4f2'],['#e07a2a','#fff1c8'],['#9a3fb8','#f4f4f2'],['#2f9e7a','#fff1c8']];
+    const shout=['來喔！剛炸好的！','好吃喔～','一份五十！','要不要辣？','排隊喔～'];
+    EAST.night.stalls=[];
+    for(const side of [1,-1])for(let i=0;i<9;i++){const q=at(s0-14+i*3.5),nx=-q.tz*side,nz=q.tx*side,x=q.x+nx*half,z=q.z+nz*half;if(!free(x,z,1.2)||ground(x,z)<0.5)continue;
+      const k=side>0?i:i+6,st=makeStall(x,z,Math.atan2(-nx,-nz),'food',foods[k%foods.length],nc[k%nc.length]);stallVendor(st,shout);EAST.night.stalls.push(st);}}}
+  // the old fisherman on the 八斗子 fishing pier, who tells you how it's done
+  {let p=null;for(let r=0;r<60&&!p;r+=3)for(let a=0;a<TAU&&!p;a+=0.5){const x=1530+Math.cos(a)*r,z=350+Math.sin(a)*r;if(ground(x,z)>0.5&&free(x,z,0.8)&&fishWater(x,z,Math.atan2(Math.cos(a),Math.sin(a)))){p=[x,z,a];}}
+    if(!p){for(let r=0;r<80&&!p;r+=3)for(let a=0;a<TAU&&!p;a+=0.4){const x=1530+Math.cos(a)*r,z=350+Math.sin(a)*r;if(ground(x,z)>0.5&&free(x,z,0.8)){for(let k=0;k<TAU;k+=0.4)if(fishWater(x,z,k)){p=[x,z,k];break;}}}}
+    if(p){const [x,z]=p;let face=0;for(let k=0;k<TAU;k+=0.2)if(fishWater(x,z,k)){face=k;break;}const m=makeStudent();m.g.position.set(x,surf(x,z)+0.02,z);m.g.rotation.y=face;
+      const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.025,2.6,4),toon(0x3a2a1a));rod.position.set(0.25,1.5,0.9);rod.rotation.x=1.0;m.g.add(rod);
+      EAST.fisher=Object.assign(m,{x,z,bubbleT:0,told:false,talkT:0});}}
+}
+// fishing ----------------------------------------------------------------------------------------------------
+const FISH={st:'',t:0,wait:0,pt:null,rod:null,line:null,bob:null,catchT:0,shown:null,book:{}};
+try{FISH.book=JSON.parse(localStorage.getItem('ntou-walk-fish')||'{}');}catch(e){}
+const SPECIES=[
+  {id:'blackporgy',zh:'黑鯛',en:'Black porgy',lo:18,hi:45,w:3},{id:'rabbit',zh:'臭肚魚',en:'Rabbitfish',lo:12,hi:28,w:5},
+  {id:'scad',zh:'竹筴魚',en:'Horse mackerel',lo:12,hi:25,w:5},{id:'grunter',zh:'花身雞魚',en:'Crescent grunter',lo:10,hi:24,w:4},
+  {id:'scorpion',zh:'石狗公',en:'Scorpionfish',lo:10,hi:22,w:3},{id:'seabream',zh:'黃錫鯛',en:'Yellowfin seabream',lo:15,hi:35,w:2},
+  {id:'mackerel',zh:'鯖魚',en:'Mackerel',lo:20,hi:38,w:3,day:1},{id:'puffer',zh:'河魨',en:'Pufferfish',lo:8,hi:25,w:2},
+  {id:'hairtail',zh:'白帶魚',en:'Hairtail',lo:50,hi:110,w:3,night:1},{id:'squid',zh:'透抽',en:'Squid',lo:15,hi:35,w:3,night:1},
+  {id:'amberjack',zh:'青魽',en:'Amberjack',lo:40,hi:90,w:0.35},{id:'sandal',zh:'舊拖鞋',en:'An old sandal',lo:24,hi:28,w:0.5,junk:1}];
+// is there open water 2–7 m ahead of (x,z) facing `rot`? (returns the point on the water to cast to)
+function fishWater(x,z,rot){const hx=Math.sin(rot),hz=Math.cos(rot);if(ground(x,z)<0.3)return null;
+  for(let d=1.5;d<=7;d+=0.5){const px=x+hx*d,pz=z+hz*d;if(ground(px,pz)<-1){const qx=x+hx*(d+2.5),qz=z+hz*(d+2.5);return ground(qx,qz)<-1?[qx,qz]:[px,pz];}}return null;}
+function canFish(){return mode==='play'&&!INT.inside&&!P.riding&&!DRIVE.v&&!P.onBus&&!RACE.active&&P.ground&&fishWater(P.x,P.z,P.rot);}
+function fishGear(on){
+  if(on&&!FISH.rod){const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.028,2.6,5),toon(0x3a2a1a));rod.geometry.translate(0,1.3,0);rod.position.set(0.3,1.0,0.15);rod.rotation.x=0.95;FISH.rod=rod;
+    const bob=new THREE.Group();const top=new THREE.Mesh(new THREE.SphereGeometry(0.11,10,6,0,TAU,0,Math.PI/2),new THREE.MeshBasicMaterial({color:0xff3a2a}));const bot=new THREE.Mesh(new THREE.SphereGeometry(0.11,10,6,0,TAU,Math.PI/2,Math.PI/2),new THREE.MeshBasicMaterial({color:0xffffff}));bob.add(top,bot);FISH.bob=bob;
+    const lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);FISH.line=new THREE.Line(lg,new THREE.LineBasicMaterial({color:0xf4f4f2,transparent:true,opacity:0.8}));}
+  if(on){player.root.add(FISH.rod);scene.add(FISH.bob);scene.add(FISH.line);}
+  else if(FISH.rod){FISH.rod.parent&&FISH.rod.parent.remove(FISH.rod);scene.remove(FISH.bob);scene.remove(FISH.line);}}
+function pickFish(){const h=gameHour(),night=h>=18.5||h<5.5;let tot=0;const w=SPECIES.map(s=>{let k=s.w;if(s.night)k*=night?3:0.05;if(s.day&&night)k*=0.4;tot+=k;return k;});
+  let r=Math.random()*tot;for(let i=0;i<SPECIES.length;i++){r-=w[i];if(r<=0)return SPECIES[i];}return SPECIES[0];}
+function fishAction(){
+  if(FISH.st===''){const pt=canFish();if(!pt)return false;endEmote();FISH.st='cast';FISH.t=0;FISH.pt=pt;fishGear(true);blip(520,300,0.25,0.05,0,'triangle');return true;}
+  if(FISH.st==='bite'){const s=pickFish(),cm=Math.round(s.lo+Math.pow(Math.random(),1.6)*(s.hi-s.lo));
+    const rec=FISH.book[s.id]||{n:0,best:0},isNew=!rec.n,best=cm>rec.best;rec.n++;rec.best=Math.max(rec.best,cm);FISH.book[s.id]=rec;try{localStorage.setItem('ntou-walk-fish',JSON.stringify(FISH.book));}catch(e){}
+    toast(s.junk?'…':'魚獲',s.junk?'釣到了'+s.zh+'…':`釣到${s.zh}！ ${cm} cm`,(s.junk?s.en:`${s.en}${isNew?' · 新魚種 New!':best?' · 最大紀錄 Best!':''}`),3600,true);
+    chime();if(isNew&&!s.junk)setTimeout(chime,380);
+    const f=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,6),toon(s.junk?0x3a5a8a:0xb9c4cc));f.scale.set(Math.min(3.2,cm/12),0.6,0.9);FISH.shown=f;scene.add(f);
+    FISH.st='land';FISH.t=0;return true;}
+  // reel in (nothing on)
+  FISH.st='';fishGear(false);return true;}
+function updateFishing(dt){
+  if(!FISH.st)return;
+  const moving=Math.abs(joy.x)+Math.abs(joy.y)>0.1||keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight;
+  if(moving||P.riding||DRIVE.v||P.onBus||INT.inside){FISH.st='';fishGear(false);if(FISH.shown){scene.remove(FISH.shown);FISH.shown=null;}return;}
+  FISH.t+=dt;const tip=new THREE.Vector3(0,2.6,0);FISH.rod.localToWorld(tip);const [wx,wz]=FISH.pt;
+  let by=0.05;
+  if(FISH.st==='cast'){const k=Math.min(1,FISH.t/0.7);FISH.bob.position.set(tip.x+(wx-tip.x)*k,tip.y+(by-tip.y)*k+Math.sin(k*Math.PI)*2.2,tip.z+(wz-tip.z)*k);
+    if(k>=1){FISH.st='wait';FISH.t=0;const h=gameHour();FISH.wait=(4+Math.random()*10)*((h>=17&&h<20)||(h>=5&&h<8)?0.6:1)*(WX.mix.rain>0.3?0.7:1);blip(300,180,0.18,0.04,0,'sine');}}
+  else{let dip=0;
+    if(FISH.st==='wait'){dip=Math.sin(FISH.t*2.2)*0.03+(Math.random()<0.01?-0.05:0);if(FISH.t>FISH.wait){FISH.st='bite';FISH.t=0;blip(240,140,0.2,0.07,0,'triangle');blip(900,700,0.08,0.05,0,'sine',0.05);}}
+    else if(FISH.st==='bite'){dip=-0.16+Math.sin(FISH.t*30)*0.05;if(FISH.t>1.3){FISH.st='wait';FISH.t=0;FISH.wait=3+Math.random()*8;toast('','魚跑掉了…','It got away',1600);}}
+    else if(FISH.st==='land'){const k=Math.min(1,FISH.t/0.6);FISH.bob.position.set(wx+(tip.x-wx)*k,by+(tip.y-0.4-by)*k+Math.sin(k*Math.PI)*1.5,wz+(tip.z-wz)*k);
+      if(FISH.shown){FISH.shown.position.copy(FISH.bob.position);FISH.shown.position.y-=0.25;FISH.shown.rotation.z=Math.sin(FISH.t*14)*0.5;}
+      if(FISH.t>2.2){if(FISH.shown){scene.remove(FISH.shown);FISH.shown=null;}FISH.st='';fishGear(false);}}
+    if(FISH.st!=='land')FISH.bob.position.set(wx,by+dip,wz);}
+  const a=FISH.line.geometry.attributes.position;a.setXYZ(0,tip.x,tip.y,tip.z);a.setXYZ(1,FISH.bob.position.x,FISH.bob.position.y+0.1,FISH.bob.position.z);a.needsUpdate=true;FISH.line.geometry.computeBoundingSphere();
+}
+let fishUI='';
+function refreshFishUI(){const st=FISH.st?(FISH.st==='bite'?'bite':'on'):(isTouch&&canFish()?'can':'');if(st===fishUI)return;fishUI=st;const b=$('#fishBtn');if(!b)return;
+  b.hidden=!st;b.textContent=st==='bite'?'拉！':st==='on'?'收竿':'釣魚';b.classList.toggle('hot',st==='bite');}
+function openFishLog(){const ol=$('#fishList');ol.innerHTML='';let got=0;
+  for(const s of SPECIES){const r=FISH.book[s.id];if(r&&!s.junk)got++;const li=document.createElement('li');li.className=r?'done':'lock';
+    li.innerHTML='<i></i><div><b></b><span></span></div><em></em>';li.querySelector('i').textContent=r?'🐟':'?';li.querySelector('b').textContent=r?s.zh:'？？？';li.querySelector('span').textContent=r?s.en:'';
+    li.querySelector('em').textContent=r?(s.junk?`× ${r.n}`:`× ${r.n} · 最大 ${r.best} cm`):'';ol.appendChild(li);}
+  $('#fishH').firstChild.textContent=`魚獲 ${got} / ${SPECIES.filter(s=>!s.junk).length} `;show('#fishlog',true);$('#fishDone').focus();}
+// markets open and close; vendors call out; strolling customers at the night market
+function updateEast(dt){
+  const h=gameHour(),t=performance.now()/1000;
+  for(const b of EAST.boats){if(Math.abs(b.x-WPOS.x)>300||Math.abs(b.z-WPOS.z)>300)continue;b.g.position.y=0.25+Math.sin(t*0.8+b.ph)*0.08;b.g.rotation.z=Math.sin(t*0.6+b.ph)*0.04;}
+  const fishOpen=h>=6.5&&h<19.5,nightOpen=h>=17||h<0.5;
+  if(EAST.open.fish!==fishOpen){EAST.open.fish=fishOpen;for(const s of EAST.market||[])s.goods.visible=fishOpen;for(const v of EAST.vendors)if(v.st.kind==='fish')v.g.visible=fishOpen;}
+  if(EAST.open.night!==nightOpen){EAST.open.night=nightOpen;const ns=EAST.night&&EAST.night.stalls||[];for(const s of ns){s.g.visible=nightOpen;}for(const v of EAST.vendors)if(v.st.kind==='food')v.g.visible=nightOpen;
+    if(!nightOpen){for(const c of EAST.crowd)scene.remove(c.g);EAST.crowd=[];}}
+  for(const v of EAST.vendors){if(!v.g.visible)continue;const d=Math.hypot(v.x-WPOS.x,v.z-WPOS.z);if(d>60)continue;
+    if((v.talkT-=dt)<=0&&d<18){v.talkT=7+Math.random()*9;say(v,pick(v.lines),2.4);}tickBubble(v,dt,v.x,v.g.position.y+2.5,v.z);}
+  for(const s of EAST.night&&EAST.night.stalls||[]){const l=s.g.userData.lan;if(l)l[1].material.opacity=0.35+0.6*Math.min(1,nightLevel*1.6);}
+  // night market crowd: a dozen or so people wandering up and down while it's open and you're near
+  const N=EAST.night;if(N&&nightOpen&&!INT.inside){const d=Math.hypot(N.x-WPOS.x,N.z-WPOS.z),want=d<140?(isTouch?8:16):0;
+    if(EAST.crowd.length<want&&(EAST.crowdT-=dt)<=0){EAST.crowdT=0.3;const m=makeStudent();const u=(Math.random()*2-1)*N.len*0.5,lat=(Math.random()*2-1)*1.4;
+      const c=Object.assign(m,{u,lat,dir:Math.random()<0.5?1:-1,sp:0.7+Math.random()*0.5,pause:0,phase:0,bubbleT:0,x:0,z:0});EAST.crowd.push(c);}
+    while(EAST.crowd.length>want){const c=EAST.crowd.pop();scene.remove(c.g);}
+    for(const c of EAST.crowd){if(c.pause>0){c.pause-=dt;animStudent(c,dt,false,0);}else{c.u+=c.dir*c.sp*dt;if(Math.abs(c.u)>N.len*0.5){c.dir*=-1;c.u=Math.sign(c.u)*N.len*0.5;}if(Math.random()<dt*0.12)c.pause=2+Math.random()*4;animStudent(c,dt,true,c.sp);}
+      const q=N.at(N.s0+c.u);c.x=q.x-q.tz*c.lat;c.z=q.z+q.tx*c.lat;c.g.position.set(c.x,surf(c.x,c.z)+0.02,c.z);c.g.rotation.y=Math.atan2(q.tx*c.dir,q.tz*c.dir);
+      if(Math.random()<dt*0.02&&d<25)say(c,pick(['好香喔','要吃什麼？','排這家！','好多人～','再買一份']),2);tickBubble(c,dt,c.x,c.g.position.y+2.45*c.sc,c.z);}}
+  // the fisherman explains, once, when you walk up to him
+  const F=EAST.fisher;if(F){const d=Math.hypot(F.x-WPOS.x,F.z-WPOS.z);if(d<5&&(F.talkT-=dt)<=0){F.talkT=25;say(F,F.told?pick(['今天魚況不錯喔','晚上白帶魚比較多','耐心一點啦']):(isTouch?'要釣魚嗎？岸邊按「釣魚」，浮標一沉就拉！':'要釣魚嗎？岸邊按 C，浮標一沉再按一次！'),F.told?2.6:5.5);F.told=true;}
+    if(d<80)tickBubble(F,dt,F.x,F.g.position.y+2.5,F.z);}
+  updateFishing(dt);refreshFishUI();
+}
+
 /* ---------- characters ---------- */
 function makeChar(gender){
   const root=new THREE.Group();const parts=[];
@@ -3158,6 +3356,7 @@ addEventListener('keydown',e=>{if(mode!=='play')return;keys[e.code]=true;
   if(e.code==='KeyE'&&!DRIVE.v)toggleBike();
   if(e.code==='KeyH'&&DRIVE.v){say(DRIVE.v,pick(['叭叭！','叭——！','嗶嗶！']),1.2);hornSound(DRIVE.v.x,DRIVE.v.z);}
   if(e.code==='KeyR')toggleRide();
+  if(e.code==='KeyC')fishAction();
   if(e.code==='KeyG'&&DRIVE.v)toggleHazard(DRIVE.v);
   const em=EMOTES.find(q=>q.key===e.code);if(em)startEmote(em.k);
   if(e.code==='BracketLeft')shiftClock(-1);if(e.code==='BracketRight')shiftClock(1);if(e.code==='Backslash')toggleFast();
@@ -3402,7 +3601,7 @@ $('#tSet').addEventListener('click',()=>openSettings($('#tSet')));
 $('#setDone').addEventListener('click',()=>{show('#settings',false);modalBack&&modalBack.focus();});
 // in-game menu: the world pauses while it is open
 function openMenu(){if(mode!=='play')return;mode='pause';for(const k in keys)keys[k]=false;joy.x=joy.y=0;DRIVE.hand=false;show('#menu',true);$('#mResume').focus();}
-function closeMenu(){if(mode!=='pause')return;show('#menu',false);show('#settings',false);show('#missions',false);mode='play';cv.focus();}
+function closeMenu(){if(mode!=='pause')return;show('#menu',false);show('#settings',false);show('#missions',false);show('#fishlog',false);mode='play';cv.focus();}
 $('#menuBtn').addEventListener('click',openMenu);
 $('#mtMinus').addEventListener('click',()=>shiftClock(-1));$('#mtPlus').addEventListener('click',()=>shiftClock(1));$('#mtNow').addEventListener('click',()=>{resetClock();$('#mtFast').setAttribute('aria-pressed','false');});
 $('#mtFast').addEventListener('click',()=>{toggleFast();$('#mtFast').setAttribute('aria-pressed',CLOCK.fast);});
@@ -3414,6 +3613,9 @@ $('#mtFast').addEventListener('click',()=>{toggleFast();$('#mtFast').setAttribut
 $('#mResume').addEventListener('click',closeMenu);
 $('#mSet').addEventListener('click',()=>openSettings($('#mSet')));
 $('#mMis').addEventListener('click',()=>{modalBack=$('#mMis');openMissions();});
+$('#mFish').addEventListener('click',()=>{modalBack=$('#mFish');openFishLog();});
+$('#fishDone').addEventListener('click',()=>{show('#fishlog',false);modalBack&&modalBack.focus();});
+$('#fishBtn').addEventListener('click',e=>{e.preventDefault();fishAction();});
 $('#msDone').addEventListener('click',()=>{show('#missions',false);modalBack&&modalBack.focus();});
 $('#msDrop').addEventListener('click',()=>{dropMission();show('#missions',false);modalBack&&modalBack.focus();});
 $('#mTitle').addEventListener('click',()=>{saveGame();location.reload();});
@@ -3424,6 +3626,7 @@ addEventListener('keydown',e=>{
   if(e.code!=='Escape')return;
   if(!$('#confirm').hidden){$('#cfNo').click();return;}
   if(!$('#missions').hidden){$('#msDone').click();return;}
+  if(!$('#fishlog').hidden){$('#fishDone').click();return;}
   if(!$('#settings').hidden){$('#setDone').click();return;}
   if(mode==='play'&&!$('#map').hidden)return;          // the map's own Esc handler closes it
   if(mode==='play')openMenu();else if(mode==='pause')closeMenu();else if(mode==='pick')toTitle();
@@ -3575,7 +3778,7 @@ function updatePlay(dt){
   if(INT.inside&&oy>0.01)d=Math.max(1.4,Math.min(d,(INT.ceil-0.5-ty)/oy));   // stay under the ceiling
   const cxp=tx+ox*d,czp=tz+oz*d;
   camera.position.set(cxp,Math.max(ground(cxp,czp)+0.5,ty+oy*d,0.6),czp);camera.lookAt(tx,ty,tz);
-  updateInterior(dt);updateRace(dt);updateMission(dt);
+  updateInterior(dt);updateRace(dt);updateMission(dt);updateEast(dt);
   tAcc+=dt;if(tAcc>0.25){tAcc=0;checkSpots();updateZone();}
   refreshBikeUI();refreshDriveUI();
   drawMini();
@@ -3705,6 +3908,7 @@ function updateZone(){
   let key;
   let dmin=1e9;for(const r of BEINING)for(let i=0;i<r.p.length-1;i++)dmin=Math.min(dmin,segDist(WPOS.x,WPOS.z,...r.p[i],...r.p[i+1]));
   if(dmin<9)key='road';
+  else if(!onCampus(WPOS.x,WPOS.z)&&WPOS.x>760&&!INT.inside)key=zoneOf(0,WPOS.x,WPOS.z);
   else if(!onCampus(WPOS.x,WPOS.z)){
     let best=null,bd=1e9;for(const s of spots){const d=Math.hypot(s.x-WPOS.x,s.z-WPOS.z);if(d<bd){bd=d;best=s;}}
     key=bd<60&&best?best.zone:'out';}
@@ -3719,7 +3923,7 @@ function updateZone(){
 /* static map layer: ground texture plus building footprints (1 px = 1 m) */
 const mapBase=document.createElement('canvas');mapBase.width=Math.round(GW);mapBase.height=Math.round(GH);
 function paintMapBase(){
-  const g=mapBase.getContext('2d');g.drawImage(groundCanvas,0,0,mapBase.width,mapBase.height);
+  const g=mapBase.getContext('2d');for(const T of GTILES)g.drawImage(T.c,T.x0-G.x0,T.z0-G.z0,T.x1-T.x0,T.z1-T.z0);
   for(const b of D.b){g.beginPath();b.p.forEach((q,i)=>i?g.lineTo(q[0]-G.x0,q[1]-G.z0):g.moveTo(q[0]-G.x0,q[1]-G.z0));g.closePath();
     g.fillStyle=b.c?'#f3e2b8':'#d8d3ca';g.fill();g.strokeStyle='#0b1c2c';g.lineWidth=1;g.stroke();}
 }
