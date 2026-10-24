@@ -2355,7 +2355,7 @@ function trees(){
     for(let i=0;i<r.p.length-1;i++){const [ax,az]=r.p[i],[bx,bz]=r.p[i+1];const L=Math.hypot(bx-ax,bz-az);const nx=-(bz-az)/L,nz=(bx-ax)/L;
       for(let t=6;t<L;t+=14)for(const s of [-1,1]){const x=ax+(bx-ax)*t/L+nx*(r.w/2+2.5)*s,z=az+(bz-az)*t/L+nz*(r.w/2+2.5)*s;
         if(rnd()<0.45&&free(x,z,2.5)&&ground(x,z)>0.5&&onCampus(x,z)&&treeClear(x,z))pts.push([x,z]);}}}
-  for(let i=pts.length-1;i>=0;i--)if(!treeClear(pts[i][0],pts[i][1]))pts.splice(i,1);
+  for(let i=pts.length-1;i>=0;i--)if(!treeClear(pts[i][0],pts[i][1])||((pts[i][0]<CAMPUS_X0||pts[i][1]<CAMPUS_Z0)&&!free(pts[i][0],pts[i][1],1.2)))pts.splice(i,1);   // (not inside the generated houses out west)
   const N=pts.length;
   const tg=new THREE.CylinderGeometry(0.28,0.4,2.6,6);tg.translate(0,1.3,0);
   const lg=new THREE.IcosahedronGeometry(2.1,1);
@@ -2544,7 +2544,7 @@ function buildWorld(){
   mergeLibraryFootprint();
   D.b.forEach((b,i)=>{const n0=scene.children.length;buildingMesh(b,i);if(b.no===3&&b.lib&&b.p.length>=4)INT.shell=scene.children.slice(n0+1);});   // all but the plinth
   D.m.forEach(marker);
-  buildStreets();
+  buildStreets();genHouses();
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
@@ -3449,6 +3449,61 @@ function buildWest(){
     ['來喔！現撈的！','九孔要不要？','今天的海膽很肥喔','帥哥美女看看喔！']));
 }
 
+/* ---------- the houses OSM never traced (user: "you're missing a lot of residential buildings on the island").
+   OSM's residential areas cover only ~5 % of the land out west, so along every street west of the campus (和平島, 正濱,
+   中正區) both sides get Taiwanese row houses
+   (透天厝): 4.5–6.5 m frontage, 9–14 m deep, 2–5 floors, tiled fronts with barred windows, often a tin-roofed rooftop
+   add-on (頂樓加蓋). They keep clear of OSM buildings, roads, woods, rock, parks (和平島公園), car parks, pitches,
+   schools, beaches, steep ground and water. All of them
+   are merged into one mesh (+ one outline) so the hundreds of houses cost two draw calls. Deterministic. ---------- */
+const GEN_HOUSES=[];
+function genHouses(){
+  const inRegion=(x,z)=>x<CAMPUS_X0||z<CAMPUS_Z0;
+  const bbox=p=>{let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}return {x0,x1,z0,z1};};
+  const NOGO=D.a.filter(a=>['amenity=parking','leisure=pitch','amenity=school','leisure=park','leisure=swimming_pool','natural=water','natural=beach','natural=wood','natural=bare_rock','landuse=grass','landuse=military','leisure=recreation_ground','landuse=construction'].includes(a.k));NOGO.forEach(a=>a.bb=bbox(a.p));
+  const inPark=(x,z)=>x<-1140&&z<-1140;   // 和平島公園
+  const inNogo=(x,z)=>NOGO.some(a=>x>a.bb.x0&&x<a.bb.x1&&z>a.bb.z0&&z<a.bb.z1&&pip(a.p,x,z));
+  const rnd=(()=>{let s=2024;return()=>(s=(s*16807)%2147483647)/2147483647;})();
+  // row houses share walls: only a real overlap of the footprints (shrunk 0.3 m) rules a spot out
+  const placed=[];const shrink=C=>{const mx=(C[0][0]+C[2][0])/2,mz=(C[0][1]+C[2][1])/2;return C.map(q=>[mx+(q[0]-mx)*0.93,mz+(q[1]-mz)*0.93]);};
+  const hit=(C,cx,cz,r)=>{const S=shrink(C);for(const h of placed){if(Math.abs(h.x-cx)>h.r+r||Math.abs(h.z-cz)>h.r+r)continue;if(S.some(q=>pip(h.C,q[0],q[1]))||h.S.some(q=>pip(C,q[0],q[1]))||pip(h.C,cx,cz))return true;}return false;};
+  for(const r of D.r){const rk=RANK[r.k]??0;if(r.t||r.b||rk<1||rk>3)continue;if(!r.p.some(q=>inRegion(q[0],q[1])))continue;
+    for(let i=0;i<r.p.length-1;i++){const [ax,az]=r.p[i],[bx,bz]=r.p[i+1],L=Math.hypot(bx-ax,bz-az);if(L<6)continue;const tx=(bx-ax)/L,tz=(bz-az)/L;
+      for(const sg of [-1,1]){const nx=-tz*sg,nz=tx*sg;let u=2+rnd()*2;
+        while(u<L-3){const fw=4.5+rnd()*2,dp=9+rnd()*5,set=r.w/2+1.4+rnd()*0.6;const mu=u+fw/2;
+          const cx=ax+tx*mu+nx*(set+dp/2),cz=az+tz*mu+nz*(set+dp/2);u+=fw+(rnd()<0.12?3+rnd()*4:0.05);
+          const C=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[cx+tx*a*fw/2+nx*b*dp/2,cz+tz*a*fw/2+nz*b*dp/2]);
+          if(!C.every(q=>inRegion(q[0],q[1])&&!inPark(q[0],q[1])))continue;
+          if(C.some(q=>onRoadArea(q[0],q[1])||inNogo(q[0],q[1]))||onRoadArea(cx,cz))continue;
+          let g0=1e9,g1=-1e9;for(const q of C.concat([[cx,cz]])){const h=ground(q[0],q[1]);g0=Math.min(g0,h);g1=Math.max(g1,h);}
+          if(g0<0.8||g1-g0>4)continue;
+          if(!free(cx,cz,Math.min(fw,dp)/2-0.3)||hit(C,cx,cz,Math.max(fw,dp)/2+1))continue;
+          const fl=[2,3,3,4,4,4,5][(rnd()*7)|0],h=fl*3.2;
+          const H={x:cx,z:cz,r:Math.max(fw,dp)/2+1,C,S:shrink(C),fw,dp,tx,tz,nx,nz,g0,g1,h,add:rnd()<0.4};placed.push(H);}}}}
+  if(!placed.length)return;
+  // one merged mesh: walls take the window texture (tinted per house), roofs and rooftop sheds plain
+  const pos=[],uv=[],col=[],idx=[],lines=[];const c=new THREE.Color();
+  const WALLS=[0xf2efe8,0xe8e0d0,0xd9dcdf,0xefd9d2,0xcfd9de,0xe6e2c8,0xdcd2c4];const TIN=[0x2f6fb8,0x3f8f74,0x8fb3c8,0xb8b7b0];
+  const box=(cx,cz,tx,tz,w,d,y0,y1,wallHex,roofHex,tex)=>{const nx=-tz,nz=tx,P=(a,b)=>[cx+tx*a*w/2+nx*b*d/2,cz+tz*a*w/2+nz*b*d/2];
+    const q=[P(-1,-1),P(1,-1),P(1,1),P(-1,1)];
+    for(let k=0;k<4;k++){const A=q[k],B=q[(k+1)%4],L=Math.hypot(B[0]-A[0],B[1]-A[1]),b0=pos.length/3;
+      pos.push(A[0],y0,A[1],B[0],y0,B[1],B[0],y1,B[1],A[0],y1,A[1]);
+      if(tex)uv.push(0,y0/3.2,L/4.4,y0/3.2,L/4.4,y1/3.2,0,y1/3.2);else uv.push(0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01);
+      c.setHex(wallHex);for(let j=0;j<4;j++)col.push(c.r,c.g,c.b);idx.push(b0,b0+2,b0+1,b0,b0+3,b0+2);
+      lines.push(A[0],y1,A[1],B[0],y1,B[1],A[0],y0+0.3,A[1],A[0],y1,A[1]);}
+    const b0=pos.length/3;for(const p of q)pos.push(p[0],y1,p[1]);uv.push(0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01);c.setHex(roofHex);for(let j=0;j<4;j++)col.push(c.r,c.g,c.b);idx.push(b0,b0+2,b0+1,b0,b0+3,b0+2);};
+  for(const H of placed){const wall=WALLS[(Math.abs(Math.round(H.x*7+H.z*3)))%WALLS.length],top=H.g1+H.h;
+    box(H.x,H.z,H.tx,H.tz,H.fw,H.dp,H.g0-1.2,top,wall,0x9aa0a4,true);
+    if(H.add){const tin=TIN[(Math.abs(Math.round(H.x+H.z)))%TIN.length];box(H.x-H.nx*H.dp*0.15,H.z-H.nz*H.dp*0.15,H.tx,H.tz,H.fw*0.92,H.dp*0.6,top,top+2.6,0xc9c6bd,tin,false);}
+    lmSolid(H.x,H.z,H.fw,H.dp,Math.atan2(-H.tz,H.tx),top+(H.add?2.6:0));GEN_HOUSES.push({p:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[H.x+H.tx*a*H.fw/2+H.nx*b*H.dp/2,H.z+H.tz*a*H.fw/2+H.nz*b*H.dp/2])});}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();
+  const tex=tileTex('rowhouse',64,64,(gg,W,Hh)=>{gg.fillStyle='#ffffff';gg.fillRect(0,0,W,Hh);gg.fillStyle='rgba(0,0,0,.05)';for(let y=0;y<Hh;y+=6)gg.fillRect(0,y,W,1);
+    gg.fillStyle='#4d6a7c';gg.fillRect(14,16,36,28);gg.fillStyle='#d8dde0';for(let x=18;x<50;x+=6)gg.fillRect(x,16,1.5,28);gg.fillRect(14,29,36,1.5);gg.fillStyle='rgba(0,0,0,.18)';gg.fillRect(12,44,40,3);});
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  const m=shade(new THREE.Mesh(g,new THREE.MeshToonMaterial({map:tex,vertexColors:true,gradientMap:grad,side:THREE.DoubleSide})),true,true);scene.add(m);
+  const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));scene.add(new THREE.LineSegments(lg,edgeMat));
+}
+
 /* ---------- characters ---------- */
 function makeChar(gender){
   const root=new THREE.Group();const parts=[];
@@ -4070,6 +4125,7 @@ function paintMapBase(){
   const g=mapBase.getContext('2d');for(const T of GTILES)g.drawImage(T.c,T.x0-G.x0,T.z0-G.z0,T.x1-T.x0,T.z1-T.z0);
   for(const b of D.b){g.beginPath();b.p.forEach((q,i)=>i?g.lineTo(q[0]-G.x0,q[1]-G.z0):g.moveTo(q[0]-G.x0,q[1]-G.z0));g.closePath();
     g.fillStyle=b.c?'#f3e2b8':'#d8d3ca';g.fill();g.strokeStyle='#0b1c2c';g.lineWidth=1;g.stroke();}
+  for(const b of GEN_HOUSES){g.beginPath();b.p.forEach((q,i)=>i?g.lineTo(q[0]-G.x0,q[1]-G.z0):g.moveTo(q[0]-G.x0,q[1]-G.z0));g.closePath();g.fillStyle='#d8d3ca';g.fill();g.strokeStyle='#0b1c2c';g.lineWidth=1;g.stroke();}
 }
 function drawArrow(g,x,y,rot,s){g.save();g.translate(x,y);g.rotate(-rot+Math.PI);g.fillStyle='#ff8a3d';g.strokeStyle='#0b1c2c';g.lineWidth=2;
   g.beginPath();g.moveTo(0,-s);g.lineTo(s*0.75,s*0.8);g.lineTo(0,s*0.35);g.lineTo(-s*0.75,s*0.8);g.closePath();g.fill();g.stroke();g.restore();}

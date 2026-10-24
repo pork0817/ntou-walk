@@ -563,3 +563,23 @@ could only speed up the way they were facing, so a police car chasing the player
 
 Sources only say "castle-like, modelled on 聖薩爾瓦多城, three floors" and "radar station café, colourful stairs,
 rooftop deck". The sandstone colour and the details are inferred.
+
+## Generated row houses (`genHouses`, `GEN_HOUSES`; user: "you're missing a lot of residential buildings on the island")
+
+OSM has only 33 buildings on 和平島 despite 15 km of streets. Its residential areas cover about 5% of the land out
+west, so `genHouses` lines every street (service, residential, unclassified, tertiary) west of the campus box
+(x < −600 or z < −320) with Taiwanese row houses (透天厝).
+
+**Each house:** 4.5–6.5 m frontage, 9–14 m deep, 2–5 floors (mostly 3–4), set back half the road width + 1.4–2 m. 40%
+carry a tin-roofed rooftop add-on (頂樓加蓋).
+
+**Skipped spots:** OSM buildings, road areas, woods, bare rock, parks and 和平島公園 (x, z < −1140), car parks,
+pitches, schools, beaches, water, ground below 0.8 m, and slopes over 4 m across the footprint.
+
+**Neighbours:** row houses share walls; only a real footprint overlap (shrunk 7%) rules a spot out.
+
+**Build:**
+- Deterministic (seeded) and runs right after `buildStreets`; trees outside campus skip spots it filled.
+- About 3,600 houses: ~1,700 on the island, ~240 at 正濱 and the rest in 中正區.
+- All of them are one merged mesh (vertex-coloured tiled walls with a barred-window texture in metres, grey roofs, tin
+  sheds) plus one outline mesh: 2 draw calls. Each is a solid (`lmSolid`) and is drawn on the map (`paintMapBase`).
