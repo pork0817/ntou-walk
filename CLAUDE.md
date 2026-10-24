@@ -549,3 +549,17 @@ could only speed up the way they were facing, so a police car chasing the player
 - **和平島觀光魚市:** stalls via `marketNear`, opening and closing with 碧砂's.
 - **Boats:** 16 moored in 正濱漁港 and 八尺門.
 - **Places:** 13 new ones (`w_*`).
+
+## 和平島公園 buildings (`parkBuilding`, user request: look like the real ones)
+
+`buildingMesh` hands the park's own OSM footprints, picked out by position, to `parkBuilding`.
+
+| Building | How it's built |
+|---|---|
+| 和平島遊客中心 | A 3-storey fort after 聖薩爾瓦多城 (the 1626 Spanish fort the visitor centre is modelled on): sandstone `castleTex` with arched windows, a dark plinth, a battlemented parapet (`merlons`), square towers at the sharpest corners, and an arched gate on the side facing the ticket booth |
+| 售票口 | A one-storey gatehouse to match |
+| 禾口丘咖啡 (the old radar station) | A concrete block with a white radome, a rooftop railing wall and a rainbow outside stair (solid steps) up the longest side |
+| Annex beside it | A glass-fronted box |
+
+Sources only say "castle-like, modelled on 聖薩爾瓦多城, three floors" and "radar station café, colourful stairs,
+rooftop deck". The sandstone colour and the details are inferred.
