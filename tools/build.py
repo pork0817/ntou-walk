@@ -185,6 +185,7 @@ for r in sorted(d['roads'],key=lambda r:-RK.get(r['k'],0)):   # major roads firs
         if pin.any():
             for _k in range(30): prof=ndimage.gaussian_filter1d(prof,4,mode='nearest');prof[pin]=pv[pin]
         else: prof=ndimage.gaussian_filter1d(prof,4,mode='nearest')
+    if r.get('bridge'): prof=np.linspace(prof[0],prof[-1],n)   # a bridge deck runs straight from one end to the other
     # stamp it every 0.5 m along and across (coarser steps leave holes on a 1 m grid, and the hillside shows through)
     sf=np.arange(0,n-1+1e-9,0.25);i0=np.minimum(sf.astype(int),n-2);f=sf-i0
     Sx=S[i0,0]*(1-f)+S[i0+1,0]*f;Sz=S[i0,1]*(1-f)+S[i0+1,1]*f;Snx=S[i0,2];Snz=S[i0,3];Pf=prof[i0]*(1-f)+prof[i0+1]*f
@@ -196,7 +197,7 @@ for r in sorted(d['roads'],key=lambda r:-RK.get(r['k'],0)):   # major roads firs
     DRf,PHf,HWf,RKf=DR.ravel(),PH.ravel(),HW.ravel(),RKC.ravel()
     keep=(dd<DRf[cid])&~((RKf[cid]>rk)&(DRf[cid]<=HWf[cid]+FLAT))
     cid,dd,pp=cid[keep],dd[keep],pp[keep];o=np.argsort(-dd,kind='stable')   # nearest last: it wins
-    DRf[cid[o]]=dd[o];PHf[cid[o]]=pp[o];HWf[cid[o]]=(hw-FLAT+1.5 if r.get('bridge') else hw);RKf[cid[o]]=rk   # a bridge: only a narrow causeway, the water stays open beside it
+    DRf[cid[o]]=dd[o];PHf[cid[o]]=pp[o];HWf[cid[o]]=hw;RKf[cid[o]]=rk
 road_t=np.clip((DR-(HW+FLAT))/EASE,0,1);road_t=road_t*road_t*(3-2*road_t)
 H=np.where(DR<1e8,PH*(1-road_t)+H*road_t,H)
 ROADLAND=(DR<=HW+FLAT)

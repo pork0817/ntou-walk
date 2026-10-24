@@ -524,9 +524,11 @@ could only speed up the way they were facing, so a police car chasing the player
   ~2300 to ~1350 draw calls (8–9 ms).
 
 **Bridges.** OSM `bridge=yes` road pieces carry `b:1` in the game data.
-- In `build.py` a bridge is levelled as a narrow causeway (land only within half-width + 1.5 m), so the channel stays
-  open water.
-- `hepingBridge` dresses drivable bridges outside the campus with parapets, a girder face down to the water and piers.
+- In `build.py` a bridge deck gets the same flat strip as any road (road + 5 m each side) and a straight level from
+  one end to the other (no sag). A narrow causeway was tried first: on the 4 m grid its edges blended into the sea
+  and the deck came out jagged (user screenshot).
+- `hepingBridge` dresses drivable bridges outside the campus with parapets at the kerbs and at the strip's edges, and a
+  girder face down to the water at the edges.
   社寮橋 (和平島聯外道路) gets the yellow twin arches.
 - The old stand-in at the map edge (fake island and houses) is gone.
 
