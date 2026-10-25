@@ -581,5 +581,10 @@ pitches, schools, beaches, water, ground below 0.8 m, and slopes over 4 m across
 **Build:**
 - Deterministic (seeded) and runs right after `buildStreets`; trees outside campus skip spots it filled.
 - About 3,600 houses: ~1,700 on the island, ~240 at 正濱 and the rest in 中正區.
-- All of them are one merged mesh (vertex-coloured tiled walls with a barred-window texture in metres, grey roofs, tin
-  sheds) plus one outline mesh: 2 draw calls. Each is a solid (`lmSolid`) and is drawn on the map (`paintMapBase`).
+- **Ground floors** (user request): each house's street-facing ground floor (3.3 m) is a shopfront from a 4-tile
+  atlas: closed rolling shutter, open shop with goods, half-raised shutter, glass-door shop, each under a coloured
+  sign board. Half the houses have a tin canopy over it. Upper-floor windows start above the shop level. The front is
+  whichever face looks at the street, on either side of it.
+- **Draw calls:** walls/roofs/sheds/canopies are one merged mesh, the shopfronts a second and the outlines a third: 3
+  draw calls in all.
+- **Collision and map:** each house is a solid (`lmSolid`) and is drawn on the map (`paintMapBase`).
