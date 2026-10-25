@@ -601,3 +601,55 @@ pitches, schools, beaches, water, ground below 0.8 m, and slopes over 4 m across
 - If a chase is already on, the worse offence replaces the reason.
 
 `FINE` and `WHY` hold the amounts and labels for all four offences (speeding 1,800, red light 2,700).
+
+
+## Money, fuel, gas stations, parking, taxis and YouBike (user request; `ECO`, `money`, `buildGas`, `FILL`, `parkLeave`/`parkReturn`, `TAXI`, `hailTaxi`, `updateJob`, `YB`)
+
+**Wallet (`ECO.money`).** Saved in localStorage `ntou-walk-money-v1`; New Game resets it to NT$2,000. Shown as `#money`
+in the stats line, flashing green or red on change. Police fines (`ticketMe`) come out of it and can take it below
+zero; purchases check that you can pay.
+
+**Fuel.**
+- Each car or scooter gets `v.fuel` (0–1) the first time you drive it. A tank lasts `KM_PER_TANK` km (5–7; the game's
+  distances are short), plus a little while idling.
+- Empty: the throttle is cut at `driveStep`'s call site (only braking is left), with a 沒油了 message.
+- The gauge is `#dFuel` on the drive panel.
+
+**Gas stations (`D.fuel`).**
+- From OSM `amenity=fuel` in `extract.py`/`build.py`, excluding harbour pumps (names with 漁).
+- `buildGas` places the canopy on the open part of the lot nearest the road. Some lots have the station office (with
+  flats) on them. Generated row houses keep 14 m clear of station lots.
+- Each station: a white canopy with the brand band (中油 blue, 台塑 red), two pump islands (solid), a price sign and an
+  attendant.
+- Stop within 4.2 m of an island: after 1 s the attendant asks, then fills 14% of the tank a second at NT$31/L, charging
+  when full, when you drive off, or when the money runs out.
+
+**Parking.**
+- `exitVehicle` → `parkLeave` and `enterVehicle` → `parkReturn`.
+- In an `amenity=parking` area: NT$30 per started game hour (after 5 game minutes), capped at NT$200.
+- On a road or pavement for over 90 s real time: a 60% chance of a NT$900 ticket.
+
+**Hailing a taxi.**
+1. T (or `#hailBtn` on touch) takes the nearest traffic taxi within 260 m. Failing that, one is spawned 140 m up the
+   nearest traffic chain (400 m reach). It goes free (`goFree`) and drives to you.
+2. Standing by it opens `#taxiPick`: the 40 nearest places with fare estimates.
+3. You ride it like a bus (`P.onBus`), and `rideBusStep` shows the destination, distance and meter.
+4. Fare: `taxiFare` = NT$85 for the first 1.25 km, then NT$5 per 200 m.
+5. R asks it to pull over, and you pay what the meter shows. Arriving pays automatically.
+6. Afterwards the taxi leaves and despawns (`taxiLeave`).
+
+**Driving a taxi (`updateJob`, `#job`).**
+1. While you drive any taxi, a passenger appears waving at a kerb 70–260 m away (`kerbPoint`), shown by a green
+   beacon and a minimap dot.
+2. Stop within 8 m and they board, naming a place 250–1500 m away.
+3. Stop within 16 m of it to earn the fare, plus a NT$15–60 tip unless you crashed during the ride (`econCrash` from
+   `crash`).
+
+**YouBike 2.0 (`YB_SITES`).**
+- Seven stations (海大 濱海校門, 海大圖書館, 海大體育館, 碧砂漁港, 八斗子, 正濱漁港, 和平島公園) at plausible spots. They're not
+  from OSM, which has none. Each has 7 orange docks, 5 yellow bikes and a kiosk.
+- Mounting a docked one rents it (`ybRent`, needs NT$5).
+- Dismounting within 9 m of any station docks it and charges NT$5 per started 30 real minutes (`ybReturn`).
+- Abandoned bikes are fetched back by `updateBikes` after 60 s for the fee + NT$100 (`ybFetched`).
+
+**Map.** Gas stations (油) and YouBike stations (Y) appear on the minimap and the big map (`drawEconOnMini`).

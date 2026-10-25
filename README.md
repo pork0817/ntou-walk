@@ -19,6 +19,7 @@ browse the fish market, eat at 八斗子夜市 in the evening, and go fishing fr
 | G | Hazard lights while driving |
 | H | Horn |
 | C | Fish (at the water's edge: cast, then again when the bobber dips) |
+| T | Hail a taxi (by a road; pick where to go, pay the meter) |
 | 1–5 | Emotes |
 | [ ] | Change the hour |
 | M | Map |
@@ -27,6 +28,10 @@ browse the fish market, eat at 八斗子夜市 in the evening, and go fishing fr
 On phones: touch the lower-left of the screen to move (the stick appears under your thumb), drag elsewhere to look,
 pinch to zoom. Buttons bottom-right for jump, run, emotes, bike, drive and ride (horn, hazards and handbrake while driving).
 The 選單 menu has the clock controls and fullscreen.
+
+**Money:** you start with NT$2,000. Fuel, parking, taxi rides, YouBike and police fines cost money; driving a taxi earns it
+(get into any taxi and pick up the people waving at the kerb). Stop at a gas station pump to fill up. Leaving a car on the
+road can get you a parking ticket. YouBike: take one from any station, return it at any station.
 
 The game saves automatically in your browser.
 

@@ -92,6 +92,13 @@ for rid,(mem,t) in rels.items():
                 if p and any(inreg(q,60) for q in p):
                     if t.get('natural')=='wood': out['areas'].append({'k':'natural=wood','sport':'','name':'','p':[[round(x,1),round(z,1)] for x,z in p]})
                     else: out['water'].append([[round(x,1),round(z,1)] for x,z in p])
+# gas stations (not the harbour pumps for fishing boats)
+out['fuel']=[]
+for wid,(nd,t) in ways.items():
+    if t.get('amenity')!='fuel' or '漁' in t.get('name',''): continue
+    p=pts(wid)
+    if len(p)<3 or not inreg((sum(q[0] for q in p)/len(p),sum(q[1] for q in p)/len(p))): continue
+    out['fuel'].append({'name':t.get('name',''),'brand':t.get('brand',''),'p':[[round(x,1),round(z,1)] for x,z in p]})
 out['signals']=[];out['crossings']=[]
 for nid,t in ntags.items():
     if t.get('highway')=='traffic_signals' and inreg(nodes[nid],20): out['signals'].append([round(v,1) for v in nodes[nid]])

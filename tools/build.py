@@ -333,7 +333,7 @@ ROADS=_first(ROADS,lambda r:_old(r['p'],40));AREAS=_first(AREAS,lambda a:_old(a[
 d['coast']=_first(d['coast'],lambda c:_old(c,60))
 for k,m in (('signals',20),('crossings',20)):d[k]=_first(d[k],lambda q:_old([q],m))
 d['bench']=_first(d['bench'],lambda b:_old([b['c']],50))
-data={'bounds':[X0,X1,Z0,Z1],'grid':grid,'trees':base64.b64encode(tarr.tobytes()).decode(),'b':OUTB,'r':ROADS,'a':AREAS,'pier':PIERS,'coast':d['coast'],'campus':d['campus'],'m':markers,'bus':busl,'spawn':best,'bench':d['bench'],'sig':d['signals'],'xing':d['crossings']}
+data={'bounds':[X0,X1,Z0,Z1],'grid':grid,'trees':base64.b64encode(tarr.tobytes()).decode(),'b':OUTB,'r':ROADS,'a':AREAS,'pier':PIERS,'coast':d['coast'],'campus':d['campus'],'m':markers,'bus':busl,'spawn':best,'bench':d['bench'],'sig':d['signals'],'xing':d['crossings'],'fuel':d.get('fuel',[])}
 s=json.dumps(data,ensure_ascii=False,separators=(',',':'))
 open(os.path.join(ROOT,'data','game-data.json'),'w').write(s);print('data KB',len(s)//1024)
 

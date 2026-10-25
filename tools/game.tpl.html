@@ -73,7 +73,16 @@ body.touch #lift{right:auto;left:calc(12px + env(safe-area-inset-left,0px));top:
 #emoteBar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(120px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;padding:8px;pointer-events:auto;z-index:5}
 #emoteBar .btn{padding:10px 12px;font-size:.9rem}
 #bikeBtn{background:#7fd1c4;font-size:.9rem}
-#fishBtn{background:#8fc7ea;font-size:.9rem}#fishBtn.hot{background:#ff8a3d;color:#fff}
+#fishBtn{background:#8fc7ea;font-size:.9rem}#hailBtn{background:#f2c230;font-size:.9rem}
+#money{color:#7fd1a0;transition:color .3s}#money.up{animation:monUp 1.2s}#money.down{animation:monDown 1.2s}
+@keyframes monUp{0%{color:#c8ffb0;transform:scale(1.25)}100%{color:#7fd1a0;transform:scale(1)}}@keyframes monDown{0%{color:#ff8a7a;transform:scale(1.25)}100%{color:#7fd1a0;transform:scale(1)}}
+#dFuel{display:flex;align-items:center;gap:6px;margin-top:4px;font:800 .7rem/1 var(--body);color:var(--muted)}#dFuel i{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden}#dFuel b{display:block;height:100%;width:50%;background:#5fd18a}
+#job{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));top:calc(12px + env(safe-area-inset-top,0px) + 214px);padding:8px 12px;display:flex;flex-direction:column;gap:2px;max-width:260px;z-index:4;pointer-events:none;border-color:#5fd18a}
+#job small{font:800 .7rem/1.2 var(--display);color:#5fd18a}#job b{font:900 1rem/1.3 var(--body)}#job span{font:600 .72rem/1.3 var(--display);color:var(--muted)}#job i{font:800 .8rem/1 var(--display);font-style:normal}
+body.touch #job{top:calc(10px + env(safe-area-inset-top,0px) + 150px);max-width:200px;padding:6px 9px}
+#taxiPick .mCard{width:min(520px,100%)}.taxiList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto}
+.taxiList .btn{width:100%;display:grid;grid-template-columns:1fr auto;align-items:center;text-align:left;padding:9px 12px;background:var(--navy);color:var(--paper)}
+.taxiList b{font:900 1rem/1.2 var(--body)}.taxiList span{grid-column:1;font:600 .72rem/1.2 var(--display);color:var(--muted)}.taxiList em{grid-row:1/3;grid-column:2;font:800 .85rem/1 var(--display);font-style:normal;color:#f2c230}#fishBtn.hot{background:#ff8a3d;color:#fff}
 #runBtn{width:60px;height:60px;font-size:.85rem}
 #driveBtn{background:#f2c230;font-size:.9rem}
 #rideBtn{background:#7fb8e6;font-size:.9rem}
@@ -248,13 +257,14 @@ body.touch #toast b{font-size:1rem}
 <canvas id="c" tabindex="0" aria-label="3D 海大校園"></canvas>
 
 <div id="hud" hidden>
-  <div id="zone" class="panel"><div id="zoneT"><i id="zoneDot"></i><span id="zoneZh">北寧校區</span></div><span id="zoneEn">Beining Campus</span><div id="stats"><span id="found">已探索 0 / 0</span><span id="ele">海拔 0 m</span></div><div id="clock"><b id="clockT">--:--</b><span id="clockP">一般時段</span></div></div>
+  <div id="zone" class="panel"><div id="zoneT"><i id="zoneDot"></i><span id="zoneZh">北寧校區</span></div><span id="zoneEn">Beining Campus</span><div id="stats"><span id="found">已探索 0 / 0</span><span id="money">NT$2,000</span><span id="ele">海拔 0 m</span></div><div id="clock"><b id="clockT">--:--</b><span id="clockP">一般時段</span></div></div>
   <div id="mini" class="panel"><canvas id="miniC" width="300" height="220"></canvas><button class="btn" id="mapBtn" type="button">地圖 Map</button><button class="btn" id="menuBtn" type="button">選單 Menu</button><div class="trow"><button class="btn sm" id="tMinus" type="button" aria-label="Back one hour">−1h</button><button class="btn sm" id="tFast" type="button" aria-pressed="false" aria-label="Fast forward">×60</button><button class="btn sm" id="tPlus" type="button" aria-label="Forward one hour">+1h</button></div><button class="btn sm" id="tNow" type="button">現在時間</button></div>
-  <div id="drive" class="panel" hidden><div class="dRow"><b id="dSpd">0</b><span class="dUnit">km/h</span><i id="dHaz" hidden>雙黃燈</i><i id="dGear">N</i></div><div id="dBar"><i></i></div><span id="dName">轎車 Car</span></div>
+  <div id="drive" class="panel" hidden><div class="dRow"><b id="dSpd">0</b><span class="dUnit">km/h</span><i id="dHaz" hidden>雙黃燈</i><i id="dGear">N</i></div><div id="dBar"><i></i></div><div id="dFuel"><span>油</span><i><b></b></i></div><span id="dName">轎車 Car</span></div>
   <div id="toast" class="panel"><small id="tNo">New place</small><b id="tZh"></b><span id="tEn"></span></div>
 </div>
 
 <div id="doorFade" aria-hidden="true"></div>
+<div id="job" class="panel" hidden><small>計程車 Taxi</small><b id="jobT"></b><span id="jobE"></span><i id="jobD"></i></div>
 <div id="mission" class="panel" hidden><small>任務 <span id="msName">新生報到</span><span id="msStep"></span></small><b id="msTask"></b><span id="msEn"></span><i id="msDist"></i></div>
 <div id="racePrompt" class="panel" hidden><b>自行車競速 <span>Bike Race</span></b><p>第一餐廳 → 海空大樓 · 6 人</p><small id="rpBest"></small><button class="btn" id="rpStart" type="button">開始比賽 Start</button></div>
 <div id="raceHud" class="panel" hidden><span>名次 <b id="rhPos">1 / 6</b></span><span>時間 <b id="rhTime">0:00.0</b></span><span>剩 <b id="rhLeft">0 m</b></span><button class="btn sm" id="raceQuit" type="button">退出 Quit</button></div>
@@ -271,6 +281,7 @@ body.touch #toast b{font-size:1rem}
       <button class="btn round" id="driveBtn" type="button" hidden>開車</button>
       <button class="btn round" id="rideBtn" type="button" hidden>搭車</button>
       <button class="btn round" id="fishBtn" type="button" hidden>釣魚</button>
+      <button class="btn round" id="hailBtn" type="button" hidden>叫車</button>
     </div>
     <button class="btn round" id="emoteBtn" type="button">表情</button>
     <button class="btn round" id="runBtn" type="button" aria-pressed="false">跑</button>
@@ -354,6 +365,14 @@ body.touch #toast b{font-size:1rem}
     <h2 id="msH">任務 <span>Missions</span></h2>
     <ol id="msList" class="msList"></ol>
     <div class="startRow"><button class="btn" id="msDrop" type="button" hidden>放棄目前任務 Drop current</button><button class="btn mDone" id="msDone" type="button">完成 Done</button></div>
+  </div>
+</div>
+
+<div id="taxiPick" class="modal" hidden>
+  <div class="mCard panel" role="dialog" aria-labelledby="taxiH">
+    <h2 id="taxiH">要去哪裡？ <span>Where to?</span></h2>
+    <ol id="taxiList" class="taxiList"></ol>
+    <div class="startRow"><button class="btn" id="taxiCancel" type="button">不坐了 Cancel</button></div>
   </div>
 </div>
 
@@ -1619,7 +1638,7 @@ function nearestDrivable(){let best=null,bd=2.2;
   for(const v of PARKED.concat(VEH.list)){if(v===DRIVE.v||(v.lane&&v.v>4))continue;const d=boxDist(v,P.x,P.z);if(d<bd){bd=d;best=v;}}
   return best;}
 function enterVehicle(v){
-  if(P.riding)dismount();endEmote();
+  if(P.riding)dismount();endEmote();parkReturn(v);
   if(v.lane){                                          // pulled out of traffic: the driver hops out
     v.lane.veh.splice(v.lane.veh.indexOf(v),1);VEH.list.splice(VEH.list.indexOf(v),1);
     say(v,pick(['欸？！我的車！','你要開走喔？','好啦借你']),2.2);v.lane=null;v.c=null;v.id=-1;PARKED.push(v);}
@@ -1645,7 +1664,7 @@ function exitVehicle(){
   const c=player;c.body.rotation.x=0;c.head.rotation.set(0,0,0);c.armL.rotation.set(0,0,0);c.armR.rotation.set(0,0,0);c.legL.rotation.x=0;c.legR.rotation.x=0;
   P.x=sx;P.z=sz;P.y=ground(sx,sz);P.rot=DRIVE.heading;P.vy=0;player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
   v.air=false;v.yv=undefined;placeFree(v,v.x,v.z,DRIVE.heading);
-  v.parked=true;v.abandonT=0;DRIVE.v=null;DRIVE.speed=0;$('#drive').hidden=true;refreshDriveUI(true);
+  v.parked=true;v.abandonT=0;DRIVE.v=null;DRIVE.speed=0;$('#drive').hidden=true;refreshDriveUI(true);parkLeave(v);
 }
 function toggleRide(){if(P.onBus){leaveBus();return;}if(DRIVE.v)return;const b=nearestStoppedBus();if(b)boardBus(b);}
 function toggleDrive(){if(P.onBus)return true;if(DRIVE.v){exitVehicle();return true;}const v=nearestDrivable();if(v){enterVehicle(v);return true;}return false;}
@@ -1791,7 +1810,7 @@ function crash(A,o,isStu){
   const closing=(vAx-vBx)*nx+(vAz-vBz)*nz;
   if(closing<0.3)return false;                                  // just touching: treat as an obstacle
   if(closing>1)impactSound(isStu?'person':vehKind(o),closing,(A.x+o.x)/2,(A.z+o.z)/2);
-  missionCrash(closing);copsWitness(o,isStu,closing);
+  missionCrash(closing);copsWitness(o,isStu,closing);econCrash(closing);
   const J=1.15*closing/(1/mA+1/mB);                             // restitution 0.15: a crash, not a bounce
   const dA=J/mA,dB=J/mB;
   DRIVE.speed=(vAx-dA*nx)*hx+(vAz-dA*nz)*hz;
@@ -1926,19 +1945,21 @@ function boardBus(v){
   say(v,pick(['嗶——','歡迎搭乘','請往後走']),1.6);refreshDriveUI(true);}
 function leaveBus(force){
   const v=P.onBus;if(!v)return;
-  if(!force&&v.v>0.5){say(v,'車停了再下車喔',1.6);return;}
+  if(!force&&v.v>0.5){if(v.taxiRide&&TAXI.ride){TAXI.ride.stopReq=true;say(v,'好，前面停',1.6);return;}say(v,'車停了再下車喔',1.6);return;}
   const rx=-v.hz,rz=v.hx;let sx=v.x,sz=v.z;R=0.5;                       // step out on the kerb (right) side
   for(const [u,k] of [[1,0.3],[1,-1.5],[1,2],[-1,0.3],[0,-1]]){
     const x=v.x+rx*u*(v.wid/2+0.9)+v.hx*k*(u?1:v.len/2+1),z=v.z+rz*u*(v.wid/2+0.9)+v.hz*k*(u?1:v.len/2+1);
     if(!blocked(x,z,ground(x,z)+0.3,1)){sx=x;sz=z;break;}}
   sx=Math.max(BX0+2,Math.min(BX1-2,sx));sz=Math.max(BZ0+2,Math.min(BZ1-2,sz));
-  P.onBus=null;player.root.visible=true;P.x=sx;P.z=sz;P.y=ground(sx,sz);P.vy=0;P.rot=Math.atan2(rx,rz);
+  P.onBus=null;if(TAXI.ride&&TAXI.ride.v===v)taxiSettle(false);player.root.visible=true;P.x=sx;P.z=sz;P.y=ground(sx,sz);P.vy=0;P.rot=Math.atan2(rx,rz);
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;$('#drive').hidden=true;refreshDriveUI(true);}
 function rideBusStep(dt){
   const v=P.onBus;jumpQueued=false;
   if(!VEH.list.includes(v)&&!PARKED.includes(v)){toast('','終點站','End of the line',3000);leaveBus(true);return;}   // the bus left the road network
   if(v.x<BX0+12||v.x>BX1-12||v.z<BZ0+12||v.z>BZ1-12){toast('','公車開出地圖了','You got off at the edge of the map',3000);leaveBus(true);return;}
   P.x=v.x;P.z=v.z;P.y=v.base;
+  if(v.taxiRide&&TAXI.ride){const R=TAXI.ride;$('#dSpd').textContent=Math.round((v.v||0)*3.6);$('#dBar').firstElementChild.style.width=Math.min(100,(v.v||0)/15*100)+'%';
+    $('#dName').textContent=`計程車 → ${R.dest.zh} · ${Math.round(Math.hypot(v.x-R.dest.x,v.z-R.dest.z))} m · 跳表 NT$${taxiFare(R.d)}`;return;}
   const ns=nextStopOf(v);$('#dSpd').textContent=Math.round((v.v||0)*3.6);
   $('#dBar').firstElementChild.style.width=Math.min(100,(v.v||0)/12*100)+'%';
   $('#dName').textContent=`搭乘 ${v.route||'公車'}${ns?' · 下一站 '+(ns.zh||'公車站'):''}`;}
@@ -2548,7 +2569,7 @@ function buildWorld(){
   buildPitches();
   D.bus.forEach(busStop);
   trees();buildStreetFurniture();buildRoadside();buildLandmarks();coastProps();makeShip();buildCoast();
-  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();buildEast();buildWest();buildMission();setupSeason();buildRain();pickWeather(true);
+  buildPedGraph();buildChains();setupArrival();seedTraffic();placeBikeStations();placeParkedVehicles();buildLibrary();buildRace();buildEast();buildWest();buildGas();buildYouBike();buildMission();setupSeason();buildRain();pickWeather(true);
 }
 
 /* ---------- interiors: the library (圖書館, 圖書一館) and the 7-ELEVEN X-STORE 8 in its south corner.
@@ -3460,7 +3481,8 @@ const GEN_HOUSES=[];
 function genHouses(){
   const inRegion=(x,z)=>x<CAMPUS_X0||z<CAMPUS_Z0;
   const bbox=p=>{let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const q of p){x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}return {x0,x1,z0,z1};};
-  const NOGO=D.a.filter(a=>['amenity=parking','leisure=pitch','amenity=school','leisure=park','leisure=swimming_pool','natural=water','natural=beach','natural=wood','natural=bare_rock','landuse=grass','landuse=military','leisure=recreation_ground','landuse=construction'].includes(a.k));NOGO.forEach(a=>a.bb=bbox(a.p));
+  const NOGO=D.a.filter(a=>['amenity=parking','leisure=pitch','amenity=school','leisure=park','leisure=swimming_pool','natural=water','natural=beach','natural=wood','natural=bare_rock','landuse=grass','landuse=military','leisure=recreation_ground','landuse=construction'].includes(a.k));for(const f of D.fuel||[]){const [fx,fz]=centroid(f.p);NOGO.push({p:[[fx-14,fz-14],[fx+14,fz-14],[fx+14,fz+14],[fx-14,fz+14]]});}   // gas station lots (the canopy is wider than OSM's outline)
+  NOGO.forEach(a=>a.bb=bbox(a.p));
   const inPark=(x,z)=>x<-1140&&z<-1140;   // 和平島公園
   const inNogo=(x,z)=>NOGO.some(a=>x>a.bb.x0&&x<a.bb.x1&&z>a.bb.z0&&z<a.bb.z1&&pip(a.p,x,z));
   const rnd=(()=>{let s=2024;return()=>(s=(s*16807)%2147483647)/2147483647;})();
@@ -3533,6 +3555,159 @@ function genHouses(){
   scene.add(new THREE.LineSegments(lg,edgeMat));
 }
 
+/* ---------- money, fuel and gas stations, parking, taxis (hail one, or drive one for fares) and YouBike (user request).
+   A wallet (NT$, saved; fines come out of it). Cars and scooters burn fuel as they go and stop pulling when empty;
+   the three real gas stations (台灣中油 ×2, 台塑) have canopies, pumps and an attendant who fills you up when you stop
+   at a pump. Parking in a car park costs NT$30 an hour (paid when you come back); leaving a car on the road or the
+   pavement may earn a NT$900 ticket. T hails a taxi: it comes to you, you pick where to go, the meter runs
+   (NT$85 + 5 per 200 m after 1.25 km). Driving a taxi yourself, people wave from the kerb: pick them up, take them
+   where they want to go, earn the fare and a tip if you drove nicely. YouBike 2.0 docks: ride off from any, return
+   to any (NT$5 per 30 min; leave one lying around and it's fetched back for NT$100). ---------- */
+const ECO={money:2000};const ECO_KEY='ntou-walk-money-v1';
+try{const v=localStorage.getItem(ECO_KEY);if(v!=null&&isFinite(+v))ECO.money=+v;}catch(e){}
+function refreshMoney(flash){const el=$('#money');if(!el)return;el.textContent='NT$'+Math.round(ECO.money).toLocaleString();if(flash){el.classList.remove('up','down');void el.offsetWidth;el.classList.add(flash);}}
+function money(d){ECO.money+=d;try{localStorage.setItem(ECO_KEY,String(Math.round(ECO.money)));}catch(e){}refreshMoney(d>=0?'up':'down');}
+const nowS2=()=>performance.now()/1000;
+const gameAbs=()=>Date.now()/1000+CLOCK.offset*3600+CLOCK.acc;
+// ---- fuel ----
+const TANK_L={car:45,taxi:45,police:50,ambulance:70,scooter:6,truck:80,bus:200};
+const KM_PER_TANK={car:7,taxi:7,police:7,ambulance:6,scooter:5,truck:5,bus:6};   // (the game's distances are short: a tank lasts a few km)
+const FUEL_PRICE=31;
+function fuelOf(v){if(v.fuel===undefined)v.fuel=v.fromTraffic?0.45+Math.random()*0.4:0.2+Math.random()*0.6;return v.fuel;}
+// ---- gas stations ----
+const GAS=[];
+function buildGas(){(D.fuel||[]).forEach((f,i)=>{let [cx,cz]=centroid(f.p);
+  // the canopy goes on the open part of the lot nearest the road (the station office, often with flats above, takes the rest)
+  {let xs=f.p.map(q=>q[0]),zs=f.p.map(q=>q[1]),best=null;for(let x=Math.min(...xs)-6;x<=Math.max(...xs)+6;x+=1.5)for(let z=Math.min(...zs)-6;z<=Math.max(...zs)+6;z+=1.5){
+      if(!(pip(f.p,x,z)||polyEdgeDist(f.p,x,z)<6)||onRoadArea(x,z)||!free(x,z,6.5))continue;const nr=nearestRoadAt(x,z,1);const sc=(nr?nr.d:50)+(pip(f.p,x,z)?0:4);if(!best||sc<best.sc)best={x,z,sc};}
+    if(best){cx=best.x;cz=best.z;}}
+  const nr=nearestRoadAt(cx,cz,1);let tx=1,tz=0;
+  if(nr){const [ax,az]=nr.r.p[nr.i],[bx,bz]=nr.r.p[nr.i+1],L=Math.hypot(bx-ax,bz-az)||1;tx=(bx-ax)/L;tz=(bz-az)/L;}
+  const rot=Math.atan2(tx,tz),y=ground(cx,cz),c=Math.cos(rot),s=Math.sin(rot),W=(u,v)=>[cx+u*c+v*s,cz-u*s+v*c];
+  const cpc=(f.brand+f.name).includes('中油'),band=cpc?0x1f6fb8:0xd8262f;
+  const g=new THREE.Group();g.position.set(cx,y,cz);g.rotation.y=rot;scene.add(g);
+  lmBox(11,0.6,16,0xf4f4f2,0,5.5,0,0,g);lmBox(11.3,0.55,16.3,band,0,5.0,0,0,g);
+  for(const u of [-4.6,4.6])for(const v of [-6,6]){lmBox(0.5,5,0.5,0xd9dde0,u,2.5,v,0,g);const [wx,wz]=W(u,v);lmSolid(wx,wz,0.5,0.5,rot,y+5);}
+  const pumps=[];for(const u of [-2.2,2.2]){lmBox(1.2,0.25,4.6,0xbfbab0,u,0.12,0,0,g);for(const v of [-1.3,1.3]){lmBox(0.8,1.8,0.6,band,u,1.15,v,0,g);lmBox(0.7,0.4,0.62,0xf4f4f2,u,1.7,v,0,g);}
+    const [wx,wz]=W(u,0);lmSolid(wx,wz,1.2,4.6,rot,y+2);pumps.push([wx,wz]);}
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(3,1.6),new THREE.MeshBasicMaterial({map:tileTex('gas'+i,192,104,(gg,Wd,H)=>{gg.fillStyle=cpc?'#1f6fb8':'#d8262f';gg.fillRect(0,0,Wd,H);gg.fillStyle='#fff';gg.font='900 30px "Noto Sans TC",sans-serif';gg.textAlign='center';gg.fillText(cpc?'台灣中油':'台塑石油',Wd/2,40);
+    gg.font='800 20px "Baloo 2",sans-serif';gg.fillText('95  NT$'+FUEL_PRICE+'.0',Wd/2,78);}),side:THREE.DoubleSide}));
+  sign.position.set(6.8,6.2,7.5);g.add(sign);lmBox(0.25,5.4,0.25,0x8f979c,6.8,2.7,7.5,0,g);
+  const [ax,az]=W(0,-3.5),att=makeStudent();att.g.position.set(ax,surf(ax,az)+0.02,az);att.g.rotation.y=rot;
+  GAS.push({x:cx,z:cz,rot,pumps,att:Object.assign(att,{x:ax,z:az,bubbleT:0}),name:f.name||'加油站'});
+  lmSpot('gas'+i,f.name||'加油站','Gas station',cx,cz);});}
+const FILL={st:null};
+function updateGas(dt){
+  for(const G of GAS)if(Math.hypot(G.x-WPOS.x,G.z-WPOS.z)<60)tickBubble(G.att,dt,G.att.x,G.att.g.position.y+2.5,G.att.z);
+  const v=DRIVE.v;if(!v){FILL.st=null;return;}
+  let at=null;for(const G of GAS)for(const p of G.pumps)if(Math.hypot(v.x-p[0],v.z-p[1])<4.2)at=G;
+  if(!at||Math.abs(DRIVE.speed)>0.6){if(FILL.st&&FILL.st.L>0.05)fillDone();FILL.st=null;return;}
+  if(!FILL.st){FILL.st={G:at,t:0,L:0,cost:0,said:false};}
+  const F=FILL.st;F.t+=dt;if(F.t<1)return;
+  if(!F.said){F.said=true;say(at.att,fuelOf(v)>0.97?'油還是滿的喔！':'加滿嗎？好～',2.2);}
+  const tank=TANK_L[v.type]||45,room=(1-fuelOf(v))*tank;if(room<0.05){if(F.L>0.05)fillDone();return;}
+  const dL=Math.min(room,tank*0.14*dt),afford=Math.max(0,(ECO.money-F.cost)/FUEL_PRICE);const take=Math.min(dL,afford);
+  if(take<=0.0001){if(!F.broke){F.broke=true;fillDone();say(at.att,'錢只夠加到這裡喔…',2.4);}return;}
+  v.fuel=Math.min(1,v.fuel+take/tank);F.L+=take;F.cost+=take*FUEL_PRICE;
+  if(v.fuel>=0.999)fillDone();}
+function fillDone(){const F=FILL.st;if(!F||F.L<0.05)return;const cost=Math.round(F.cost);money(-cost);say(F.G.att,'加好了，一共 '+cost+' 元，謝謝！',2.6);
+  toast('加油',`${F.L.toFixed(1)} 公升 · NT$${cost}`,`Refuelled ${F.L.toFixed(1)} L`,2600,true);chime();F.L=0;F.cost=0;FILL.st=Object.assign(F,{t:-999});}
+// ---- parking ----
+const inLot=(x,z)=>D.a.find(a=>a.k==='amenity=parking'&&pip(a.p,x,z));
+function parkLeave(v){if(!v)return;v.parkInfo={g:gameAbs(),r:nowS2(),lot:!!inLot(v.x,v.z),illegal:!inLot(v.x,v.z)&&(onRoadArea(v.x,v.z)||pave(v.x,v.z)>0.15)&&!GAS.some(G=>Math.hypot(G.x-v.x,G.z-v.z)<14)};}
+function parkReturn(v){const I=v&&v.parkInfo;if(!I)return;v.parkInfo=null;
+  if(I.lot){const h=Math.ceil((gameAbs()-I.g)/3600);if(gameAbs()-I.g>300){const fee=Math.min(200,30*h);money(-fee);toast('停車費',`停車 ${h} 小時 · NT$${fee}`,'Parking fee',2400,true);}}
+  else if(I.illegal&&nowS2()-I.r>90&&Math.random()<0.6){money(-900);COP.fines+=900;toast('罰單','違規停車 NT$900','Parking ticket (left on the road)',3600,true);}}
+// ---- taxis ----
+const TAXI={hail:null,ride:null,job:null,leaving:[],pickT:0};
+const taxiFare=d=>85+5*Math.ceil(Math.max(0,d-1250)/200);
+function taxiLeave(v){v.hail=false;v.taxiRide=false;v.mode='leave';v.leaveT=0;const far=[...(RG.nodes||new Map()).values()].filter(n=>Math.hypot(n.x-P.x,n.z-P.z)>200);const n=far.length?pick(far):{x:v.x+250,z:v.z};v.dest=[n.x,n.z];v.path=null;TAXI.leaving.push(v);}
+function hailTaxi(){
+  if(TAXI.hail||TAXI.ride||DRIVE.v||P.onBus||P.riding||INT.inside||mode!=='play')return;
+  const nr=nearestRoadAt(P.x,P.z,1);if(!nr||nr.d>25){toast('','走到路邊再叫車','Walk to a road to hail a taxi',2200);return;}
+  if(!RG.cells)rgBuild();
+  let tx=null,bd=260;for(const v of VEH.list){if(v.type!=='taxi'||v.free||v.siren)continue;const d=Math.hypot(v.x-P.x,v.z-P.z);if(d<bd){bd=d;tx=v;}}
+  if(!tx){let best=null;for(const c of VEH.chains){const pr=projectOn(c,P.x,P.z);if(pr&&(!best||pr.d<best.pr.d))best={c,pr};}
+    if(!best||best.pr.d>400){toast('','這裡叫不到車','No taxis come out here',2200);return;}
+    const l=best.c.lanes.find(l=>l.dir>0)||best.c.lanes[0],s=Math.max(1,Math.min(best.c.L-1,best.pr.s-l.dir*140));
+    const R0=Math.random;let k=0;Math.random=()=>k++===0?0.55:R0();try{tx=spawnVehicle(best.c,l,s);}finally{Math.random=R0;}
+    if(tx.type!=='taxi'){removeVehicle(tx);toast('','這裡叫不到車','No taxis come out here',2200);return;}}
+  goFree(tx);tx.hail=true;tx.siren=false;TAXI.hail=tx;startEmote('wave');toast('','叫車中…','A taxi is on its way',2400,true);}
+function openTaxiPick(){const ol=$('#taxiList');ol.innerHTML='';const list=spots.filter(s=>s.zh&&Math.hypot(s.x-P.x,s.z-P.z)>80).map(s=>({s,d:Math.hypot(s.x-P.x,s.z-P.z)})).sort((a,b)=>a.d-b.d).slice(0,40);
+  for(const {s,d} of list){const li=document.createElement('li');const b=document.createElement('button');b.type='button';b.className='btn';
+    b.innerHTML='<b></b><span></span><em></em>';b.querySelector('b').textContent=s.zh;b.querySelector('span').textContent=s.en||'';b.querySelector('em').textContent=`約 NT$${taxiFare(d*1.35)}`;
+    b.addEventListener('click',()=>{show('#taxiPick',false);mode='play';boardTaxi(TAXI.hail,s);});li.appendChild(b);ol.appendChild(li);}
+  mode='pause';show('#taxiPick',true);const f=ol.querySelector('button');f&&f.focus();}
+function boardTaxi(v,s){if(!v)return;TAXI.hail=null;endEmote();P.onBus=v;player.root.visible=false;$('#drive').hidden=false;$('#dGear').textContent='TAXI';
+  v.taxiRide=true;v.path=null;TAXI.ride={v,dest:{x:s.x,z:s.z,zh:s.zh},d:0,lx:v.x,lz:v.z};say(v,'好，到'+s.zh+'！',2);refreshDriveUI(true);}
+function taxiSettle(arrived){const R=TAXI.ride;if(!R)return;TAXI.ride=null;const fare=taxiFare(R.d);money(-fare);
+  toast('計程車',`${arrived?'到了！':'下車'} 車資 NT$${fare}`,`Taxi fare · ${(R.d/1000).toFixed(1)} km`,3000,true);say(R.v,arrived?'到囉，謝謝！':'好，這裡下車',2);taxiLeave(R.v);}
+function updateTaxis(dt){
+  const H=TAXI.hail;if(H){if(!VEH.list.includes(H)){TAXI.hail=null;}else{const d=freeDrive(H,dt,P.x,P.z,13,4);
+    if(Math.hypot(P.x-H.x,P.z-H.z)>320){TAXI.hail=null;taxiLeave(H);toast('','計程車開走了','The taxi left',2000);}
+    else if(d<9&&H.v<0.5&&Math.hypot(P.x-H.x,P.z-H.z)<5.5&&!DRIVE.v&&!P.riding&&mode==='play'&&(TAXI.pickT-=dt)<=0){TAXI.pickT=3;openTaxiPick();}}}
+  const R=TAXI.ride;if(R){const v=R.v;if(!VEH.list.includes(v)||P.onBus!==v){if(TAXI.ride)taxiSettle(false);}else{const d=freeDrive(v,dt,R.dest.x,R.dest.z,R.stopReq?0:15,6);
+    if(R.stopReq&&v.v<0.3){R.d+=Math.hypot(v.x-R.lx,v.z-R.lz);taxiSettle(false);leaveBus(true);return;}
+    R.d+=Math.hypot(v.x-R.lx,v.z-R.lz);R.lx=v.x;R.lz=v.z;if(d<16&&v.v<0.5){taxiSettle(true);leaveBus(true);}}}
+  for(let i=TAXI.leaving.length-1;i>=0;i--){const v=TAXI.leaving[i];if(!VEH.list.includes(v)){TAXI.leaving.splice(i,1);continue;}v.leaveT+=dt;freeDrive(v,dt,v.dest[0],v.dest[1],13,4);
+    if((Math.hypot(v.x-P.x,v.z-P.z)>120&&Math.hypot(v.x-camera.position.x,v.z-camera.position.z)>100)||v.leaveT>120){removeVehicle(v);TAXI.leaving.splice(i,1);}}}
+// ---- driving a taxi: fares from the kerb ----
+let _jobBeacon=null;
+function jobBeacon(){if(_jobBeacon)return _jobBeacon;const g=new THREE.Group();const col=new THREE.Mesh(new THREE.CylinderGeometry(0.8,0.8,24,16,1,true),new THREE.MeshBasicMaterial({color:0x5fd18a,transparent:true,opacity:0.25,side:THREE.DoubleSide,depthWrite:false}));col.position.y=12;g.add(col);g.visible=false;scene.add(g);return _jobBeacon=g;}
+function kerbPoint(minD,maxD){const near=D.r.filter(r=>{const rk=RANK[r.k]??0;return !r.t&&!r.b&&rk>=2&&r.p.some(q=>Math.hypot(q[0]-P.x,q[1]-P.z)<maxD+60);});if(!near.length)return null;
+  for(let k=0;k<80;k++){const r=pick(near);const i=(Math.random()*(r.p.length-1))|0,[ax,az]=r.p[i],[bx,bz]=r.p[i+1],L=Math.hypot(bx-ax,bz-az);if(L<8)continue;
+  const t=Math.random(),x=ax+(bx-ax)*t,z=az+(bz-az)*t,d=Math.hypot(x-P.x,z-P.z);if(d<minD||d>maxD)continue;const sg=Math.random()<0.5?-1:1,nx=-(bz-az)/L*sg,nz=(bx-ax)/L*sg,o=r.w/2+1.3;
+  const px=x+nx*o,pz=z+nz*o;if(ground(px,pz)<0.8||!free(px,pz,0.6))continue;return {x:px,z:pz,face:Math.atan2(-nx,-nz)};}return null;}
+function updateJob(dt){
+  const v=DRIVE.v,mine=v&&v.type==='taxi',el=$('#job');let J=TAXI.job;
+  if(!mine){if(J){if(J.pax)scene.remove(J.pax.g);if(J.stage==='ride'){toast('','乘客下車了','Your passenger got out',2000);}TAXI.job=null;}jobBeacon().visible=false;if(el&&!el.hidden)el.hidden=true;return;}
+  if(!J)J=TAXI.job={stage:'wait',t:2+Math.random()*3,earned:0};
+  const B=jobBeacon();
+  if(J.stage==='wait'){B.visible=false;J.t-=dt;if(J.t<=0){const k=kerbPoint(70,260);if(k){const m=makeStudent();m.g.position.set(k.x,surf(k.x,k.z)+0.02,k.z);m.g.rotation.y=k.face;m.arms[1].rotation.x=-2.6;
+      J.pax=Object.assign(m,{x:k.x,z:k.z,bubbleT:0});J.stage='pickup';J.crash=0;say(J.pax,'計程車！',2);}else J.t=2;}}
+  else if(J.stage==='pickup'){const p=J.pax,d=Math.hypot(v.x-p.x,v.z-p.z);B.visible=true;B.position.set(p.x,ground(p.x,p.z),p.z);tickBubble(p,dt,p.x,p.g.position.y+2.5,p.z);
+    if(d<8&&Math.abs(DRIVE.speed)<1){scene.remove(p.g);const c=spots.filter(s=>s.zh&&Math.hypot(s.x-v.x,s.z-v.z)>250&&Math.hypot(s.x-v.x,s.z-v.z)<1500);const s=c.length?pick(c):pick(spots);
+      J.dest={x:s.x,z:s.z,zh:s.zh};J.stage='ride';J.d=0;J.lx=v.x;J.lz=v.z;J.t0=nowS2();J.crash=0;say(v,'麻煩到'+s.zh+'，謝謝！',2.6);blip(660,880,0.12,0.05);}}
+  else if(J.stage==='ride'){B.visible=true;B.position.set(J.dest.x,ground(J.dest.x,J.dest.z),J.dest.z);J.d+=Math.hypot(v.x-J.lx,v.z-J.lz);J.lx=v.x;J.lz=v.z;
+    if(Math.hypot(v.x-J.dest.x,v.z-J.dest.z)<16&&Math.abs(DRIVE.speed)<1){const fare=taxiFare(J.d),mins=(nowS2()-J.t0)/60,tip=J.crash?0:Math.round((mins<J.d/400+1?40:15)+Math.random()*20);
+      money(fare+tip);J.earned+=fare+tip;toast('載客完成',`車資 NT$${fare}${tip?' + 小費 NT$'+tip:''}`,J.crash?'"開慢一點啦…" no tip':'Fare + tip',3200,true);chime();
+      const m=makeStudent();const sx=v.x+v.hz*1.8,sz=v.z-v.hx*1.8;m.g.position.set(sx,surf(sx,sz)+0.02,sz);say(Object.assign(m,{bubbleT:0}),J.crash?'下次開穩一點…':'謝謝司機！',2);setTimeout(()=>scene.remove(m.g),6000);
+      J.stage='wait';J.t=4+Math.random()*6;J.pax=null;}}
+  if(el){el.hidden=false;const t=J.stage==='pickup'?['去載客人','Pick up the passenger',Math.round(Math.hypot(v.x-J.pax.x,v.z-J.pax.z))+' m']:J.stage==='ride'?['送到 '+J.dest.zh,'Drive to the destination',Math.round(Math.hypot(v.x-J.dest.x,v.z-J.dest.z))+' m · 跳表 NT$'+taxiFare(J.d)]:['空車 · 等客人','Waiting for a fare',''];
+    $('#jobT').textContent=t[0];$('#jobE').textContent=t[1];$('#jobD').textContent=t[2]+(J.earned?' · 今日 NT$'+J.earned:'');}}
+function econCrash(closing){const J=TAXI.job;if(J&&J.stage==='ride'&&closing>2){J.crash++;if(DRIVE.v)say(DRIVE.v,pick(['小心開啦！','哇！','開慢一點…']),1.6);}}
+// ---- YouBike ----
+const YB={st:[],ride:null};
+const YB_SITES=[['海大(濱海校門)',-118,-78],['海大圖書館',-180,-2],['海大體育館',300,-28],['碧砂漁港',905,575],['八斗子',1860,1110],['正濱漁港',-870,-250],['和平島公園',-1380,-1165]];
+function buildYouBike(){YB_SITES.forEach(([name,x0,z0],i)=>{let best=null;
+  for(let r=0;r<30&&!best;r+=1.5)for(let a=0;a<TAU&&!best;a+=0.4){const x=x0+Math.cos(a)*r,z=z0+Math.sin(a)*r;if(ground(x,z)<0.8||onRoadArea(x,z))continue;const nr=nearestRoadAt(x,z,1);if(!nr||nr.d>16)continue;
+    const [ax,az]=nr.r.p[nr.i],[bx,bz]=nr.r.p[nr.i+1],L=Math.hypot(bx-ax,bz-az)||1,tx=(bx-ax)/L,tz=(bz-az)/L;let ok=true;for(let k=-4;k<=4;k++)if(!free(x+tx*k*1.1,z+tz*k*1.1,0.7)||onRoadArea(x+tx*k*1.1,z+tz*k*1.1))ok=false;if(ok)best={x,z,tx,tz};}
+  if(!best)return;const {x,z,tx,tz}=best,rot=Math.atan2(tx,tz),docks=[];
+  for(let k=-3;k<=3;k++){const dx=x+tx*k*1.15,dz=z+tz*k*1.15,y=surf(dx,dz);const post=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.9,0.3),toon(0xf5a623));post.position.set(dx,y+0.45,dz);post.rotation.y=rot;post.castShadow=true;scene.add(post);docks.push([dx,dz]);}
+  const kx=x+tx*4.9,kz=z+tz*4.9,ky=surf(kx,kz);const kiosk=new THREE.Mesh(new THREE.BoxGeometry(0.7,2.0,0.5),[toon(0xf4f4f2),toon(0xf4f4f2),toon(0xf5a623),toon(0xf5a623),new THREE.MeshBasicMaterial({map:tileTex('yb',64,128,(gg,W,H)=>{gg.fillStyle='#ffffff';gg.fillRect(0,0,W,H);gg.fillStyle='#f5a623';gg.fillRect(0,0,W,30);gg.fillStyle='#fff';gg.font='900 13px sans-serif';gg.textAlign='center';gg.fillText('YouBike',W/2,20);gg.fillStyle='#333';gg.font='800 11px "Noto Sans TC",sans-serif';gg.fillText('微笑單車',W/2,48);gg.fillText('2.0',W/2,64);gg.fillStyle='#2b3a46';gg.fillRect(12,76,40,30);})}),toon(0xf4f4f2)]);
+  kiosk.position.set(kx,ky+1,kz);kiosk.rotation.y=rot+Math.PI/2;kiosk.castShadow=true;scene.add(kiosk);lmSolid(kx,kz,0.7,0.5,rot,ky+2);
+  const S={name,x,z,docks};YB.st.push(S);lmSpot('yb'+i,'YouBike '+name,'YouBike station',x,z);
+  docks.forEach((d,k)=>{if(k%3===1)return;const b=Object.assign(makeBike(0xf5b400),{px:0,pz:0,prot:0,yb:S,home:{x:d[0],z:d[1],rot:rot+Math.PI/2,label:'YouBike '+name}});scene.add(b.g);BIKES.push(b);placeBike(b,d[0],d[1],rot+Math.PI/2);});});}
+function ybRent(b){if(ECO.money<5){toast('','餘額不足','Not enough money for a YouBike',2200);return false;}YB.ride={b,t0:nowS2()};toast('YouBike','租借成功 · 微笑單車 2.0','Rented · return it at any station',2400,true);blip(880,1320,0.12,0.05);return true;}
+function ybFee(){return 5*Math.max(1,Math.ceil((nowS2()-YB.ride.t0)/1800));}
+function ybReturn(b){if(!YB.ride||YB.ride.b!==b)return;const S=YB.st.find(S=>Math.hypot(S.x-b.px,S.z-b.pz)<9);if(!S)return;
+  const used=new Set(BIKES.filter(q=>q!==b&&q.yb).map(q=>Math.round(q.home.x)+','+Math.round(q.home.z)));const d=S.docks.find(d=>!used.has(Math.round(d[0])+','+Math.round(d[1])))||S.docks[0];
+  b.yb=S;b.home={x:d[0],z:d[1],rot:b.home.rot,label:'YouBike '+S.name};placeBike(b,d[0],d[1],b.home.rot);const fee=ybFee();YB.ride=null;money(-fee);toast('還車','YouBike '+S.name+' · NT$'+fee,'Returned',2400,true);blip(1320,880,0.12,0.05);}
+function ybFetched(b){if(!YB.ride||YB.ride.b!==b)return;const fee=ybFee()+100;YB.ride=null;money(-fee);toast('YouBike','沒還車：調度費 NT$'+fee,'Left lying around: fetched back',3000,true);}
+function updateEconomy(dt){
+  const v=DRIVE.v;
+  if(v){fuelOf(v);const used=Math.abs(DRIVE.speed)*dt/1000/(KM_PER_TANK[v.type]||7)+(Math.abs(DRIVE.speed)<0.3?0.00003*dt:0);v.fuel=Math.max(0,v.fuel-used);
+    if(v.fuel<=0&&!v.emptySaid){v.emptySaid=true;say(v,'沒油了…',2);toast('','沒油了','Out of fuel: push on to a gas station',3000,true);}if(v.fuel>0.02)v.emptySaid=false;
+    const fb=$('#dFuel i b');if(fb){fb.style.width=Math.round(v.fuel*100)+'%';fb.style.background=v.fuel<0.15?'#ff5a4a':'#5fd18a';}}
+  updateGas(dt);updateTaxis(dt);updateJob(dt);
+  const hb=$('#hailBtn');if(hb){const want=isTouch&&mode==='play'&&!DRIVE.v&&!P.onBus&&!P.riding&&!INT.inside&&!TAXI.hail&&!TAXI.ride;if(hb.hidden===want)hb.hidden=!want;}}
+function drawEconOnMini(px,pz,k,W,H,g=mini,big=false){const P2=(x,z)=>big?[(x-G.x0)*k,(z-G.z0)*k]:[(x-G.x0-px)*k+W/2,(z-G.z0-pz)*k+H/2];
+  const dot=(x,z,fill,txt,r)=>{const [a,b]=P2(x,z);if(a<-8||b<-8||a>W+8||b>H+8)return;g.fillStyle=fill;g.strokeStyle='#0b1c2c';g.lineWidth=1.5;g.beginPath();g.arc(a,b,r,0,TAU);g.fill();g.stroke();if(txt){g.fillStyle='#fff';g.font=`900 ${Math.round(r*1.4)}px sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(txt,a,b+0.5);}};
+  for(const G of GAS)dot(G.x,G.z,'#1f6fb8','油',big?8:5.5);
+  for(const S of YB.st)dot(S.x,S.z,'#f5a623','Y',big?7:4.5);
+  const J=TAXI.job;if(J&&J.stage==='pickup'&&J.pax)dot(J.pax.x,J.pax.z,'#5fd18a','',big?8:5.5);if(J&&J.stage==='ride')dot(J.dest.x,J.dest.z,'#5fd18a','',big?9:6);
+  if(TAXI.ride)dot(TAXI.ride.dest.x,TAXI.ride.dest.z,'#f2c230','',big?9:6);}
+
 /* ---------- characters ---------- */
 function makeChar(gender){
   const root=new THREE.Group();const parts=[];
@@ -3585,6 +3760,7 @@ addEventListener('keydown',e=>{if(mode!=='play')return;keys[e.code]=true;
   if(e.code==='KeyH'&&DRIVE.v){say(DRIVE.v,pick(['叭叭！','叭——！','嗶嗶！']),1.2);hornSound(DRIVE.v.x,DRIVE.v.z);}
   if(e.code==='KeyR')toggleRide();
   if(e.code==='KeyC')fishAction();
+  if(e.code==='KeyT')hailTaxi();
   if(e.code==='KeyG'&&DRIVE.v)toggleHazard(DRIVE.v);
   const em=EMOTES.find(q=>q.key===e.code);if(em)startEmote(em.k);
   if(e.code==='BracketLeft')shiftClock(-1);if(e.code==='BracketRight')shiftClock(1);if(e.code==='Backslash')toggleFast();
@@ -3806,7 +3982,7 @@ $('#cfYes').addEventListener('click',()=>{show('#confirm',false);toPick();});
 $('#pickBack').addEventListener('click',toTitle);
 $('#go').addEventListener('click',()=>{phoneFullscreen();primeSpeech();
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem('ntou-walk-found-v3');}catch(e){}
-  found.clear();msReset();show('#pick',false);startNewDay();startPlay();startIntro();});
+  found.clear();msReset();ECO.money=2000;COP.fines=0;try{localStorage.setItem(ECO_KEY,'2000');localStorage.setItem('ntou-walk-fines','0');}catch(e){}refreshMoney();show('#pick',false);startNewDay();startPlay();startIntro();});
 // a new game always begins at 09:00, then the clock runs on from there
 function startNewDay(){resetClock();WX.key='clear';WX.target={cloud:0,rain:0,fog:0,thunder:0};Object.assign(WX.mix,WX.target);WX.wet=0;WX.next=performance.now()/1000+300;const base=realSecTaipei()/3600;CLOCK.offset=9-base;hudT=0;}
 // settings
@@ -3844,6 +4020,8 @@ $('#mMis').addEventListener('click',()=>{modalBack=$('#mMis');openMissions();});
 $('#mFish').addEventListener('click',()=>{modalBack=$('#mFish');openFishLog();});
 $('#fishDone').addEventListener('click',()=>{show('#fishlog',false);modalBack&&modalBack.focus();});
 $('#fishBtn').addEventListener('click',e=>{e.preventDefault();fishAction();});
+$('#hailBtn').addEventListener('click',e=>{e.preventDefault();hailTaxi();});
+$('#taxiCancel').addEventListener('click',()=>{show('#taxiPick',false);mode='play';const H=TAXI.hail;TAXI.hail=null;if(H){say(H,'好吧…',1.6);taxiLeave(H);}cv.focus();});
 $('#msDone').addEventListener('click',()=>{show('#missions',false);modalBack&&modalBack.focus();});
 $('#msDrop').addEventListener('click',()=>{dropMission();show('#missions',false);modalBack&&modalBack.focus();});
 $('#mTitle').addEventListener('click',()=>{saveGame();location.reload();});
@@ -3855,6 +4033,7 @@ addEventListener('keydown',e=>{
   if(!$('#confirm').hidden){$('#cfNo').click();return;}
   if(!$('#missions').hidden){$('#msDone').click();return;}
   if(!$('#fishlog').hidden){$('#fishDone').click();return;}
+  if(!$('#taxiPick').hidden){$('#taxiCancel').click();return;}
   if(!$('#settings').hidden){$('#setDone').click();return;}
   if(mode==='play'&&!$('#map').hidden)return;          // the map's own Esc handler closes it
   if(mode==='play')openMenu();else if(mode==='pause')closeMenu();else if(mode==='pick')toTitle();
@@ -3865,7 +4044,7 @@ function startPlay(){
   P.riding=false;P.x=START.x;P.z=START.z;P.y=ground(P.x,P.z);P.rot=START.rot||0;yaw=START.yaw??P.rot+Math.PI;pitch=0.38;
   player.root.position.set(P.x,P.y,P.z);player.root.rotation.y=P.rot;
   show('#title',false);show('#pick',false);$('#hud').hidden=false;$('#touch').hidden=!isTouch;
-  updateFound();cv.focus();refreshMission();
+  updateFound();cv.focus();refreshMission();refreshMoney();
 }
 
 /* ---------- movement ---------- */
@@ -3951,6 +4130,7 @@ function nearestBikeObj(){let best=null,bd=4.2;for(const b of BIKES){const d=Mat
 function nearBike(){return !P.riding&&!!nearestBikeObj();}
 function mount(){
   const nb=nearestBikeObj();if(P.riding||!nb)return;
+  if(nb.yb&&!(YB.ride&&YB.ride.b===nb)&&!ybRent(nb))return;   // a YouBike: renting it
   endEmote();bike=nb;
   P.riding=true;BK.heading=nb.prot;BK.speed=0;BK.steer=0;BK.kx=BK.kz=0;
   P.x=nb.px;P.z=nb.pz;P.rot=BK.heading;
@@ -3970,7 +4150,7 @@ function dismount(){
   placeBike(bike,P.x,P.z,h);
   P.riding=false;P.x=sx;P.z=sz;P.y=ground(sx,sz);P.rot=h;BK.speed=0;BK.kx=BK.kz=0;
   player.body.rotation.x=0;player.head.rotation.x=0;
-  refreshBikeUI();
+  refreshBikeUI();if(bike.yb)ybReturn(bike);
 }
 function toggleBike(){P.riding?dismount():mount();}
 let bikeUI='';
@@ -3989,7 +4169,7 @@ function updatePlay(dt){
   const run=keys.ShiftLeft||keys.ShiftRight||runToggle;
   const fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);
   let dx=fx*iy+rx*ix,dz=fz*iy+rz*ix;const dl=Math.hypot(dx,dz)||1;dx/=dl;dz/=dl;
-  if(DRIVE.v)driveStep(dt,ix,iy);else if(P.onBus)rideBusStep(dt);else if(P.riding)rideStep(dt,mag,dx,dz,run,ix,iy);else walkStep(dt,mag,dx,dz,run);
+  if(DRIVE.v)driveStep(dt,ix,(DRIVE.v.fuel===0)?(DRIVE.speed>0.3?Math.min(0,iy):0):iy);else if(P.onBus)rideBusStep(dt);else if(P.riding)rideStep(dt,mag,dx,dz,run,ix,iy);else walkStep(dt,mag,dx,dz,run);
   for(const v of PARKED)if(v!==DRIVE.v&&v.bubble)tickBubble(v,dt,v.x,v.top+1,v.z);
   // camera
   const sp=DRIVE.v?VSPEC[DRIVE.v.type]:P.onBus?VSPEC.bus:null;
@@ -4006,7 +4186,7 @@ function updatePlay(dt){
   if(INT.inside&&oy>0.01)d=Math.max(1.4,Math.min(d,(INT.ceil-0.5-ty)/oy));   // stay under the ceiling
   const cxp=tx+ox*d,czp=tz+oz*d;
   camera.position.set(cxp,Math.max(ground(cxp,czp)+0.5,ty+oy*d,0.6),czp);camera.lookAt(tx,ty,tz);
-  updateInterior(dt);updateRace(dt);updateMission(dt);updateEast(dt);
+  updateInterior(dt);updateRace(dt);updateMission(dt);updateEast(dt);updateEconomy(dt);
   tAcc+=dt;if(tAcc>0.25){tAcc=0;checkSpots();updateZone();}
   refreshBikeUI();refreshDriveUI();
   drawMini();
@@ -4166,7 +4346,7 @@ function drawMini(){if((miniT=(miniT+1)%3))return;
   for(const b of BIKES){if(P.riding&&b===bike)continue;const bx=(b.px-G.x0-px)*k+W/2,bz=(b.pz-G.z0-pz)*k+H/2;if(bx<0||bz<0||bx>W||bz>H)continue;mini.fillStyle='#7fd1c4';mini.strokeStyle='#0b1c2c';mini.lineWidth=1.5;mini.beginPath();mini.arc(bx,bz,4,0,TAU);mini.fill();mini.stroke();}
   {const ph=Math.floor(performance.now()/250)%2;for(const v of VEH.list){if(!v.siren)continue;const x=(v.x-G.x0-px)*k+W/2,y=(v.z-G.z0-pz)*k+H/2;if(x<0||y<0||x>W||y>H)continue;
     mini.fillStyle=v.type==='ambulance'?(ph?'#ff2a2a':'#ffffff'):(ph?'#ff2a2a':'#2a6bff');mini.strokeStyle='#0b1c2c';mini.lineWidth=1.5;mini.beginPath();mini.arc(x,y,4.5,0,TAU);mini.fill();mini.stroke();}}
-  drawRaceOnMini(px,pz,k,W,H);drawMissionOnMini(px,pz,k,W,H);
+  drawEconOnMini(px,pz,k,W,H);drawRaceOnMini(px,pz,k,W,H);drawMissionOnMini(px,pz,k,W,H);
   drawArrow(mini,W/2,H/2,P.rot,10);}
 const mapC=$('#mapC'),mapG=mapC.getContext('2d');
 function drawBigMap(){
@@ -4181,7 +4361,7 @@ function drawBigMap(){
     else{g.fillStyle=f?'#2fa4d6':'#6b7682';g.beginPath();g.arc(x,y,5,0,TAU);g.fill();}
     if(f){g.font='700 11px "Noto Sans TC",sans-serif';const tw=g.measureText(s.zh).width;g.fillStyle='rgba(11,28,44,.8)';roundRect(g,x-tw/2-4,y+12,tw+8,16,4);g.fill();g.fillStyle='#fff8ec';g.fillText(s.zh,x,y+20);}}
   for(const b of BIKES){if(P.riding&&b===bike)continue;g.fillStyle='#7fd1c4';g.strokeStyle='#0b1c2c';g.lineWidth=1.5;g.beginPath();g.arc(X(b.px),Z(b.pz),5,0,TAU);g.fill();g.stroke();}
-  drawMissionOnMini(0,0,k,mapC.width,mapC.height,g,true);
+  drawEconOnMini(0,0,k,mapC.width,mapC.height,g,true);drawMissionOnMini(0,0,k,mapC.width,mapC.height,g,true);
   drawArrow(g,X(P.x),Z(P.z),P.rot,13);
 }
 function toggleMap(){const m=$('#map');m.hidden=!m.hidden;if(!m.hidden){drawBigMap();$('#mapClose').focus();}else cv.focus();}
@@ -4501,7 +4681,7 @@ function copsWitness(o,isStu,closing){if(closing<2)return;
   if((cop.mode==='chase'||cop.mode==='stop')&&cop.target!=='me'){const q=cop.target;if(q&&q!=='me'){q.pulled=false;q.chasedBy=null;}cop.mode='patrol';cop.target=null;}   // the speeder can wait
   cop.cool=0;startChase(cop,'me',why);if(why==='hitcop')say(cop,'喂！撞到警車還想跑？',2.6);}
 const FINE={speed:1800,red:2700,crash:3600,hitcop:6000},WHY={speed:['超速','Speeding'],red:['闖紅燈','Ran a red light'],crash:['肇事','Caused a crash'],hitcop:['撞警車','Hit a police car']};
-function ticketMe(p){const fine=FINE[p.why]||1800;COP.fines+=fine;COP.tix++;try{localStorage.setItem('ntou-walk-fines',String(COP.fines));}catch(e){}
+function ticketMe(p){const fine=FINE[p.why]||1800;money(-fine);COP.fines+=fine;COP.tix++;try{localStorage.setItem('ntou-walk-fines',String(COP.fines));}catch(e){}
   const w=WHY[p.why]||WHY.speed;toast('罰單','罰單：'+w[0]+' NT$'+fine.toLocaleString(),`Ticket · ${w[1]} · total NT$${COP.fines.toLocaleString()}`,4800,true);blip(660,660,0.12,0.05);}
 function playerSpeed(){return DRIVE.v?Math.abs(DRIVE.speed):P.riding?Math.abs(BK.speed):0;}
 // running a red yourself: crossing the stop zone of a signal that is red for your direction
@@ -5320,7 +5500,7 @@ function updateBikes(dt){
     let dr=b.prot-b.home.rot;dr=Math.atan2(Math.sin(dr),Math.cos(dr));
     if(Math.hypot(b.px-b.home.x,b.pz-b.home.z)<0.5&&Math.abs(dr)<0.3){b.awayT=0;continue;}
     b.awayT=(b.awayT||0)+dt;
-    if(b.awayT>60&&Math.hypot(P.x-b.px,P.z-b.pz)>3){placeBike(b,b.home.x,b.home.z,b.home.rot);b.awayT=0;}}
+    if(b.awayT>60&&Math.hypot(P.x-b.px,P.z-b.pz)>3){if(b.yb)ybFetched(b);placeBike(b,b.home.x,b.home.z,b.home.rot);b.awayT=0;}}
 }
 
 /* ---------- sound: everything is synthesised (Web Audio), kept soft — it's a relaxing walk.
