@@ -3481,27 +3481,49 @@ function genHouses(){
           const fl=[2,3,3,4,4,4,5][(rnd()*7)|0],h=fl*3.2;
           const H={x:cx,z:cz,r:Math.max(fw,dp)/2+1,C,S:shrink(C),fw,dp,tx,tz,nx,nz,g0,g1,h,add:rnd()<0.4};placed.push(H);}}}}
   if(!placed.length)return;
-  // one merged mesh: walls take the window texture (tinted per house), roofs and rooftop sheds plain
-  const pos=[],uv=[],col=[],idx=[],lines=[];const c=new THREE.Color();
+  // merged meshes: walls take the window texture (tinted per house), roofs, canopies and rooftop sheds plain; the
+  // street-facing ground floor is its own mesh with a shopfront atlas (closed shutter, open shop, half-raised shutter,
+  // glass-door shop), each under a coloured sign board
+  const pos=[],uv=[],col=[],idx=[],lines=[],gp=[],gu=[],gc=[],gi=[];const c=new THREE.Color();
   const WALLS=[0xf2efe8,0xe8e0d0,0xd9dcdf,0xefd9d2,0xcfd9de,0xe6e2c8,0xdcd2c4];const TIN=[0x2f6fb8,0x3f8f74,0x8fb3c8,0xb8b7b0];
-  const box=(cx,cz,tx,tz,w,d,y0,y1,wallHex,roofHex,tex)=>{const nx=-tz,nz=tx,P=(a,b)=>[cx+tx*a*w/2+nx*b*d/2,cz+tz*a*w/2+nz*b*d/2];
-    const q=[P(-1,-1),P(1,-1),P(1,1),P(-1,1)];
-    for(let k=0;k<4;k++){const A=q[k],B=q[(k+1)%4],L=Math.hypot(B[0]-A[0],B[1]-A[1]),b0=pos.length/3;
-      pos.push(A[0],y0,A[1],B[0],y0,B[1],B[0],y1,B[1],A[0],y1,A[1]);
-      if(tex)uv.push(0,y0/3.2,L/4.4,y0/3.2,L/4.4,y1/3.2,0,y1/3.2);else uv.push(0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01);
-      c.setHex(wallHex);for(let j=0;j<4;j++)col.push(c.r,c.g,c.b);idx.push(b0,b0+2,b0+1,b0,b0+3,b0+2);
-      lines.push(A[0],y1,A[1],B[0],y1,B[1],A[0],y0+0.3,A[1],A[0],y1,A[1]);}
-    const b0=pos.length/3;for(const p of q)pos.push(p[0],y1,p[1]);uv.push(0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01);c.setHex(roofHex);for(let j=0;j<4;j++)col.push(c.r,c.g,c.b);idx.push(b0,b0+2,b0+1,b0,b0+3,b0+2);};
-  for(const H of placed){const wall=WALLS[(Math.abs(Math.round(H.x*7+H.z*3)))%WALLS.length],top=H.g1+H.h;
-    box(H.x,H.z,H.tx,H.tz,H.fw,H.dp,H.g0-1.2,top,wall,0x9aa0a4,true);
-    if(H.add){const tin=TIN[(Math.abs(Math.round(H.x+H.z)))%TIN.length];box(H.x-H.nx*H.dp*0.15,H.z-H.nz*H.dp*0.15,H.tx,H.tz,H.fw*0.92,H.dp*0.6,top,top+2.6,0xc9c6bd,tin,false);}
-    lmSolid(H.x,H.z,H.fw,H.dp,Math.atan2(-H.tz,H.tx),top+(H.add?2.6:0));GEN_HOUSES.push({p:[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[H.x+H.tx*a*H.fw/2+H.nx*b*H.dp/2,H.z+H.tz*a*H.fw/2+H.nz*b*H.dp/2])});}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();
+  const quad=(P,U,C,I,A,B,y0,y1,uvs,hex)=>{const b0=P.length/3;P.push(A[0],y0,A[1],B[0],y0,B[1],B[0],y1,B[1],A[0],y1,A[1]);U.push(...uvs);c.setHex(hex);for(let j=0;j<4;j++)C.push(c.r,c.g,c.b);I.push(b0,b0+2,b0+1,b0,b0+3,b0+2);};
+  const PLAIN=[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01];
+  const corners=(cx,cz,tx,tz,w,d)=>{const nx=-tz,nz=tx;return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[cx+tx*a*w/2+nx*b*d/2,cz+tz*a*w/2+nz*b*d/2]);};
+  const roofQ=(q,y,hex)=>{const b0=pos.length/3;for(const p of q)pos.push(p[0],y,p[1]);uv.push(...PLAIN);c.setHex(hex);for(let j=0;j<4;j++)col.push(c.r,c.g,c.b);idx.push(b0,b0+2,b0+1,b0,b0+3,b0+2);};
+  const plainBox=(cx,cz,tx,tz,w,d,y0,y1,wallHex,roofHex)=>{const q=corners(cx,cz,tx,tz,w,d);for(let k=0;k<4;k++)quad(pos,uv,col,idx,q[k],q[(k+1)%4],y0,y1,PLAIN,wallHex);roofQ(q,y1,roofHex);};
+  for(const H of placed){const wall=WALLS[(Math.abs(Math.round(H.x*7+H.z*3)))%WALLS.length],top=H.g1+H.h,gf=H.g1+3.3,y0=H.g0-1.2;
+    const ft=((-H.tz)*H.nx+H.tx*H.nz)<0?-1:1,q=corners(H.x,H.z,H.tx*ft,H.tz*ft,H.fw,H.dp);   // q[0]→q[1] is the street front (whichever side of the street)
+    for(let k=0;k<4;k++){const A=q[k],B=q[(k+1)%4],L=Math.hypot(B[0]-A[0],B[1]-A[1]);
+      if(k===0){const v=Math.abs(Math.round(H.x*3+H.z*11))%4,u0=v/4+0.004,u1=(v+1)/4-0.004,f=y=>(y-(gf-3.3))/3.3;
+        quad(gp,gu,gc,gi,A,B,y0,gf,[u0,f(y0),u1,f(y0),u1,1,u0,1],0xffffff);
+        quad(pos,uv,col,idx,A,B,gf,top,[0,0,L/4.4,0,L/4.4,(top-gf)/3.2,0,(top-gf)/3.2],wall);}
+      else quad(pos,uv,col,idx,A,B,y0,top,[0,(y0-gf)/3.2,L/4.4,(y0-gf)/3.2,L/4.4,(top-gf)/3.2,0,(top-gf)/3.2],wall);
+      lines.push(A[0],top,A[1],B[0],top,B[1],A[0],y0+0.3,A[1],A[0],top,A[1]);}
+    roofQ(q,top,0x9aa0a4);
+    if(H.add){const tin=TIN[(Math.abs(Math.round(H.x+H.z)))%TIN.length];plainBox(H.x-H.nx*H.dp*0.15,H.z-H.nz*H.dp*0.15,H.tx,H.tz,H.fw*0.92,H.dp*0.6,top,top+2.6,0xc9c6bd,tin);}
+    if((Math.round(H.x*5+H.z*13))%2===0){const tin=TIN[(Math.abs(Math.round(H.x*2+H.z)))%TIN.length];   // a tin canopy over the shopfront
+      plainBox(H.x-H.nx*(H.dp/2+0.55),H.z-H.nz*(H.dp/2+0.55),H.tx,H.tz,H.fw*0.96,1.1,gf+0.05,gf+0.17,tin,tin);}
+    lmSolid(H.x,H.z,H.fw,H.dp,Math.atan2(-H.tz,H.tx),top+(H.add?2.6:0));GEN_HOUSES.push({p:q});}
+  const mk=(P,U,C,I)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));g.setIndex(I);g.computeVertexNormals();return g;};
   const tex=tileTex('rowhouse',64,64,(gg,W,Hh)=>{gg.fillStyle='#ffffff';gg.fillRect(0,0,W,Hh);gg.fillStyle='rgba(0,0,0,.05)';for(let y=0;y<Hh;y+=6)gg.fillRect(0,y,W,1);
     gg.fillStyle='#4d6a7c';gg.fillRect(14,16,36,28);gg.fillStyle='#d8dde0';for(let x=18;x<50;x+=6)gg.fillRect(x,16,1.5,28);gg.fillRect(14,29,36,1.5);gg.fillStyle='rgba(0,0,0,.18)';gg.fillRect(12,44,40,3);});
   tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
-  const m=shade(new THREE.Mesh(g,new THREE.MeshToonMaterial({map:tex,vertexColors:true,gradientMap:grad,side:THREE.DoubleSide})),true,true);scene.add(m);
-  const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));scene.add(new THREE.LineSegments(lg,edgeMat));
+  scene.add(shade(new THREE.Mesh(mk(pos,uv,col,idx),new THREE.MeshToonMaterial({map:tex,vertexColors:true,gradientMap:grad,side:THREE.DoubleSide})),true,true));
+  // the shopfront atlas: four 128 px tiles side by side (sign board at the top, the front below, pillars either side)
+  const shop=canvasTex(512,128,(gg)=>{const signs=['#d8463c','#f2c230','#2f9e7a','#2f6fb8'];
+    for(let t=0;t<4;t++){const x0=t*128;gg.fillStyle='#d9d6cf';gg.fillRect(x0,0,128,128);
+      gg.fillStyle=signs[t];gg.fillRect(x0+6,4,116,22);gg.fillStyle='rgba(255,255,255,.85)';for(let k=0;k<4;k++)gg.fillRect(x0+18+k*24,9,16,12);   // the sign's characters, as blocks
+      const fx=x0+12,fw=104,fy=30,fh=94;
+      if(t===0){gg.fillStyle='#b9bcbf';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='rgba(0,0,0,.18)';for(let y=fy;y<fy+fh;y+=4)gg.fillRect(fx,y,fw,1.2);gg.fillStyle='#8f9396';gg.fillRect(fx,fy,fw,4);}   // closed rolling shutter
+      else if(t===1){gg.fillStyle='#3a3f45';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='#fff3c4';gg.fillRect(fx,fy,fw,5);const cs=['#d8463c','#f2c230','#4fb3e6','#7cc36a','#ff8a3d'];
+        for(let r=0;r<4;r++)for(let k=0;k<8;k++){gg.fillStyle=cs[(r*3+k)%5];gg.fillRect(fx+6+k*12,fy+14+r*18,9,10);}gg.fillStyle='#b9bcbf';gg.fillRect(fx,fy,fw,9);}   // open shop, shutter rolled up
+      else if(t===2){gg.fillStyle='#7f9bb0';gg.fillRect(fx,fy,fw,fh*0.55);gg.fillStyle='rgba(0,0,0,.2)';for(let y=fy;y<fy+fh*0.55;y+=4)gg.fillRect(fx,y,fw,1.2);gg.fillStyle='#2e3338';gg.fillRect(fx,fy+fh*0.55,fw,fh*0.45);}   // half-raised shutter
+      else{gg.fillStyle='#bfe0ee';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='#5a6b74';for(const xx of [fx,fx+34,fx+68,fx+fw-3])gg.fillRect(xx,fy,3,fh);gg.fillRect(fx,fy,fw,3);gg.fillStyle='rgba(255,255,255,.5)';gg.fillRect(fx+8,fy+8,12,40);}   // glass door shop
+      gg.fillStyle='rgba(0,0,0,.25)';gg.fillRect(x0,124,128,4);}});
+  shop.wrapS=shop.wrapT=THREE.ClampToEdgeWrapping;
+  scene.add(shade(new THREE.Mesh(mk(gp,gu,gc,gi),new THREE.MeshToonMaterial({map:shop,vertexColors:true,gradientMap:grad,side:THREE.DoubleSide})),true,true));
+  const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));
+  scene.add(new THREE.LineSegments(lg,edgeMat));
 }
 
 /* ---------- characters ---------- */
