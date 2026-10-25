@@ -584,7 +584,9 @@ pitches, schools, beaches, water, ground below 0.8 m, and slopes over 4 m across
 - **Ground floors** (user request): each house's street-facing ground floor (3.3 m) is a shopfront from a 4-tile
   atlas: closed rolling shutter, open shop with goods, half-raised shutter, glass-door shop, each under a coloured
   sign board. Half the houses have a tin canopy over it. Upper-floor windows start above the shop level. The front is
-  whichever face looks at the street, on either side of it.
+  whichever face looks at the street, on either side of it. The shop floor is the pavement level 1 m in front of the
+  door (`surf`), not the lot's highest point: on slopes that had left doors floating above the street (user report).
+  The roof still clears the back of hillside lots.
 - **Draw calls:** walls/roofs/sheds/canopies are one merged mesh, the shopfronts a second and the outlines a third: 3
   draw calls in all.
 - **Collision and map:** each house is a solid (`lmSolid`) and is drawn on the map (`paintMapBase`).
