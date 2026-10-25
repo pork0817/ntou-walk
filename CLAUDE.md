@@ -583,10 +583,21 @@ pitches, schools, beaches, water, ground below 0.8 m, and slopes over 4 m across
 - About 3,600 houses: ~1,700 on the island, ~240 at 正濱 and the rest in 中正區.
 - **Ground floors** (user request): each house's street-facing ground floor (3.3 m) is a shopfront from a 4-tile
   atlas: closed rolling shutter, open shop with goods, half-raised shutter, glass-door shop, each under a coloured
-  sign board. Half the houses have a tin canopy over it. Upper-floor windows start above the shop level. The front is
+  sign board naming a kind of shop found on these streets (麵店, 雜貨店, 早餐店, 機車行, 檳榔, 五金行, 小吃部, 美容院, 水電行,
+  藥局, 便當, 洗衣店, 海產店, 民宿, 釣具行, 冰店: a 16-tile 8×2 atlas; u runs right to left seen from the street, hence
+  the swapped UVs). Half the houses have a tin canopy over it. Upper-floor windows start above the shop level. The front is
   whichever face looks at the street, on either side of it. The shop floor is the pavement level 1 m in front of the
   door (`surf`), not the lot's highest point: on slopes that had left doors floating above the street (user report).
   The roof still clears the back of hillside lots.
 - **Draw calls:** walls/roofs/sheds/canopies are one merged mesh, the shopfronts a second and the outlines a third: 3
   draw calls in all.
 - **Collision and map:** each house is a solid (`lmSolid`) and is drawn on the map (`paintMapBase`).
+
+
+**Crashes are offences too (user: "police don't chase criminals after getting hit?").** `crash` calls `copsWitness`:
+- Hitting a police car makes that car chase you for 撞警車 (NT$6,000).
+- Hitting a person or vehicle with a police car within 90 m makes it chase you for 肇事 (NT$3,600). It drops any
+  speeder it was dealing with.
+- If a chase is already on, the worse offence replaces the reason.
+
+`FINE` and `WHY` hold the amounts and labels for all four offences (speeding 1,800, red light 2,700).

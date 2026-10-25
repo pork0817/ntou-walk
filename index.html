@@ -1791,7 +1791,7 @@ function crash(A,o,isStu){
   const closing=(vAx-vBx)*nx+(vAz-vBz)*nz;
   if(closing<0.3)return false;                                  // just touching: treat as an obstacle
   if(closing>1)impactSound(isStu?'person':vehKind(o),closing,(A.x+o.x)/2,(A.z+o.z)/2);
-  missionCrash(closing);
+  missionCrash(closing);copsWitness(o,isStu,closing);
   const J=1.15*closing/(1/mA+1/mB);                             // restitution 0.15: a crash, not a bounce
   const dA=J/mA,dB=J/mB;
   DRIVE.speed=(vAx-dA*nx)*hx+(vAz-dA*nz)*hz;
@@ -3497,8 +3497,9 @@ function genHouses(){
     const F0=H.C[0],F1=H.C[1],fx=(F0[0]+F1[0])/2-H.nx*1.0,fz=(F0[1]+F1[1])/2-H.nz*1.0,fy=surf(fx,fz),gf=fy+3.3,top=Math.max(fy+H.h,H.g1+3.2);
     const ft=((-H.tz)*H.nx+H.tx*H.nz)<0?-1:1,q=corners(H.x,H.z,H.tx*ft,H.tz*ft,H.fw,H.dp);   // q[0]→q[1] is the street front (whichever side of the street)
     for(let k=0;k<4;k++){const A=q[k],B=q[(k+1)%4],L=Math.hypot(B[0]-A[0],B[1]-A[1]);
-      if(k===0){const v=Math.abs(Math.round(H.x*3+H.z*11))%4,u0=v/4+0.004,u1=(v+1)/4-0.004,f=y=>(y-(gf-3.3))/3.3;
-        quad(gp,gu,gc,gi,A,B,y0,gf,[u0,f(y0),u1,f(y0),u1,1,u0,1],0xffffff);
+      if(k===0){const v=Math.abs(Math.round(H.x*3+H.z*11))%16,cI=v%8,rI=(v/8)|0,u0=cI/8+0.002,u1=(cI+1)/8-0.002,vb=1-(rI+1)*0.5+0.004,vt=1-rI*0.5-0.004;
+        quad(gp,gu,gc,gi,A,B,y0,fy,[u1,vb,u0,vb,u0,vb,u1,vb],0xffffff);           // below the shop floor: the tile's dark base row
+        quad(gp,gu,gc,gi,A,B,fy,gf,[u1,vb,u0,vb,u0,vt,u1,vt],0xffffff);   // (seen from the street A→B runs right to left)
         quad(pos,uv,col,idx,A,B,gf,top,[0,0,L/4.4,0,L/4.4,(top-gf)/3.2,0,(top-gf)/3.2],wall);}
       else quad(pos,uv,col,idx,A,B,y0,top,[0,(y0-gf)/3.2,L/4.4,(y0-gf)/3.2,L/4.4,(top-gf)/3.2,0,(top-gf)/3.2],wall);
       lines.push(A[0],top,A[1],B[0],top,B[1],A[0],y0+0.3,A[1],A[0],top,A[1]);}
@@ -3512,17 +3513,20 @@ function genHouses(){
     gg.fillStyle='#4d6a7c';gg.fillRect(14,16,36,28);gg.fillStyle='#d8dde0';for(let x=18;x<50;x+=6)gg.fillRect(x,16,1.5,28);gg.fillRect(14,29,36,1.5);gg.fillStyle='rgba(0,0,0,.18)';gg.fillRect(12,44,40,3);});
   tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
   scene.add(shade(new THREE.Mesh(mk(pos,uv,col,idx),new THREE.MeshToonMaterial({map:tex,vertexColors:true,gradientMap:grad,side:THREE.DoubleSide})),true,true));
-  // the shopfront atlas: four 128 px tiles side by side (sign board at the top, the front below, pillars either side)
-  const shop=canvasTex(512,128,(gg)=>{const signs=['#d8463c','#f2c230','#2f9e7a','#2f6fb8'];
-    for(let t=0;t<4;t++){const x0=t*128;gg.fillStyle='#d9d6cf';gg.fillRect(x0,0,128,128);
-      gg.fillStyle=signs[t];gg.fillRect(x0+6,4,116,22);gg.fillStyle='rgba(255,255,255,.85)';for(let k=0;k<4;k++)gg.fillRect(x0+18+k*24,9,16,12);   // the sign's characters, as blocks
-      const fx=x0+12,fw=104,fy=30,fh=94;
-      if(t===0){gg.fillStyle='#b9bcbf';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='rgba(0,0,0,.18)';for(let y=fy;y<fy+fh;y+=4)gg.fillRect(fx,y,fw,1.2);gg.fillStyle='#8f9396';gg.fillRect(fx,fy,fw,4);}   // closed rolling shutter
-      else if(t===1){gg.fillStyle='#3a3f45';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='#fff3c4';gg.fillRect(fx,fy,fw,5);const cs=['#d8463c','#f2c230','#4fb3e6','#7cc36a','#ff8a3d'];
-        for(let r=0;r<4;r++)for(let k=0;k<8;k++){gg.fillStyle=cs[(r*3+k)%5];gg.fillRect(fx+6+k*12,fy+14+r*18,9,10);}gg.fillStyle='#b9bcbf';gg.fillRect(fx,fy,fw,9);}   // open shop, shutter rolled up
-      else if(t===2){gg.fillStyle='#7f9bb0';gg.fillRect(fx,fy,fw,fh*0.55);gg.fillStyle='rgba(0,0,0,.2)';for(let y=fy;y<fy+fh*0.55;y+=4)gg.fillRect(fx,y,fw,1.2);gg.fillStyle='#2e3338';gg.fillRect(fx,fy+fh*0.55,fw,fh*0.45);}   // half-raised shutter
-      else{gg.fillStyle='#bfe0ee';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='#5a6b74';for(const xx of [fx,fx+34,fx+68,fx+fw-3])gg.fillRect(xx,fy,3,fh);gg.fillRect(fx,fy,fw,3);gg.fillStyle='rgba(255,255,255,.5)';gg.fillRect(fx+8,fy+8,12,40);}   // glass door shop
-      gg.fillStyle='rgba(0,0,0,.25)';gg.fillRect(x0,124,128,4);}});
+  // the shopfront atlas: 16 tiles of 128 px (8 × 2), each a kind of shop you find on these streets under its sign board,
+  // in one of four fronts: closed rolling shutter, open shop with goods, half-raised shutter, glass door
+  const SHOPS=[['麵店','#d8463c'],['雜貨店','#f2c230'],['早餐店','#ff8a3d'],['機車行','#2f6fb8'],['檳榔','#2f9e7a'],['五金行','#5a6b74'],['小吃部','#d8463c'],['美容院','#e06aa0'],
+    ['水電行','#2f6fb8'],['藥局','#2f9e7a'],['便當','#ff8a3d'],['洗衣店','#4fb3e6'],['海產店','#1f6fa8'],['民宿','#7a5a3a'],['釣具行','#3f8f74'],['冰店','#4fb3e6']];
+  const shop=canvasTex(1024,256,(gg)=>{
+    for(let t=0;t<16;t++){const x0=(t%8)*128,y0=((t/8)|0)*128,[name,sc]=SHOPS[t],style=t%4;gg.fillStyle='#d9d6cf';gg.fillRect(x0,y0,128,128);
+      gg.fillStyle=sc;gg.fillRect(x0+6,y0+4,116,24);gg.fillStyle='#ffffff';gg.font=`900 ${name.length>3?19:22}px "Noto Sans TC",sans-serif`;gg.textAlign='center';gg.textBaseline='middle';gg.fillText(name,x0+64,y0+17);
+      const fx=x0+12,fw=104,fy=y0+31,fh=91;
+      if(style===0){gg.fillStyle='#b9bcbf';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='rgba(0,0,0,.18)';for(let y=fy;y<fy+fh;y+=4)gg.fillRect(fx,y,fw,1.2);gg.fillStyle='#8f9396';gg.fillRect(fx,fy,fw,4);}
+      else if(style===1){gg.fillStyle='#3a3f45';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='#fff3c4';gg.fillRect(fx,fy,fw,5);const cs=['#d8463c','#f2c230','#4fb3e6','#7cc36a','#ff8a3d'];
+        for(let r=0;r<4;r++)for(let k=0;k<8;k++){gg.fillStyle=cs[(r*3+k+t)%5];gg.fillRect(fx+6+k*12,fy+14+r*18,9,10);}gg.fillStyle='#b9bcbf';gg.fillRect(fx,fy,fw,9);}
+      else if(style===2){gg.fillStyle='#7f9bb0';gg.fillRect(fx,fy,fw,fh*0.55);gg.fillStyle='rgba(0,0,0,.2)';for(let y=fy;y<fy+fh*0.55;y+=4)gg.fillRect(fx,y,fw,1.2);gg.fillStyle='#2e3338';gg.fillRect(fx,fy+fh*0.55,fw,fh*0.45);}
+      else{gg.fillStyle='#bfe0ee';gg.fillRect(fx,fy,fw,fh);gg.fillStyle='#5a6b74';for(const xx of [fx,fx+34,fx+68,fx+fw-3])gg.fillRect(xx,fy,3,fh);gg.fillRect(fx,fy,fw,3);gg.fillStyle='rgba(255,255,255,.5)';gg.fillRect(fx+8,fy+8,12,40);}
+      gg.fillStyle='#4a4a46';gg.fillRect(x0,y0+122,128,6);}});
   shop.wrapS=shop.wrapT=THREE.ClampToEdgeWrapping;
   scene.add(shade(new THREE.Mesh(mk(gp,gu,gc,gi),new THREE.MeshToonMaterial({map:shop,vertexColors:true,gradientMap:grad,side:THREE.DoubleSide})),true,true));
   const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lines,3));
@@ -4480,15 +4484,25 @@ function setSirenLights(v,t){if(!v.bar)return;const on=!!v.siren,ph=Math.floor(t
 // the drivers' side: who saw what, and the stop
 function startChase(p,target,why){p.mode='chase';p.target=target;p.why=why;p.siren=true;p.chaseT=0;p.lostT=0;p.vmax=22;p.acc=3.8;p.T=0.6;
   say(p,target==='me'?'前方駕駛請靠邊停車！':'前面的車，靠邊停！',2.4);
-  if(target==='me'){COP.chasingMe=p;goFree(p);toast('','警察在追你！',(why==='red'?'闖紅燈 Ran a red light':'超速 Speeding')+' · 靠邊停車 Pull over',3800,true);}
+  if(target==='me'){COP.chasingMe=p;goFree(p);toast('','警察在追你！',(WHY[why]||WHY.speed).join(' ')+' · 靠邊停車 Pull over',3800,true);}
   else target.chasedBy=p;}
 function endChase(p,msg){if(p.target&&p.target!=='me'){p.target.pulled=false;p.target.chasedBy=null;}if(p.target==='me')COP.chasingMe=null;
   if(p.free){   // off the lanes: drive away somewhere and leave the road
     p.mode='leave';p.target=null;p.siren=false;p.halt=false;p.leaveT=0;p.path=null;if(msg)say(p,msg,2.4);
     const far=[...RG.nodes.values()].filter(n=>Math.hypot(n.x-P.x,n.z-P.z)>180);const n=far.length?pick(far):{x:p.x+200,z:p.z};p.dest=[n.x,n.z];return;}
   p.mode='patrol';p.target=null;p.siren=false;p.halt=false;p.vmax=p.vmax0;p.acc=2.2;p.T=1.2;p.cool=25;if(msg)say(p,msg,2.4);}
-function ticketMe(p){const fine=p.why==='red'?2700:1800;COP.fines+=fine;COP.tix++;try{localStorage.setItem('ntou-walk-fines',String(COP.fines));}catch(e){}
-  toast('罰單','罰單：'+(p.why==='red'?'闖紅燈':'超速')+' NT$'+fine.toLocaleString(),`Ticket · ${p.why==='red'?'Red light':'Speeding'} · total NT$${COP.fines.toLocaleString()}`,4800,true);blip(660,660,0.12,0.05);}
+// you crashed into something: the police car you hit, or one within 90 m that saw it, comes after you
+function copsWitness(o,isStu,closing){if(closing<2)return;
+  const why=!isStu&&o.type==='police'?'hitcop':'crash';let cop=null;
+  if(COP.chasingMe){const p=COP.chasingMe;if((FINE[why]||0)>(FINE[p.why]||0)){p.why=why;toast('','警察在追你！',WHY[why].join(' ')+' · 靠邊停車 Pull over',3800,true);if(why==='hitcop')say(p,'喂！撞到警車還想跑？',2.6);}return;}   // already after you: the worse offence counts
+  if(why==='hitcop'&&VEH.list.includes(o))cop=o;
+  else{let bd=90;for(const p of VEH.list){if(p.type!=='police'||p.mode==='leave')continue;const d=Math.hypot(p.x-P.x,p.z-P.z);if(d<bd){bd=d;cop=p;}}}
+  if(!cop)return;
+  if((cop.mode==='chase'||cop.mode==='stop')&&cop.target!=='me'){const q=cop.target;if(q&&q!=='me'){q.pulled=false;q.chasedBy=null;}cop.mode='patrol';cop.target=null;}   // the speeder can wait
+  cop.cool=0;startChase(cop,'me',why);if(why==='hitcop')say(cop,'喂！撞到警車還想跑？',2.6);}
+const FINE={speed:1800,red:2700,crash:3600,hitcop:6000},WHY={speed:['超速','Speeding'],red:['闖紅燈','Ran a red light'],crash:['肇事','Caused a crash'],hitcop:['撞警車','Hit a police car']};
+function ticketMe(p){const fine=FINE[p.why]||1800;COP.fines+=fine;COP.tix++;try{localStorage.setItem('ntou-walk-fines',String(COP.fines));}catch(e){}
+  const w=WHY[p.why]||WHY.speed;toast('罰單','罰單：'+w[0]+' NT$'+fine.toLocaleString(),`Ticket · ${w[1]} · total NT$${COP.fines.toLocaleString()}`,4800,true);blip(660,660,0.12,0.05);}
 function playerSpeed(){return DRIVE.v?Math.abs(DRIVE.speed):P.riding?Math.abs(BK.speed):0;}
 // running a red yourself: crossing the stop zone of a signal that is red for your direction
 function watchMyLights(){const mv=(DRIVE.v&&DRIVE.v.type!=='bus')||P.riding;if(!mv||playerSpeed()<2.5)return;
@@ -4589,7 +4603,7 @@ function updatePolice(dt){
     p.stopT+=dt;
     if(p.target==='me'){p.halt=true;freeDrive(p,dt,P.x,P.z,0,8);
       if(p.stopT>1&&!p.said1){p.said1=true;say(p,'駕照、行照請拿出來。',2.8);}
-      if(p.stopT>4.5&&!p.said2){p.said2=true;say(p,p.why==='red'?'剛剛紅燈喔，開單。':'剛剛超速了，開單。',2.8);ticketMe(p);}
+      if(p.stopT>4.5&&!p.said2){p.said2=true;say(p,{red:'剛剛紅燈喔，開單。',speed:'剛剛超速了，開單。',crash:'你剛剛撞到了，開單。',hitcop:'撞警車，這張比較貴喔。'}[p.why]||'開單。',2.8);ticketMe(p);}
       if(p.stopT>8){p.said1=p.said2=false;endChase(p,'開車小心。');}}
     else{const q=p.target;if(!VEH.list.includes(q)){endChase(p);continue;}
       if(p.stopT>1.5&&!p.said1){p.said1=true;say(p,'駕照、行照請拿出來。',2.8);}
